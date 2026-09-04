@@ -1,6 +1,6 @@
 # Global Meltdown Index
 
-A leading-indicator systemic-risk terminal (globalmeltdownindex.app), built against the V3
+A leading-indicator systemic-risk terminal (globalmeltdownindex.net), built against the V3
 specification in this repo's originating brief. This is **Phase 1** of a large build — see
 [Scope](#scope--whats-not-here-yet) before assuming full spec coverage.
 
