@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signIn } from "./actions";
+import { GoogleButton } from "./GoogleButton";
 
 export default async function LoginPage({
   searchParams,
@@ -20,6 +21,14 @@ export default async function LoginPage({
           {decodeURIComponent(error)}
         </div>
       )}
+
+      <GoogleButton next={next} />
+
+      <div className="flex items-center gap-3 text-xs text-text-dim">
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
+      </div>
 
       <form action={signIn} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={next ?? "/dashboard"} />

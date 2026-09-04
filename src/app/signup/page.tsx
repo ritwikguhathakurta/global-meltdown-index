@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signUp } from "@/app/login/actions";
+import { GoogleButton } from "@/app/login/GoogleButton";
 
 export default async function SignupPage({
   searchParams,
@@ -32,6 +33,14 @@ export default async function SignupPage({
           {decodeURIComponent(error)}
         </div>
       )}
+
+      <GoogleButton next="/dashboard" />
+
+      <div className="flex items-center gap-3 text-xs text-text-dim">
+        <span className="h-px flex-1 bg-border" />
+        or
+        <span className="h-px flex-1 bg-border" />
+      </div>
 
       <form action={signUp} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm">

@@ -73,6 +73,20 @@ either don't appear, or (for India) are explicitly listed as `UNAVAILABLE`.
 4. In **Authentication → Providers**, email/password is on by default. Decide whether to require
    email confirmation (Authentication → Settings) — recommended: on.
 
+### 1b. Enable "Continue with Google" (optional but wired up already)
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → Create Credentials
+   → OAuth client ID → Application type: Web application.
+2. Authorized redirect URI: `https://<your-project-ref>.supabase.co/auth/v1/callback` (find your
+   project ref in the Supabase URL, or on Project Settings → API).
+3. Copy the generated Client ID and Client Secret.
+4. In Supabase → **Authentication → Providers → Google**, toggle it on and paste both values.
+5. In Supabase → **Authentication → URL Configuration**, add your site's `/auth/callback` URL to
+   **Redirect URLs** (e.g. `http://localhost:3000/auth/callback` for local dev, and your production
+   domain's equivalent once deployed).
+
+If you skip this, the "Continue with Google" button will show a Supabase error until it's enabled —
+email/password sign-in works either way.
+
 ### 2. Get a free FRED API key
 [fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html) —
 instant, no approval wait.
