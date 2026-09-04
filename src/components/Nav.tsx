@@ -22,7 +22,7 @@ export async function Nav() {
     <header className="border-b border-border bg-panel">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
         <Link href="/" className="text-sm font-bold tracking-wide text-text">
-          GFEW <span className="font-normal text-text-dim">/ MacroSignal</span>
+          Global Meltdown Index
         </Link>
         <nav className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-dim">
           {LINKS.map((l) => (

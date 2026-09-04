@@ -1,7 +1,7 @@
-# GFEW — Global Financial Early-Warning Intelligence Terminal
+# Global Meltdown Index
 
-A leading-indicator systemic-risk terminal (working name **MacroSignal**), built against the
-V3 specification in this repo's originating brief. This is **Phase 1** of a large build — see
+A leading-indicator systemic-risk terminal (globalmeltdownindex.app), built against the V3
+specification in this repo's originating brief. This is **Phase 1** of a large build — see
 [Scope](#scope--whats-not-here-yet) before assuming full spec coverage.
 
 Core question the platform answers: *what is changing now that could matter later?*

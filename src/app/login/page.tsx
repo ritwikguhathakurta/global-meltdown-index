@@ -13,7 +13,7 @@ export default async function LoginPage({
     <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-16">
       <div>
         <h1 className="text-xl font-semibold">Sign in</h1>
-        <p className="mt-1 text-sm text-text-dim">Access your GFEW research workspace.</p>
+        <p className="mt-1 text-sm text-text-dim">Access your Global Meltdown Index research workspace.</p>
       </div>
 
       {error && (

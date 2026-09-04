@@ -1,4 +1,4 @@
--- GFEW / MacroSignal — initial schema (Phase 1)
+-- Global Meltdown Index — initial schema (Phase 1)
 -- Target: Supabase Postgres. TimescaleDB is not available on Supabase, so time-series
 -- data uses a single indexed metric_series table (keyed by metric_key + observed_at)
 -- instead of the ~20 rigid per-domain tables in the original spec. Same normalized

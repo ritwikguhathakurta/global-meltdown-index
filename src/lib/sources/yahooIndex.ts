@@ -33,7 +33,7 @@ type ChartResponse = {
 export async function fetchYahooIndexSeries(def: YahooIndexDef): Promise<MetricPoint[]> {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(def.symbol)}?range=1y&interval=1d`;
   const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; GFEW-ingest/1.0)" },
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; GlobalMeltdownIndex-ingest/1.0)" },
     next: { revalidate: 0 },
   });
   if (!res.ok) throw new Error(`Yahoo ${def.symbol}: HTTP ${res.status}`);

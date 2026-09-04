@@ -13,7 +13,7 @@ export type FredSeriesDef = {
 };
 
 // Phase-1 series manifest. Extend this list as new engines come online —
-// this is the single place that maps a MacroSignal metric to a FRED series.
+// this is the single place that maps a Global Meltdown Index metric to a FRED series.
 export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "yield.us02y", seriesId: "DGS2", frequency: "daily", unit: "%" },
   { metricKey: "yield.us05y", seriesId: "DGS5", frequency: "daily", unit: "%" },

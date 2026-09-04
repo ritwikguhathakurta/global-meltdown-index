@@ -6,7 +6,7 @@ export default function MethodologyPage() {
       <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">What this is (and isn&apos;t)</h2>
         <p>
-          GFEW is a leading-indicator systemic-risk terminal. Its core question is: what is changing now
+          Global Meltdown Index is a leading-indicator systemic-risk terminal. Its core question is: what is changing now
           that could matter later? It is not a lagging market dashboard, and no score, regime label or
           scenario on this site is a forecast, prediction, or investment recommendation.
         </p>

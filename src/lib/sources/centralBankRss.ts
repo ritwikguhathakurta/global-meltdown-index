@@ -36,7 +36,7 @@ export type CentralBankEventRecord = {
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
 
 export async function fetchCentralBankFeed(def: CentralBankFeedDef): Promise<CentralBankEventRecord[]> {
-  const res = await fetch(def.url, { next: { revalidate: 0 }, headers: { "User-Agent": "GFEW-ingest/1.0" } });
+  const res = await fetch(def.url, { next: { revalidate: 0 }, headers: { "User-Agent": "GlobalMeltdownIndex-ingest/1.0" } });
   if (!res.ok) throw new Error(`${def.institution} feed: HTTP ${res.status}`);
   const xml = await res.text();
   const doc = parser.parse(xml);

@@ -130,10 +130,10 @@ export default async function HomePage() {
       </section>
 
       <section className="gfew-panel flex flex-col gap-3 p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-text-dim">Ask MacroSignal Anything</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-text-dim">Ask Global Meltdown Index Anything</h2>
         <p className="text-sm text-text-dim">
-          The conversational research agent (MacroSignal AI) is planned for a later phase — it requires its
-          own LLM API key and billing, kept separate from the core risk-engine data below.
+          The conversational AI research agent is planned for a later phase — it requires its own LLM API
+          key and billing, kept separate from the core risk-engine data below.
         </p>
         <div className="rounded border border-border bg-panel-raised px-3 py-2 text-sm text-text-dim opacity-60">
           Coming soon — &ldquo;Is the yen carry trade becoming dangerous?&rdquo;
