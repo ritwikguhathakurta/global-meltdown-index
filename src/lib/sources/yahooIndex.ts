@@ -22,6 +22,18 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "equity.cac40", symbol: "^FCHI", unit: "index" },
   { metricKey: "equity.ftsemib", symbol: "FTSEMIB.MI", unit: "index" },
   { metricKey: "equity.tsx_composite", symbol: "^GSPTSE", unit: "index" },
+  { metricKey: "equity.shanghai_composite", symbol: "000001.SS", unit: "index" },
+  // Market Concentration engine — cap-weighted vs equal-weighted ETF pairs
+  { metricKey: "equity.spy_cap_weighted", symbol: "SPY", unit: "USD" },
+  { metricKey: "equity.rsp_equal_weighted", symbol: "RSP", unit: "USD" },
+  { metricKey: "equity.qqq_cap_weighted", symbol: "QQQ", unit: "USD" },
+  { metricKey: "equity.qqqe_equal_weighted", symbol: "QQQE", unit: "USD" },
+  // Private Credit engine — publicly-traded BDCs as a market-based stress proxy
+  { metricKey: "privatecredit.bdc_arcc", symbol: "ARCC", unit: "USD" },
+  { metricKey: "privatecredit.bdc_main", symbol: "MAIN", unit: "USD" },
+  { metricKey: "privatecredit.bdc_fsk", symbol: "FSK", unit: "USD" },
+  { metricKey: "privatecredit.bdc_obdc", symbol: "OBDC", unit: "USD" },
+  { metricKey: "privatecredit.bdc_bxsl", symbol: "BXSL", unit: "USD" },
 ];
 
 type ChartResponse = {

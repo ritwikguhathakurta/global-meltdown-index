@@ -11,12 +11,15 @@ Core question the platform answers: *what is changing now that could matter late
 - **Next.js 16 / TypeScript / Tailwind v4** app, deployable to Vercel.
 - **Supabase** for Postgres (data + auth). Email/password sign-up with a 90-day free trial
   auto-granted on signup; role-based access (`user` / `admin`) enforced server-side in `src/proxy.ts`.
-- **17 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
+- **19 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
   scores with leading/coincident/lagging indicator breakdowns, triggers, transmission mechanism,
-  confirmation/invalidation conditions, and a "what has not yet happened" section:
+  confirmation/invalidation conditions, and a "what has not yet happened" section. Most cover the
+  **G7 (US, Canada, UK, Germany, France, Italy, Japan) plus China**, not just the US — see
+  [Country coverage](#country-coverage-g7--china) below:
   - Global Dollar Liquidity, Credit Markets, Equity Fragility, US Treasury / Sovereign, Yen Carry Stress
   - Banking, Property/CRE, Global Sovereign Debt, Emerging-Market Debt, Energy, Geopolitical,
     Derivatives/Leverage, Crypto/Stablecoins, Cyber/Infrastructure, Trade/Economic Policy, Supply Chains
+  - Market Concentration and Private Credit (both market-price proxies — see limitations below)
   - Plus **partial** China and India Market Regime engines (each page lists exactly which spec
     indicators are `UNAVAILABLE` — see limitations below)
 - **GFMI composite** (Global Financial Meltdown Index): weighted engine average + nonlinear
@@ -42,13 +45,20 @@ The full brief specifies **24 risk engines**, ML models backtested to 1929, a ce
 sentiment engine, a conversational AI research agent (MacroSignal AI), and subscription billing.
 Those need data sources or infrastructure this phase doesn't have yet:
 
-- **7 more risk engines**: AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI
+- **5 more risk engines**: AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI
   Circular Financing, and AI Debt Maturity Wall (need SEC EDGAR XBRL parsing across ~8 large filers —
   free and official, but each company's tagging is inconsistent enough that getting it right needs
-  its own careful build, not a rushed one); Private Credit and Market Concentration (no free
-  structured source exists for BDC non-accrual/covenant data or true index-weight concentration).
-- **China** is a partial implementation: property sales/prices, developer financing, credit impulse,
-  PMI new orders and LGFV debt have no free daily source, so it currently tracks trade + CNY + CPI only.
+  its own careful build, not a rushed one).
+- **Market Concentration and Private Credit** are both market-price proxies, not the structural
+  weights/AUM/covenant data the spec envisions — no free source publishes either. Market
+  Concentration uses the SPY/RSP and QQQ/QQQE cap-weighted-vs-equal-weighted ETF ratios; Private
+  Credit uses publicly-traded BDC (Business Development Company) share prices as a leading proxy
+  for portfolio credit quality. BDCs are a US-specific structure with no comparably liquid G7
+  equivalent, so Private Credit stays intentionally US-anchored.
+- **China** is a partial implementation: property sales *volumes*, developer financing, credit
+  impulse, PMI new orders, LGFV debt, and a government bond yield (no free source publishes one at
+  all) have no free daily source. It now tracks trade + CNY + CPI + the 3-month interbank rate +
+  real house *prices* (via the shared BIS series) + the Shanghai Composite.
 - **India Market Regime** is a partial implementation: FII/DII flows, PMI new orders, bank credit
   growth and GST collections have no free daily source yet, so the regime read is currently a
   cross-asset shock-sensitivity proxy only.
@@ -135,6 +145,32 @@ npm install
 cp .env.example .env.local   # fill in the same values as step 3 above
 npm run dev
 ```
+
+## Country coverage: G7 + China
+
+Most engines were originally US-only; they were widened deliberately, not by default:
+
+- **Equity Fragility**: S&P 500, Nasdaq, Russell 2000, Nikkei 225, DAX, FTSE 100, CAC 40, FTSE MIB,
+  S&P/TSX Composite, Shanghai Composite — all 8 economies, VIX for the leading vol signal.
+- **Property/CRE**: BIS real house-price index computed identically for all 8 economies (US, Canada,
+  UK, Germany, France, Italy, Japan, China), plus US mortgage-rate/permits/starts as supplementary
+  leading context (no free equivalent exists for other countries).
+- **Global Sovereign Debt**: UK, Germany, France, Italy, Japan, Canada 10Y yields + debt-to-GDP, plus
+  the derived Italy-Germany ("BTP-Bund") spread. Paired with the separate, deliberately US-only
+  US Treasury/Sovereign engine so the two are never conflated. China has no free
+  government-bond-yield source at all — documented as `UNAVAILABLE`, not guessed.
+- **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
+  (includes, but isn't exclusive to, China).
+- **Global Liquidity**: Fed, ECB and BOJ balance sheets, plus the ECB deposit rate and the Chicago
+  Fed NFCI.
+- **China**: exports/imports/CNY/CPI plus (added alongside the above) the 3-month interbank rate,
+  real house prices, and the Shanghai Composite.
+- **Banking**: adds ECB/UK policy rates as European funding-cost context — no free source publishes
+  bank-level NPL/delinquency data outside the US for any G7 country.
+- Two engines stay intentionally single-country regardless of data availability: **Yen Carry Stress**
+  (a JPY-specific carry-trade mechanic) and **US Treasury/Sovereign**.
+- **Private Credit** stays US-anchored: BDCs (Business Development Companies) are a US-specific
+  regulatory structure with no comparably liquid, quotable G7 equivalent.
 
 ## Architecture notes
 

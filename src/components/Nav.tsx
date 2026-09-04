@@ -20,6 +20,8 @@ const LINKS = [
   { href: "/dashboard/cyber", label: "Cyber" },
   { href: "/dashboard/trade-policy", label: "Trade Policy" },
   { href: "/dashboard/supply-chains", label: "Supply Chains" },
+  { href: "/dashboard/market-concentration", label: "Market Concentration" },
+  { href: "/dashboard/private-credit", label: "Private Credit" },
   { href: "/dashboard/equities", label: "Equities" },
   { href: "/dashboard/india", label: "India" },
   { href: "/dashboard/central-banks", label: "Central Banks" },

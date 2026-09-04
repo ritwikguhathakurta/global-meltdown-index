@@ -58,6 +58,8 @@ const ENGINE_LABELS: Record<string, string> = {
   trade_economic_policy: "Trade / Economic Policy",
   supply_chains: "Supply Chains",
   china: "China",
+  market_concentration: "Market Concentration",
+  private_credit: "Private Credit",
 };
 
 export default async function HomePage() {

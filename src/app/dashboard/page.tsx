@@ -21,6 +21,8 @@ const ENGINE_META: Record<string, { label: string; href: string }> = {
   trade_economic_policy: { label: "Trade / Economic Policy", href: "/dashboard/trade-policy" },
   supply_chains: { label: "Supply Chains", href: "/dashboard/supply-chains" },
   china: { label: "China", href: "/dashboard/china" },
+  market_concentration: { label: "Market Concentration", href: "/dashboard/market-concentration" },
+  private_credit: { label: "Private Credit", href: "/dashboard/private-credit" },
 };
 
 export default async function DashboardPage() {

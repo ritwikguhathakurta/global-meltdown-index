@@ -17,21 +17,25 @@ import { runCyberEngine } from "./cyber";
 import { runTradePolicyEngine } from "./tradePolicy";
 import { runSupplyChainsEngine } from "./supplyChains";
 import { runChinaEngine } from "./china";
+import { runMarketConcentrationEngine } from "./marketConcentration";
+import { runPrivateCreditEngine } from "./privateCredit";
 import { computeGfmi, engineResultToGfmiInput } from "./gfmi";
 
 export const HORIZONS: Horizon[] = ["short", "medium", "long"];
 
 /**
  * Engine registry. Each entry maps a V3 §4 engine to its runner and its
- * weight in the GFMI composite. 17 of 24 engines are implemented. Corporate
- * Credit is fulfilled by "credit" (HY/IG OAS) and Equity Valuation is folded
- * into "equity_fragility" rather than duplicated. Still not implemented:
- * AI Financial Sustainability/Valuation/Credit/Circular-Financing/Debt-Maturity
- * (need SEC EDGAR XBRL parsing — Phase 2), Private Credit and Market
- * Concentration (no free structured source), and Central-Bank Policy (needs
- * the NLP hawkish/dovish classifier, deferred — see README). China and India
- * are explicitly partial. None are stubbed with fake scores — see each
- * engine file's docstring for exactly what free data does and doesn't cover.
+ * weight in the GFMI composite. 19 of 24 engines are implemented. Corporate
+ * Credit is fulfilled by "credit" (HY/IG/Euro/Asia OAS) and Equity Valuation
+ * is folded into "equity_fragility" rather than duplicated. Private Credit
+ * and Market Concentration are both market-price proxies rather than the
+ * structural data the spec envisions (no free source for either) — see
+ * their docstrings. Still not implemented: the 5 AI-related engines
+ * (Financial Sustainability, Valuation, Credit/Financing, Circular-Financing,
+ * Debt-Maturity-Wall — need SEC EDGAR XBRL parsing) and Central-Bank Policy
+ * (needs the NLP hawkish/dovish classifier, deferred — see README). China
+ * and India are explicitly partial. None are stubbed with fake scores — see
+ * each engine file's docstring for exactly what free data does and doesn't cover.
  */
 export const ENGINE_REGISTRY = [
   { key: "global_liquidity", run: runGlobalLiquidityEngine, gfmiWeight: 1.1 },
@@ -51,6 +55,8 @@ export const ENGINE_REGISTRY = [
   { key: "trade_economic_policy", run: runTradePolicyEngine, gfmiWeight: 0.5 },
   { key: "supply_chains", run: runSupplyChainsEngine, gfmiWeight: 0.6 },
   { key: "china", run: runChinaEngine, gfmiWeight: 0.6 },
+  { key: "market_concentration", run: runMarketConcentrationEngine, gfmiWeight: 0.5 },
+  { key: "private_credit", run: runPrivateCreditEngine, gfmiWeight: 0.6 },
 ] as const;
 
 export async function runAllEngines(

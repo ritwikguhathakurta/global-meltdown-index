@@ -98,6 +98,17 @@ export function absSeries(points: Point[]): Point[] {
   return points.map((p) => ({ t: p.t, v: Math.abs(p.v) }));
 }
 
+/** Aligns two same-frequency series by exact date and returns a/b — e.g. cap-weighted/equal-weighted ratios. */
+export function ratioSeriesByDate(a: Point[], b: Point[]): Point[] {
+  const bMap = new Map(b.map((p) => [p.t.slice(0, 10), p.v]));
+  return a
+    .map((p) => {
+      const bv = bMap.get(p.t.slice(0, 10));
+      return bv === undefined || bv === 0 ? null : { t: p.t, v: p.v / bv };
+    })
+    .filter((p): p is Point => p !== null);
+}
+
 export function daysSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 86400000;
 }

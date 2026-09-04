@@ -3,7 +3,7 @@ import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
 
 export async function runEquityFragilityEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [vix, sp500, nasdaq, russell, nikkei, dax, ftse100, cac40, ftsemib, tsx] = await Promise.all([
+  const [vix, sp500, nasdaq, russell, nikkei, dax, ftse100, cac40, ftsemib, tsx, shanghai] = await Promise.all([
     buildIndicator(ctx.db, "vol.vix", "VIX", "leading", "daily", "index"),
     buildIndicator(ctx.db, "equity.sp500", "S&P 500 (US)", "coincident", "daily", "index"),
     buildIndicator(ctx.db, "equity.nasdaq_composite", "Nasdaq Composite (US)", "coincident", "daily", "index"),
@@ -14,6 +14,7 @@ export async function runEquityFragilityEngine(ctx: EngineContext, horizon: Hori
     buildIndicator(ctx.db, "equity.cac40", "CAC 40 (France)", "coincident", "daily", "index"),
     buildIndicator(ctx.db, "equity.ftsemib", "FTSE MIB (Italy)", "coincident", "daily", "index"),
     buildIndicator(ctx.db, "equity.tsx_composite", "S&P/TSX Composite (Canada)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.shanghai_composite", "Shanghai Composite (China)", "coincident", "daily", "index"),
   ]);
 
   return composeEngineResult({
@@ -32,9 +33,10 @@ export async function runEquityFragilityEngine(ctx: EngineContext, horizon: Hori
       { ref: cac40.ref, series: cac40.series, weight: 0.4, zDirection: -1 },
       { ref: ftsemib.ref, series: ftsemib.series, weight: 0.35, zDirection: -1 },
       { ref: tsx.ref, series: tsx.series, weight: 0.4, zDirection: -1 },
+      { ref: shanghai.ref, series: shanghai.series, weight: 0.35, zDirection: -1 },
     ],
     triggerDesc:
-      "Small-cap (Russell 2000) underperformance versus large-cap indices alongside rising VIX has historically been an early breadth-deterioration signal ahead of broader equity drawdowns. A simultaneous decline across all G7 markets (not just the US) confirms broad, not regional, equity fragility.",
+      "Small-cap (Russell 2000) underperformance versus large-cap indices alongside rising VIX has historically been an early breadth-deterioration signal ahead of broader equity drawdowns. A simultaneous decline across all G7 markets plus China (not just the US) confirms broad, not regional, equity fragility.",
     transmissionMechanism:
       "Rising realized/implied volatility raises margin requirements and can trigger systematic (vol-targeting, risk-parity) deleveraging, amplifying initial price moves.",
     amplifiers: ["High market concentration in a handful of mega-cap names (not yet scored — Phase 2)", "Elevated margin debt (not yet tracked — Phase 2)", "Negative dealer gamma positioning (not yet tracked — Phase 2)"],

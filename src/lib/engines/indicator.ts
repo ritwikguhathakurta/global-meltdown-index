@@ -64,6 +64,16 @@ const YAHOO_FALLBACK_KEYS = new Set([
   "equity.cac40",
   "equity.ftsemib",
   "equity.tsx_composite",
+  "equity.shanghai_composite",
+  "equity.spy_cap_weighted",
+  "equity.rsp_equal_weighted",
+  "equity.qqq_cap_weighted",
+  "equity.qqqe_equal_weighted",
+  "privatecredit.bdc_arcc",
+  "privatecredit.bdc_main",
+  "privatecredit.bdc_fsk",
+  "privatecredit.bdc_obdc",
+  "privatecredit.bdc_bxsl",
 ]);
 
 function guessSourceKey(metricKey: string): string {

@@ -78,6 +78,9 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "china.exports_cny", seriesId: "XTEXVA01CNM667S", frequency: "monthly", unit: "CNY" },
   { metricKey: "china.imports_cny", seriesId: "XTIMVA01CNM667S", frequency: "monthly", unit: "CNY" },
   { metricKey: "china.cpi_index", seriesId: "CHNCPIALLMINMEI", frequency: "monthly", unit: "index" },
+  { metricKey: "china.interbank_rate_3m", seriesId: "IR3TIB01CNM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "property.hpi_real_china", seriesId: "QCNR628BIS", frequency: "quarterly", unit: "index_2010_100" },
+  { metricKey: "credit.asia_em_oas", seriesId: "BAMLEMRACRPIASIAOAS", frequency: "daily", unit: "%" },
 
   // --- G7 coverage (requested explicitly: most engines above were US-only) ---
 
