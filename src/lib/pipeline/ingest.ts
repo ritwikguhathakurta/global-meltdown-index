@@ -9,6 +9,7 @@ import { fetchGscpiSeries } from "../sources/gscpi";
 import { fetchGprSeries } from "../sources/gpr";
 import { fetchCryptoSnapshot } from "../sources/coingecko";
 import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount } from "../sources/cloudStatus";
+import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
 
@@ -22,12 +23,12 @@ export async function ingestFred(db: SupabaseClient, runDate: string): Promise<I
     await logRun(db, runDate, "ingest_fred", "warning", { reason: "FRED_API_KEY not set" });
     return { stage: "ingest_fred", status: "warning", detail: { reason: "FRED_API_KEY not set" } };
   }
-  const since = new Date();
-  since.setUTCDate(since.getUTCDate() - 400);
   let ok = 0;
   const errors: string[] = [];
   for (const def of FRED_SERIES) {
     try {
+      const since = new Date();
+      since.setUTCDate(since.getUTCDate() - lookbackDaysFor(def.frequency));
       const points = await fetchFredSeries(def, apiKey, since.toISOString());
       await upsertMetrics(db, points);
       ok++;

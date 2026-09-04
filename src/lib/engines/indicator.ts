@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchLatest, fetchSeries } from "../metrics/store";
 import { freshnessFor } from "../quality/freshness";
+import { lookbackDaysFor } from "../metrics/lookback";
 import type { IndicatorRef } from "./types";
 import type { Point } from "../metrics/stats";
 
@@ -30,7 +31,7 @@ export async function buildIndicator(
   unit?: string
 ): Promise<{ ref: IndicatorRef; series: Point[] }> {
   const since = new Date();
-  since.setUTCDate(since.getUTCDate() - 400);
+  since.setUTCDate(since.getUTCDate() - lookbackDaysFor(frequency));
   const [latestPoint, series] = await Promise.all([
     fetchLatest(db, key),
     fetchSeries(db, key, since.toISOString()),
