@@ -1,0 +1,73 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { signOut } from "@/app/login/actions";
+
+const LINKS = [
+  { href: "/dashboard", label: "Global Risk" },
+  { href: "/dashboard/yen-carry", label: "Yen Carry" },
+  { href: "/dashboard/liquidity", label: "Liquidity" },
+  { href: "/dashboard/credit", label: "Credit" },
+  { href: "/dashboard/treasury", label: "Treasury" },
+  { href: "/dashboard/equities", label: "Equities" },
+  { href: "/dashboard/india", label: "India" },
+  { href: "/dashboard/central-banks", label: "Central Banks" },
+  { href: "/dashboard/methodology", label: "Methodology" },
+  { href: "/dashboard/sources", label: "Sources" },
+];
+
+export async function Nav() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    isAdmin = profile?.role === "admin";
+  }
+
+  return (
+    <header className="border-b border-border bg-panel">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <Link href="/" className="text-sm font-bold tracking-wide text-text">
+          GFEW <span className="font-normal text-text-dim">/ MacroSignal</span>
+        </Link>
+        <nav className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-dim">
+          {LINKS.map((l) => (
+            <Link key={l.href} href={l.href} className="hover:text-text">
+              {l.label}
+            </Link>
+          ))}
+          {isAdmin && (
+            <Link href="/admin" className="text-accent hover:underline">
+              Admin
+            </Link>
+          )}
+        </nav>
+        <div className="ml-auto flex items-center gap-3 text-xs">
+          {user ? (
+            <form action={signOut}>
+              <span className="mr-3 text-text-dim">{user.email}</span>
+              <button type="submit" className="text-accent hover:underline">
+                Sign out
+              </button>
+            </form>
+          ) : (
+            <>
+              <Link href="/login" className="text-text-dim hover:text-text">
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded bg-accent px-3 py-1.5 font-medium text-[#061018] hover:opacity-90"
+              >
+                Start free trial
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
