@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { SUPABASE_URL_FALLBACK } from "./config";
 
 /**
  * Service-role client. Bypasses RLS — only ever import this inside
@@ -6,9 +7,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
  * SUPABASE_SERVICE_ROLE_KEY to the client bundle.
  */
 export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
+  return createSupabaseClient(SUPABASE_URL_FALLBACK, process.env.SUPABASE_SERVICE_ROLE_KEY || "not-configured", {
+    auth: { persistSession: false },
+  });
 }

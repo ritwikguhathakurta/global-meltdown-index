@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserAndRole } from "@/lib/supabase/session";
 import { signOut } from "@/app/login/actions";
 
 const LINKS = [
@@ -16,16 +16,7 @@ const LINKS = [
 ];
 
 export async function Nav() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let isAdmin = false;
-  if (user) {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-    isAdmin = profile?.role === "admin";
-  }
+  const { user, isAdmin } = await getCurrentUserAndRole();
 
   return (
     <header className="border-b border-border bg-panel">

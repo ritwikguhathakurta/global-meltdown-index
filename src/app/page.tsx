@@ -1,19 +1,33 @@
 import Link from "next/link";
+import { getLatestGfmi, getLatestIndiaRegime } from "@/lib/api/engineData";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { RiskBadge } from "@/components/RegimeBadge";
 import { StatusPill } from "@/components/StatusPill";
 
-async function getHomeData() {
-  const db = await createClient();
-  const [{ data: gfmiRows }, { data: engineRows }, { data: indiaRows }] = await Promise.all([
-    db.from("gfmi_scores").select("*").order("as_of", { ascending: false }).limit(2),
-    db
+async function getShortHorizonEngineRows() {
+  if (!isSupabaseConfigured) return [] as { engine_key: string; score: number | null; regime: string }[];
+  try {
+    const db = await createClient();
+    const { data, error } = await db
       .from("risk_engine_scores")
       .select("engine_key, as_of, score, regime, direction, confidence")
       .eq("horizon", "short")
       .order("as_of", { ascending: false })
-      .limit(20),
-    db.from("india_regime").select("*").order("as_of", { ascending: false }).limit(3),
+      .limit(20);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
+  }
+}
+
+async function getHomeData() {
+  const [gfmiRows, engineRows, indiaRows] = await Promise.all([
+    getLatestGfmi(),
+    getShortHorizonEngineRows(),
+    getLatestIndiaRegime(),
   ]);
 
   const seen = new Set<string>();

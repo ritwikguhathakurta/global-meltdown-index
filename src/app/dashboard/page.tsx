@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getAllEnginesLatest, getLatestGfmi } from "@/lib/api/engineData";
 import { RiskBadge, DirectionArrow } from "@/components/RegimeBadge";
 import { InlineDisclaimer } from "@/components/Disclaimer";
 
@@ -12,16 +12,7 @@ const ENGINE_META: Record<string, { label: string; href: string }> = {
 };
 
 export default async function DashboardPage() {
-  const db = await createClient();
-  const [{ data: gfmiRows }, { data: engineRows }] = await Promise.all([
-    db.from("gfmi_scores").select("*").order("as_of", { ascending: false }).limit(2),
-    db
-      .from("risk_engine_scores")
-      .select("*")
-      .eq("horizon", "short")
-      .order("as_of", { ascending: false })
-      .limit(20),
-  ]);
+  const [gfmiRows, engineRows] = await Promise.all([getLatestGfmi(), getAllEnginesLatest("short")]);
 
   const seen = new Set<string>();
   const engines = (engineRows ?? []).filter((r) => {
@@ -46,7 +37,9 @@ export default async function DashboardPage() {
           {previousGfmi && (
             <span className="text-[11px] text-text-dim">
               Previous: {previousGfmi.score} ({previousGfmi.regime}) — Δ{" "}
-              {gfmi && previousGfmi ? gfmi.score - previousGfmi.score : "—"}
+              {gfmi?.score !== null && gfmi?.score !== undefined && previousGfmi.score !== null
+                ? gfmi.score - previousGfmi.score
+                : "—"}
             </span>
           )}
           {gfmi?.override_triggered && (
