@@ -51,8 +51,6 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "property.mortgage_rate_30y", seriesId: "MORTGAGE30US", frequency: "weekly", unit: "%" },
   { metricKey: "property.housing_starts", seriesId: "HOUST", frequency: "monthly", unit: "thousands SAAR" },
   { metricKey: "property.building_permits", seriesId: "PERMIT", frequency: "monthly", unit: "thousands SAAR" },
-  { metricKey: "property.case_shiller_hpi", seriesId: "CSUSHPISA", frequency: "monthly", unit: "index" },
-  { metricKey: "property.existing_home_sales", seriesId: "EXHOSLUSM495S", frequency: "monthly", unit: "thousands SAAR" },
 
   // Global Sovereign Debt engine (V3 §21 extended beyond the US)
   { metricKey: "yield.uk_10y", seriesId: "IRLTLT01GBM156N", frequency: "monthly", unit: "%" },
@@ -80,6 +78,31 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "china.exports_cny", seriesId: "XTEXVA01CNM667S", frequency: "monthly", unit: "CNY" },
   { metricKey: "china.imports_cny", seriesId: "XTIMVA01CNM667S", frequency: "monthly", unit: "CNY" },
   { metricKey: "china.cpi_index", seriesId: "CHNCPIALLMINMEI", frequency: "monthly", unit: "index" },
+
+  // --- G7 coverage (requested explicitly: most engines above were US-only) ---
+
+  // Canada — completes G7 sovereign coverage (Global Sovereign Debt engine had no Canada at all)
+  { metricKey: "yield.canada_10y", seriesId: "IRLTLT01CAM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "sovereign.canada_debt_to_gdp", seriesId: "GGGDTACAA188N", frequency: "quarterly", unit: "%" },
+
+  // G7 real house price indices (BIS series, same methodology across all 7 -> genuinely
+  // comparable, unlike mixing one country's nominal index with another's) — Property engine
+  { metricKey: "property.hpi_real_us", seriesId: "QUSR628BIS", frequency: "quarterly", unit: "index_2010_100" },
+  { metricKey: "property.hpi_real_canada", seriesId: "QCAR628BIS", frequency: "quarterly", unit: "index_2010_100" },
+  { metricKey: "property.hpi_real_uk", seriesId: "QGBR628BIS", frequency: "quarterly", unit: "index_2010_100" },
+  { metricKey: "property.hpi_real_germany", seriesId: "QDER628BIS", frequency: "quarterly", unit: "index_2010_100" },
+  { metricKey: "property.hpi_real_france", seriesId: "QFRR628BIS", frequency: "quarterly", unit: "index_2010_100" },
+  { metricKey: "property.hpi_real_italy", seriesId: "QITR628BIS", frequency: "quarterly", unit: "index_2010_100" },
+  { metricKey: "property.hpi_real_japan", seriesId: "QJPR628BIS", frequency: "quarterly", unit: "index_2010_100" },
+
+  // Euro-area corporate credit — Credit engine was US-only (HY/IG/EM OAS)
+  { metricKey: "credit.euro_hy_oas", seriesId: "BAMLHE00EHYIOAS", frequency: "daily", unit: "%" },
+
+  // Other G7 central banks — Global Liquidity and Banking engines were Fed-only
+  { metricKey: "liquidity.ecb_balance_sheet", seriesId: "ECBASSETSW", frequency: "weekly", unit: "EUR mm" },
+  { metricKey: "liquidity.boj_balance_sheet", seriesId: "JPNASSETS", frequency: "monthly", unit: "JPY bn" },
+  { metricKey: "rate.ecb_deposit_facility", seriesId: "ECBDFR", frequency: "daily", unit: "%" },
+  { metricKey: "rate.uk_short_term", seriesId: "IRSTCI01GBM156N", frequency: "monthly", unit: "%" },
 ];
 
 export async function fetchFredSeries(

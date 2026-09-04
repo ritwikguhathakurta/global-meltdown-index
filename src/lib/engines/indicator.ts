@@ -56,7 +56,15 @@ export async function buildIndicator(
   };
 }
 
-const YAHOO_FALLBACK_KEYS = new Set(["equity.russell2000", "equity.nifty50"]);
+const YAHOO_FALLBACK_KEYS = new Set([
+  "equity.russell2000",
+  "equity.nifty50",
+  "equity.dax",
+  "equity.ftse100",
+  "equity.cac40",
+  "equity.ftsemib",
+  "equity.tsx_composite",
+]);
 
 function guessSourceKey(metricKey: string): string {
   if (metricKey.startsWith("fx.")) return "frankfurter";

@@ -3,11 +3,17 @@ import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
 
 export async function runEquityFragilityEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [vix, sp500, nasdaq, russell] = await Promise.all([
+  const [vix, sp500, nasdaq, russell, nikkei, dax, ftse100, cac40, ftsemib, tsx] = await Promise.all([
     buildIndicator(ctx.db, "vol.vix", "VIX", "leading", "daily", "index"),
-    buildIndicator(ctx.db, "equity.sp500", "S&P 500", "coincident", "daily", "index"),
-    buildIndicator(ctx.db, "equity.nasdaq_composite", "Nasdaq Composite", "coincident", "daily", "index"),
-    buildIndicator(ctx.db, "equity.russell2000", "Russell 2000", "leading", "daily", "index"),
+    buildIndicator(ctx.db, "equity.sp500", "S&P 500 (US)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.nasdaq_composite", "Nasdaq Composite (US)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.russell2000", "Russell 2000 (US small-cap)", "leading", "daily", "index"),
+    buildIndicator(ctx.db, "equity.nikkei225", "Nikkei 225 (Japan)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.dax", "DAX (Germany)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.ftse100", "FTSE 100 (UK)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.cac40", "CAC 40 (France)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.ftsemib", "FTSE MIB (Italy)", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "equity.tsx_composite", "S&P/TSX Composite (Canada)", "coincident", "daily", "index"),
   ]);
 
   return composeEngineResult({
@@ -20,9 +26,15 @@ export async function runEquityFragilityEngine(ctx: EngineContext, horizon: Hori
       { ref: sp500.ref, series: sp500.series, weight: 0.6, zDirection: -1 },
       { ref: nasdaq.ref, series: nasdaq.series, weight: 0.5, zDirection: -1 },
       { ref: russell.ref, series: russell.series, weight: 0.8, zDirection: -1 },
+      { ref: nikkei.ref, series: nikkei.series, weight: 0.5, zDirection: -1 },
+      { ref: dax.ref, series: dax.series, weight: 0.45, zDirection: -1 },
+      { ref: ftse100.ref, series: ftse100.series, weight: 0.4, zDirection: -1 },
+      { ref: cac40.ref, series: cac40.series, weight: 0.4, zDirection: -1 },
+      { ref: ftsemib.ref, series: ftsemib.series, weight: 0.35, zDirection: -1 },
+      { ref: tsx.ref, series: tsx.series, weight: 0.4, zDirection: -1 },
     ],
     triggerDesc:
-      "Small-cap (Russell 2000) underperformance versus large-cap indices alongside rising VIX has historically been an early breadth-deterioration signal ahead of broader equity drawdowns.",
+      "Small-cap (Russell 2000) underperformance versus large-cap indices alongside rising VIX has historically been an early breadth-deterioration signal ahead of broader equity drawdowns. A simultaneous decline across all G7 markets (not just the US) confirms broad, not regional, equity fragility.",
     transmissionMechanism:
       "Rising realized/implied volatility raises margin requirements and can trigger systematic (vol-targeting, risk-parity) deleveraging, amplifying initial price moves.",
     amplifiers: ["High market concentration in a handful of mega-cap names (not yet scored — Phase 2)", "Elevated margin debt (not yet tracked — Phase 2)", "Negative dealer gamma positioning (not yet tracked — Phase 2)"],

@@ -16,6 +16,12 @@ export type YahooIndexDef = { metricKey: string; symbol: string; unit: string };
 export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "equity.russell2000", symbol: "^RUT", unit: "index" },
   { metricKey: "equity.nifty50", symbol: "^NSEI", unit: "index" },
+  // G7 equity benchmarks with no FRED coverage (Nikkei 225 already comes via FRED)
+  { metricKey: "equity.dax", symbol: "^GDAXI", unit: "index" },
+  { metricKey: "equity.ftse100", symbol: "^FTSE", unit: "index" },
+  { metricKey: "equity.cac40", symbol: "^FCHI", unit: "index" },
+  { metricKey: "equity.ftsemib", symbol: "FTSEMIB.MI", unit: "index" },
+  { metricKey: "equity.tsx_composite", symbol: "^GSPTSE", unit: "index" },
 ];
 
 type ChartResponse = {

@@ -32,6 +32,26 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Country coverage: G7, not just the US</h2>
+        <p>
+          Every engine that can be extended across the G7 (US, Canada, UK, Germany, France, Italy, Japan)
+          with a single free, methodologically-consistent source is: Equity Fragility tracks the S&amp;P
+          500, Nasdaq, Russell 2000, Nikkei 225, DAX, FTSE 100, CAC 40, FTSE MIB and the S&amp;P/TSX
+          Composite together; Property/CRE is built on the BIS real house-price index computed the same
+          way for all seven economies; Global Sovereign Debt covers UK/Germany/France/Italy/Japan/Canada
+          yields and debt-to-GDP (the separate US Treasury/Sovereign engine is deliberately US-specific);
+          Credit adds Euro-area high-yield spreads alongside US HY/IG/EM; and Global Liquidity now
+          includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. Two engines remain
+          intentionally single-country by definition regardless of data availability: Yen Carry Stress
+          (a JPY-specific carry-trade mechanic) and US Treasury/Sovereign (paired with the separate
+          Global Sovereign Debt engine above so the two are never conflated). Banking and China remain
+          partly US/single-country-anchored because no free source publishes bank-level NPL/delinquency
+          data for the UK, Eurozone, Canada or Japan — those two engines add G7 policy-rate context
+          rather than fabricating asset-quality data that doesn&apos;t exist for free.
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">Engine scoring</h2>
         <p>
           Each engine tracks a set of indicators, classified leading, coincident or lagging. For each

@@ -3,13 +3,17 @@ import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
 
 export async function runGlobalLiquidityEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [dxy, sofr, fedBS, rrp, tga, m2] = await Promise.all([
+  const [dxy, sofr, fedBS, rrp, tga, m2, nfci, ecbBS, bojBS, ecbRate] = await Promise.all([
     buildIndicator(ctx.db, "fx.dxy_broad", "Broad Dollar Index (DXY proxy)", "coincident", "daily", "index"),
     buildIndicator(ctx.db, "rate.sofr", "SOFR", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "liquidity.fed_balance_sheet", "Fed Balance Sheet (WALCL)", "leading", "weekly", "USD mm"),
     buildIndicator(ctx.db, "liquidity.reverse_repo", "Reverse Repo (RRP) Usage", "leading", "daily", "USD bn"),
     buildIndicator(ctx.db, "liquidity.treasury_general_account", "Treasury General Account", "leading", "weekly", "USD bn"),
     buildIndicator(ctx.db, "liquidity.m2", "M2 Money Supply", "lagging", "monthly", "USD bn"),
+    buildIndicator(ctx.db, "liquidity.chicago_fed_nfci", "Chicago Fed National Financial Conditions Index", "coincident", "weekly", "index"),
+    buildIndicator(ctx.db, "liquidity.ecb_balance_sheet", "ECB Balance Sheet", "leading", "weekly", "EUR mm"),
+    buildIndicator(ctx.db, "liquidity.boj_balance_sheet", "BOJ Balance Sheet", "leading", "monthly", "JPY bn"),
+    buildIndicator(ctx.db, "rate.ecb_deposit_facility", "ECB Deposit Facility Rate", "coincident", "daily", "%"),
   ]);
 
   const result = composeEngineResult({
@@ -24,12 +28,16 @@ export async function runGlobalLiquidityEngine(ctx: EngineContext, horizon: Hori
       { ref: rrp.ref, series: rrp.series, weight: 0.6, zDirection: -1 },
       { ref: tga.ref, series: tga.series, weight: 0.6, zDirection: 1 },
       { ref: m2.ref, series: m2.series, weight: 0.5, zDirection: -1 },
+      { ref: nfci.ref, series: nfci.series, weight: 0.9, zDirection: 1 },
+      { ref: ecbBS.ref, series: ecbBS.series, weight: 0.6, zDirection: -1 },
+      { ref: bojBS.ref, series: bojBS.series, weight: 0.5, zDirection: -1 },
+      { ref: ecbRate.ref, series: ecbRate.series, weight: 0.4, zDirection: 1 },
     ],
     triggerDesc:
-      "A sustained rise in DXY and SOFR alongside Fed balance-sheet contraction and RRP drawdown has historically preceded funding-market stress.",
+      "A sustained rise in DXY and SOFR alongside Fed *and* ECB/BOJ balance-sheet contraction — not just the Fed alone — has historically preceded the most severe funding-market stress, since dollar funding depends on global, not only US, central-bank liquidity provision.",
     transmissionMechanism:
-      "Dollar liquidity tightening raises funding costs for dollar-short borrowers (EM, carry trades, leveraged funds), which can force deleveraging that spills into risk assets.",
-    amplifiers: ["Simultaneous Treasury issuance surge", "Foreign official-sector dollar demand shock", "Quarter-end/year-end balance-sheet constraints"],
+      "Dollar liquidity tightening raises funding costs for dollar-short borrowers (EM, carry trades, leveraged funds) everywhere, not only in the US; simultaneous tightening by the ECB and BOJ removes the offsetting liquidity that has historically cushioned Fed-only tightening episodes.",
+    amplifiers: ["Simultaneous Treasury issuance surge", "Foreign official-sector dollar demand shock", "Quarter-end/year-end balance-sheet constraints", "ECB and BOJ balance sheets contracting in the same window as the Fed's"],
     invalidationConditions: [
       "Fed balance sheet stabilizes or expands",
       "SOFR-IORB spread normalizes",
