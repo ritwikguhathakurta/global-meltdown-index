@@ -30,7 +30,8 @@ Core question the platform answers: *what is changing now that could matter late
   open). No code deploy or schema change should ever need to happen outside that window either.
 - **Admin dashboard** (`/admin`) — pipeline run log, source registry, manual "run pipeline now" button.
 - **Public read API** under `/api/*` (gfmi, yen, liquidity, credit, treasury, equities, india,
-  central-bank-guidance, sources, leading-indicators).
+  central-bank-guidance, sources, leading-indicators) plus `/api/health` and `/api/metrics` for
+  operational monitoring (database reachability, key configuration, pipeline staleness).
 - Every number on every page carries a data-freshness badge (LIVE/RECENT/STALE/UNAVAILABLE) and a
   source/tier citation — nothing is silently backfilled or estimated.
 - Permanent disclaimer banner + "not a forecast" language throughout, per the source brief's
