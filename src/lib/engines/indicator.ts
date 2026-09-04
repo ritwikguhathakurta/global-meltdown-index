@@ -13,6 +13,12 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   rbi_press: 1,
   frankfurter: 1,
   yahoo_finance: 3,
+  ny_fed_gscpi: 1,
+  gpr_index: 2,
+  coingecko: 3,
+  aws_status: 1,
+  azure_status: 1,
+  gcp_status: 1,
 };
 
 export async function buildIndicator(
@@ -55,5 +61,11 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey.startsWith("fx.")) return "frankfurter";
   if (YAHOO_FALLBACK_KEYS.has(metricKey)) return "yahoo_finance";
   if (metricKey.startsWith("cot.")) return "cftc_cot";
+  if (metricKey === "supplychain.gscpi") return "ny_fed_gscpi";
+  if (metricKey.startsWith("geopolitical.gpr")) return "gpr_index";
+  if (metricKey.startsWith("crypto.")) return "coingecko";
+  if (metricKey === "cyber.aws_status_events_7d") return "aws_status";
+  if (metricKey === "cyber.azure_status_events_7d") return "azure_status";
+  if (metricKey === "cyber.gcp_status_events_7d") return "gcp_status";
   return "fred";
 }

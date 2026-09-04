@@ -10,6 +10,8 @@ type CotDef = { metricKeyPrefix: string; marketName: string };
 
 export const COT_MARKETS: CotDef[] = [
   { metricKeyPrefix: "cot.jpy", marketName: "JAPANESE YEN - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.sp500_emini", marketName: "E-MINI S&P 500 - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.vix_futures", marketName: "VIX FUTURES - CBOE FUTURES EXCHANGE" },
 ];
 
 type CotRow = {

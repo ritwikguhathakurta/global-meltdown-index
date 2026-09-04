@@ -39,6 +39,47 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "equity.nikkei225", seriesId: "NIKKEI225", frequency: "daily", unit: "index" },
   { metricKey: "commodity.brent", seriesId: "DCOILBRENTEU", frequency: "daily", unit: "USD/bbl" },
   { metricKey: "commodity.wti", seriesId: "DCOILWTICO", frequency: "daily", unit: "USD/bbl" },
+  { metricKey: "commodity.natgas_henry_hub", seriesId: "DHHNGSP", frequency: "daily", unit: "USD/MMBtu" },
+
+  // Banking engine (V3 §22) — Fed H.8 weekly release + delinquency/charge-off series
+  { metricKey: "banking.deposits_total", seriesId: "DPSACBW027SBOG", frequency: "weekly", unit: "USD bn" },
+  { metricKey: "banking.delinquency_rate_all_loans", seriesId: "DRALACBS", frequency: "quarterly", unit: "%" },
+  { metricKey: "banking.chargeoff_rate_all_loans", seriesId: "CORALACBS", frequency: "quarterly", unit: "%" },
+  { metricKey: "banking.cre_delinquency_rate", seriesId: "DRCRELEXFACBS", frequency: "quarterly", unit: "%" },
+
+  // Property/CRE engine (V3 §23)
+  { metricKey: "property.mortgage_rate_30y", seriesId: "MORTGAGE30US", frequency: "weekly", unit: "%" },
+  { metricKey: "property.housing_starts", seriesId: "HOUST", frequency: "monthly", unit: "thousands SAAR" },
+  { metricKey: "property.building_permits", seriesId: "PERMIT", frequency: "monthly", unit: "thousands SAAR" },
+  { metricKey: "property.case_shiller_hpi", seriesId: "CSUSHPISA", frequency: "monthly", unit: "index" },
+  { metricKey: "property.existing_home_sales", seriesId: "EXHOSLUSM495S", frequency: "monthly", unit: "thousands SAAR" },
+
+  // Global Sovereign Debt engine (V3 §21 extended beyond the US)
+  { metricKey: "yield.uk_10y", seriesId: "IRLTLT01GBM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "yield.germany_10y", seriesId: "IRLTLT01DEM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "yield.italy_10y", seriesId: "IRLTLT01ITM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "yield.france_10y", seriesId: "IRLTLT01FRM156N", frequency: "monthly", unit: "%" },
+  // These four are actually annual-frequency IMF series (no "annual" bucket
+  // exists in our freshness model) — bucketed as quarterly, which correctly
+  // renders them STALE most of the time rather than falsely claiming LIVE.
+  { metricKey: "sovereign.germany_debt_to_gdp", seriesId: "GGGDTADEA188N", frequency: "quarterly", unit: "%" },
+  { metricKey: "sovereign.italy_debt_to_gdp", seriesId: "GGGDTAITA188N", frequency: "quarterly", unit: "%" },
+  { metricKey: "sovereign.japan_debt_to_gdp", seriesId: "GGGDTAJPA188N", frequency: "quarterly", unit: "%" },
+  { metricKey: "sovereign.uk_debt_to_gdp", seriesId: "GGGDTAGBA188N", frequency: "quarterly", unit: "%" },
+
+  // Emerging-Market Debt engine (V3 §11)
+  { metricKey: "credit.em_dollar_index", seriesId: "DTWEXEMEGS", frequency: "daily", unit: "index" },
+
+  // Global Dollar Liquidity extension (V3 §27) — broad financial-conditions proxy
+  { metricKey: "liquidity.chicago_fed_nfci", seriesId: "NFCI", frequency: "weekly", unit: "index" },
+
+  // Trade/Economic Policy engine (V3 §23 of engine list / §73)
+  { metricKey: "trade.us_goods_services_balance", seriesId: "BOPGSTB", frequency: "monthly", unit: "USD mm" },
+
+  // China engine (V3 §24) — partial; PMI/property/credit-impulse have no free daily source
+  { metricKey: "china.exports_cny", seriesId: "XTEXVA01CNM667S", frequency: "monthly", unit: "CNY" },
+  { metricKey: "china.imports_cny", seriesId: "XTIMVA01CNM667S", frequency: "monthly", unit: "CNY" },
+  { metricKey: "china.cpi_index", seriesId: "CHNCPIALLMINMEI", frequency: "monthly", unit: "index" },
 ];
 
 export async function fetchFredSeries(

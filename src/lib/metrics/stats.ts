@@ -82,6 +82,22 @@ export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
+/** Aligns two series by calendar month and returns (a - b) * scale, e.g. for cross-country yield spreads. */
+export function diffSeriesByMonth(a: Point[], b: Point[], scale = 100): Point[] {
+  const bMap = new Map(b.map((p) => [p.t.slice(0, 7), p.v]));
+  return a
+    .map((p) => {
+      const bv = bMap.get(p.t.slice(0, 7));
+      return bv === undefined ? null : { t: p.t, v: (p.v - bv) * scale };
+    })
+    .filter((p): p is Point => p !== null);
+}
+
+/** Absolute value of each point — useful for "extremity in either direction" risk framings. */
+export function absSeries(points: Point[]): Point[] {
+  return points.map((p) => ({ t: p.t, v: Math.abs(p.v) }));
+}
+
 export function daysSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 86400000;
 }

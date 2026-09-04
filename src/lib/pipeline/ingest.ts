@@ -5,6 +5,10 @@ import { fetchFxCrossSeries } from "../sources/fx";
 import { YAHOO_INDEX_SERIES, fetchYahooIndexSeries } from "../sources/yahooIndex";
 import { COT_MARKETS, fetchCotSeries } from "../sources/cftcCot";
 import { CENTRAL_BANK_FEEDS, fetchCentralBankFeed } from "../sources/centralBankRss";
+import { fetchGscpiSeries } from "../sources/gscpi";
+import { fetchGprSeries } from "../sources/gpr";
+import { fetchCryptoSnapshot } from "../sources/coingecko";
+import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount } from "../sources/cloudStatus";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
 
@@ -116,6 +120,65 @@ export async function ingestCentralBankFeeds(db: SupabaseClient, runDate: string
   return { stage: "ingest_central_bank_feeds", status, detail: { ok, total: CENTRAL_BANK_FEEDS.length, inserted, errors } };
 }
 
+export async function ingestGscpi(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchGscpiSeries();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    await logRun(db, runDate, "ingest_gscpi", status, { points: points.length });
+    return { stage: "ingest_gscpi", status, detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_gscpi", "failed", detail);
+    return { stage: "ingest_gscpi", status: "failed", detail };
+  }
+}
+
+export async function ingestGpr(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchGprSeries();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    await logRun(db, runDate, "ingest_gpr", status, { points: points.length });
+    return { stage: "ingest_gpr", status, detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_gpr", "failed", detail);
+    return { stage: "ingest_gpr", status: "failed", detail };
+  }
+}
+
+export async function ingestCrypto(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchCryptoSnapshot(runDate);
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    await logRun(db, runDate, "ingest_crypto", status, { points: points.length });
+    return { stage: "ingest_crypto", status, detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_crypto", "failed", detail);
+    return { stage: "ingest_crypto", status: "failed", detail };
+  }
+}
+
+export async function ingestCloudStatus(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  let ok = 0;
+  const errors: string[] = [];
+  for (const def of CLOUD_STATUS_FEEDS) {
+    try {
+      const points = await fetchCloudStatusCount(def, runDate);
+      await upsertMetrics(db, points);
+      ok++;
+    } catch (e) {
+      errors.push(`${def.provider}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  await logRun(db, runDate, "ingest_cloud_status", status, { ok, total: CLOUD_STATUS_FEEDS.length, errors });
+  return { stage: "ingest_cloud_status", status, detail: { ok, total: CLOUD_STATUS_FEEDS.length, errors } };
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   const results = await Promise.all([
@@ -124,6 +187,10 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestYahooIndices(db, runDate),
     ingestCftc(db, runDate),
     ingestCentralBankFeeds(db, runDate),
+    ingestGscpi(db, runDate),
+    ingestGpr(db, runDate),
+    ingestCrypto(db, runDate),
+    ingestCloudStatus(db, runDate),
   ]);
   return { runDate, results };
 }

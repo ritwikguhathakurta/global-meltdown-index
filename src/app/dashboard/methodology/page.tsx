@@ -15,14 +15,19 @@ export default function MethodologyPage() {
       <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">Coverage in this phase</h2>
         <p>
-          The full target specification defines 24 risk engines. This deployment currently implements
-          five, chosen because they can be fed entirely by free, official/public data: Global Dollar
-          Liquidity, Credit Markets, Equity Fragility, US Treasury/Sovereign, and Yen Carry Stress, plus a
-          partial India Market Regime (global-shock-sensitivity proxy only — FII/DII flows, PMI and credit
-          growth are not yet wired to a free source). Remaining engines (AI Financial Sustainability,
-          Private Credit, Banking, Property/CRE, China, Energy, Geopolitical, Derivatives/Leverage,
-          Crypto/Stablecoins, Cyber, and others) require data this deployment does not yet ingest and are
-          added incrementally rather than faked with placeholder scores.
+          The full target specification defines 24 risk engines. This deployment currently implements 17,
+          chosen because they can be fed entirely by free, official/public data: Global Dollar Liquidity,
+          Credit Markets (fulfilling Corporate Credit), Equity Fragility (folding in Equity Valuation),
+          US Treasury/Sovereign, Yen Carry Stress, Banking, Property/CRE, Global Sovereign Debt,
+          Emerging-Market Debt, Energy, Geopolitical, Derivatives/Leverage, Crypto/Stablecoins,
+          Cyber/Infrastructure, Trade/Economic Policy, and Supply Chains — plus partial China and India
+          Market Regime engines (both are explicitly missing indicators the full spec calls for; each
+          engine page lists exactly which ones under &ldquo;UNAVAILABLE&rdquo;). Not yet implemented: the five
+          AI-related engines (Financial Sustainability, Valuation, Credit/Financing, Circular-Financing,
+          Debt Maturity Wall — need SEC EDGAR XBRL parsing across several large filers), Private Credit and
+          Market Concentration (no free structured source exists for either), and a standalone
+          Central-Bank Policy composite (needs the hawkish/dovish NLP classifier, deferred — see README).
+          None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
         </p>
       </section>
 

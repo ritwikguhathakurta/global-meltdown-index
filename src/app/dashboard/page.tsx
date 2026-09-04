@@ -9,6 +9,18 @@ const ENGINE_META: Record<string, { label: string; href: string }> = {
   equity_fragility: { label: "Equity Fragility", href: "/dashboard/equities" },
   us_treasury_sovereign: { label: "US Treasury / Sovereign", href: "/dashboard/treasury" },
   yen_carry: { label: "Yen Carry Stress", href: "/dashboard/yen-carry" },
+  banking: { label: "Banking", href: "/dashboard/banking" },
+  property: { label: "Property / CRE", href: "/dashboard/property" },
+  global_sovereign_debt: { label: "Global Sovereign Debt", href: "/dashboard/sovereign-debt" },
+  emerging_market_debt: { label: "Emerging-Market Debt", href: "/dashboard/em-debt" },
+  energy: { label: "Energy", href: "/dashboard/energy" },
+  geopolitical: { label: "Geopolitical", href: "/dashboard/geopolitical" },
+  derivatives_leverage: { label: "Derivatives / Leverage", href: "/dashboard/derivatives" },
+  crypto_stablecoins: { label: "Crypto / Stablecoins", href: "/dashboard/crypto" },
+  cyber_infrastructure: { label: "Cyber / Infrastructure", href: "/dashboard/cyber" },
+  trade_economic_policy: { label: "Trade / Economic Policy", href: "/dashboard/trade-policy" },
+  supply_chains: { label: "Supply Chains", href: "/dashboard/supply-chains" },
+  china: { label: "China", href: "/dashboard/china" },
 };
 
 export default async function DashboardPage() {

@@ -11,15 +11,14 @@ Core question the platform answers: *what is changing now that could matter late
 - **Next.js 16 / TypeScript / Tailwind v4** app, deployable to Vercel.
 - **Supabase** for Postgres (data + auth). Email/password sign-up with a 90-day free trial
   auto-granted on signup; role-based access (`user` / `admin`) enforced server-side in `src/proxy.ts`.
-- **Five risk engines**, fed entirely by free/official data, each producing short/medium/long-term
+- **17 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
   scores with leading/coincident/lagging indicator breakdowns, triggers, transmission mechanism,
   confirmation/invalidation conditions, and a "what has not yet happened" section:
-  - Global Dollar Liquidity
-  - Credit Markets
-  - Equity Fragility
-  - US Treasury / Sovereign
-  - Yen Carry Stress
-  - Plus a **partial** India Market Regime (global-shock-sensitivity proxy — see limitations below)
+  - Global Dollar Liquidity, Credit Markets, Equity Fragility, US Treasury / Sovereign, Yen Carry Stress
+  - Banking, Property/CRE, Global Sovereign Debt, Emerging-Market Debt, Energy, Geopolitical,
+    Derivatives/Leverage, Crypto/Stablecoins, Cyber/Infrastructure, Trade/Economic Policy, Supply Chains
+  - Plus **partial** China and India Market Regime engines (each page lists exactly which spec
+    indicators are `UNAVAILABLE` — see limitations below)
 - **GFMI composite** (Global Financial Meltdown Index): weighted engine average + nonlinear
   multi-shock amplifier + crisis-override rules, not a simple average.
 - **Central-bank headline tracking** (Fed, ECB, BOE, RBI press feeds) — dates/titles/links only;
@@ -43,14 +42,18 @@ The full brief specifies **24 risk engines**, ML models backtested to 1929, a ce
 sentiment engine, a conversational AI research agent (MacroSignal AI), and subscription billing.
 Those need data sources or infrastructure this phase doesn't have yet:
 
-- **19 more risk engines** (AI Financial Sustainability, AI Valuation/Credit, Private Credit,
-  Global Sovereign Debt, Banking, Property/CRE, China, Energy, Geopolitical, Market Concentration,
-  Derivatives/Leverage, Crypto/Stablecoins, Cyber, Central-Bank Policy composite, Trade/Economic
-  Policy, Supply Chains, AI Circular Financing, AI Debt Maturity Wall) — need company-filings data,
-  CRE data, China macro data, or paid feeds not yet wired in.
+- **7 more risk engines**: AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI
+  Circular Financing, and AI Debt Maturity Wall (need SEC EDGAR XBRL parsing across ~8 large filers —
+  free and official, but each company's tagging is inconsistent enough that getting it right needs
+  its own careful build, not a rushed one); Private Credit and Market Concentration (no free
+  structured source exists for BDC non-accrual/covenant data or true index-weight concentration).
+- **China** is a partial implementation: property sales/prices, developer financing, credit impulse,
+  PMI new orders and LGFV debt have no free daily source, so it currently tracks trade + CNY + CPI only.
 - **India Market Regime** is a partial implementation: FII/DII flows, PMI new orders, bank credit
   growth and GST collections have no free daily source yet, so the regime read is currently a
   cross-asset shock-sensitivity proxy only.
+- **Central-Bank Policy composite** is not a standalone engine yet — it needs the hawkish/dovish
+  NLP classifier below.
 - **Central-bank hawkishness/dovishness NLP scoring**, forward-guidance change detection, and the
   policy-language classifier (V3 §8-10) — headlines are captured, scoring is not.
 - **MacroSignal AI** (conversational research agent, appendix V3-A) — deliberately deferred; needs
@@ -140,9 +143,16 @@ npm run dev
   rigid per-domain tables that would need schema migrations every time an engine is added.
 - **Why z-scores drive engine scores**: every score is a deterministic function of stored data
   (`src/lib/metrics/stats.ts`) — no LLM ever computes a number that ends up on a dashboard.
-- **Source tiers**: 1 = official primary (FRED, CFTC, central-bank feeds, ECB via Frankfurter),
-  2 = multilateral institutions, 3 = licensed/unofficial aggregators (Yahoo Finance chart API, used
-  only where no Tier-1 source exists — Russell 2000, Nifty 50). Stooq was evaluated and rejected: it
-  now fronts a JavaScript proof-of-work bot challenge that a server-side fetch can't solve.
+- **Source tiers**: 1 = official primary (FRED, CFTC, central-bank feeds, ECB via Frankfurter, NY
+  Fed GSCPI, AWS/Azure/GCP status pages), 2 = multilateral institutions or transparent academic
+  indices (the Caldara-Iacoviello Geopolitical Risk Index), 3 = licensed/unofficial aggregators
+  (Yahoo Finance chart API, CoinGecko — used only where no Tier-1 source exists). Stooq was
+  evaluated and rejected: it now fronts a JavaScript proof-of-work bot challenge a server-side fetch
+  can't solve.
+- **NY Fed GSCPI and the GPR index only publish legacy binary `.xls` workbooks** (confirmed via
+  byte-signature check, not just the URL's extension) — `src/lib/sources/xlsWorkbook.ts` wraps the
+  `xlsx` package rather than assuming a clean CSV exists.
+- **Cyber/Infrastructure engine** counts status-page item volume per provider over a trailing 7
+  days rather than inventing a severity score from free text — see `src/lib/sources/cloudStatus.ts`.
 - Full engine/indicator list, GFMI formula, and data-quality rules: see `/dashboard/methodology` on
   the running site, or `src/lib/engines/`.

@@ -14,7 +14,7 @@ async function getShortHorizonEngineRows() {
       .select("engine_key, as_of, score, regime, direction, confidence")
       .eq("horizon", "short")
       .order("as_of", { ascending: false })
-      .limit(20);
+      .limit(40);
     if (error) throw new Error(error.message);
     return data ?? [];
   } catch (e) {
@@ -46,6 +46,18 @@ const ENGINE_LABELS: Record<string, string> = {
   equity_fragility: "Equity Fragility",
   us_treasury_sovereign: "US Treasury / Sovereign",
   yen_carry: "Yen Carry",
+  banking: "Banking",
+  property: "Property / CRE",
+  global_sovereign_debt: "Global Sovereign Debt",
+  emerging_market_debt: "Emerging-Market Debt",
+  energy: "Energy",
+  geopolitical: "Geopolitical",
+  derivatives_leverage: "Derivatives / Leverage",
+  crypto_stablecoins: "Crypto / Stablecoins",
+  cyber_infrastructure: "Cyber / Infrastructure",
+  trade_economic_policy: "Trade / Economic Policy",
+  supply_chains: "Supply Chains",
+  china: "China",
 };
 
 export default async function HomePage() {

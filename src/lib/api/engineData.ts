@@ -96,7 +96,7 @@ export async function getAllEnginesLatest(horizon: "short" | "medium" | "long" =
         .select("*")
         .eq("horizon", horizon)
         .order("as_of", { ascending: false })
-        .limit(20),
+        .limit(40),
     []
   );
 }
