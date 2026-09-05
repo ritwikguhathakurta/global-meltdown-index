@@ -130,6 +130,29 @@ export function subtractSeriesByDate(a: Point[], b: Point[]): Point[] {
     .filter((p): p is Point => p !== null);
 }
 
+/**
+ * As-of join: for each point in `dense` (e.g. daily prices), finds the latest
+ * `sparse` point (e.g. quarterly TTM EPS) dated on or before it and divides
+ * dense/sparse — the standard way to combine a daily series with a
+ * quarterly-updated fundamental (this is how trailing P/E is computed in
+ * practice: today's price over the most recently reported TTM EPS).
+ */
+export function divideByLastKnown(dense: Point[], sparse: Point[]): Point[] {
+  const sortedSparse = [...sparse].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const sortedDense = [...dense].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const out: Point[] = [];
+  let i = 0;
+  let lastVal: number | null = null;
+  for (const d of sortedDense) {
+    while (i < sortedSparse.length && sortedSparse[i].t <= d.t) {
+      lastVal = sortedSparse[i].v;
+      i++;
+    }
+    if (lastVal !== null && lastVal !== 0) out.push({ t: d.t, v: d.v / lastVal });
+  }
+  return out;
+}
+
 /** Trailing rolling sum over the last `window` observations (e.g. TTM = rollingSum(quarterlySeries, 4)). */
 export function rollingSum(points: Point[], window: number): Point[] {
   const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));

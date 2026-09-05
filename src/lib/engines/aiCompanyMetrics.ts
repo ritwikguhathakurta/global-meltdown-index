@@ -6,6 +6,7 @@ import {
   sumSeriesByDate,
   subtractSeriesByDate,
   rollingSum,
+  divideByLastKnown,
 } from "../metrics/stats";
 import type { Point } from "../metrics/stats";
 import type { IndicatorRef } from "./types";
@@ -86,7 +87,7 @@ export async function loadCompanyDerived(db: SupabaseClient, ticker: string, nam
   const interestCoverage = ratioSeriesByDate(ttmOperatingIncome, ttmInterestExpense);
 
   const ttmEpsSum = rollingSum(epsDiluted.series, 4);
-  const trailingPE = ratioSeriesByDate(price.series, ttmEpsSum);
+  const trailingPE = divideByLastKnown(price.series, ttmEpsSum);
 
   const ttmFcf = rollingSum(fcf, 4);
   const availableLiquidity = sumSeriesByDate(cash.series, ttmFcf);
