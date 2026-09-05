@@ -109,6 +109,39 @@ export function ratioSeriesByDate(a: Point[], b: Point[]): Point[] {
     .filter((p): p is Point => p !== null);
 }
 
+/** Outer-joins two series by exact date and sums them, treating a missing side as 0 (e.g. current + noncurrent debt). */
+export function sumSeriesByDate(a: Point[], b: Point[]): Point[] {
+  const dates = new Set([...a.map((p) => p.t.slice(0, 10)), ...b.map((p) => p.t.slice(0, 10))]);
+  const aMap = new Map(a.map((p) => [p.t.slice(0, 10), p.v]));
+  const bMap = new Map(b.map((p) => [p.t.slice(0, 10), p.v]));
+  return [...dates]
+    .map((d) => ({ t: d, v: (aMap.get(d) ?? 0) + (bMap.get(d) ?? 0) }))
+    .sort((x, y) => (x.t < y.t ? -1 : 1));
+}
+
+/** Subtracts two series aligned by exact date (a - b), requiring both sides present — e.g. FCF = OCF - capex. */
+export function subtractSeriesByDate(a: Point[], b: Point[]): Point[] {
+  const bMap = new Map(b.map((p) => [p.t.slice(0, 10), p.v]));
+  return a
+    .map((p) => {
+      const bv = bMap.get(p.t.slice(0, 10));
+      return bv === undefined ? null : { t: p.t, v: p.v - bv };
+    })
+    .filter((p): p is Point => p !== null);
+}
+
+/** Trailing rolling sum over the last `window` observations (e.g. TTM = rollingSum(quarterlySeries, 4)). */
+export function rollingSum(points: Point[], window: number): Point[] {
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const out: Point[] = [];
+  for (let i = window - 1; i < sorted.length; i++) {
+    let sum = 0;
+    for (let j = i - window + 1; j <= i; j++) sum += sorted[j].v;
+    out.push({ t: sorted[i].t, v: sum });
+  }
+  return out;
+}
+
 export function daysSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 86400000;
 }

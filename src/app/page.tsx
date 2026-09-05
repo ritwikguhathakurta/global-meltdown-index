@@ -60,6 +60,10 @@ const ENGINE_LABELS: Record<string, string> = {
   china: "China",
   market_concentration: "Market Concentration",
   private_credit: "Private Credit",
+  ai_financial_sustainability: "AI Financial Sustainability",
+  ai_valuation: "AI Valuation",
+  ai_credit_financing: "AI Credit / Financing",
+  ai_debt_maturity_wall: "AI Debt Maturity Wall",
 };
 
 export default async function HomePage() {

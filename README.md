@@ -11,7 +11,7 @@ Core question the platform answers: *what is changing now that could matter late
 - **Next.js 16 / TypeScript / Tailwind v4** app, deployable to Vercel.
 - **Supabase** for Postgres (data + auth). Email/password sign-up with a 90-day free trial
   auto-granted on signup; role-based access (`user` / `admin`) enforced server-side in `src/proxy.ts`.
-- **19 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
+- **23 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
   scores with leading/coincident/lagging indicator breakdowns, triggers, transmission mechanism,
   confirmation/invalidation conditions, and a "what has not yet happened" section. Most cover the
   **G7 (US, Canada, UK, Germany, France, Italy, Japan) plus China**, not just the US — see
@@ -20,6 +20,9 @@ Core question the platform answers: *what is changing now that could matter late
   - Banking, Property/CRE, Global Sovereign Debt, Emerging-Market Debt, Energy, Geopolitical,
     Derivatives/Leverage, Crypto/Stablecoins, Cyber/Infrastructure, Trade/Economic Policy, Supply Chains
   - Market Concentration and Private Credit (both market-price proxies — see limitations below)
+  - AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI Debt Maturity Wall — built on
+    real SEC EDGAR XBRL filings for 8 large-cap AI-capex-relevant companies (see
+    [AI engines](#ai-engines-real-sec-edgar-data-not-a-mockup) below)
   - Plus **partial** China and India Market Regime engines (each page lists exactly which spec
     indicators are `UNAVAILABLE` — see limitations below)
 - **GFMI composite** (Global Financial Meltdown Index): weighted engine average + nonlinear
@@ -45,10 +48,10 @@ The full brief specifies **24 risk engines**, ML models backtested to 1929, a ce
 sentiment engine, a conversational AI research agent (MacroSignal AI), and subscription billing.
 Those need data sources or infrastructure this phase doesn't have yet:
 
-- **5 more risk engines**: AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI
-  Circular Financing, and AI Debt Maturity Wall (need SEC EDGAR XBRL parsing across ~8 large filers —
-  free and official, but each company's tagging is inconsistent enough that getting it right needs
-  its own careful build, not a rushed one).
+- **AI Circular Financing** is the one engine deliberately not built. V3 §18's own instruction is
+  "never infer undisclosed relationships as fact", and no free source publishes the
+  equity-investment/purchase-commitment/SPV web it asks for — building it would mean guessing at
+  exactly the relationship the spec warns against inferring.
 - **Market Concentration and Private Credit** are both market-price proxies, not the structural
   weights/AUM/covenant data the spec envisions — no free source publishes either. Market
   Concentration uses the SPY/RSP and QQQ/QQQE cap-weighted-vs-equal-weighted ETF ratios; Private
@@ -145,6 +148,39 @@ npm install
 cp .env.example .env.local   # fill in the same values as step 3 above
 npm run dev
 ```
+
+## AI engines: real SEC EDGAR data, not a mockup
+
+All four AI engines (`src/lib/engines/aiFinancialSustainability.ts`, `aiValuation.ts`,
+`aiCreditFinancing.ts`, `aiDebtMaturityWall.ts`) share one data pipeline
+(`src/lib/sources/secEdgar.ts` + `src/lib/engines/aiCompanyMetrics.ts`) pulling quarterly XBRL
+filings directly from SEC EDGAR's free company-facts API for Microsoft, Alphabet, Amazon, Meta,
+Oracle, Nvidia, AMD and Broadcom — no scraping, no paid data provider, no key required (just a
+descriptive `User-Agent` per SEC's fair-use policy). Two real correctness problems were found and
+fixed by testing against live filings before this shipped, not left as silent bugs:
+
+- **Tag drift.** Companies change which XBRL tag they use for the same concept over time —
+  Microsoft stopped tagging `CostOfRevenue` in 2018, and Alphabet's
+  `RevenueFromContractWithCustomerExcludingAssessedTax` went stale in 2025 while it kept reporting
+  the plain `Revenues` tag for the same figure. A naive "first tag that returns any data" approach
+  silently locks onto values years out of date — verified this by diffing extraction results
+  against both approaches before choosing "most recent value across all candidate tags."
+- **YTD vs. discrete quarters.** Cash-flow-statement items (operating cash flow, capex,
+  depreciation) are reported as year-to-date cumulative figures in most companies' 10-Qs, not
+  standalone quarters — income-statement items usually are already discrete. Figures are
+  de-cumulated by grouping filings that share the same fiscal-year start date and taking
+  successive differences, which also recovers the fourth quarter (never separately filed) as
+  full-year total minus the nine-month figure. This is a no-op for companies that already report
+  discretely, so it's safe to apply uniformly rather than special-casing each company.
+
+Other explicit limitations: EBITDA is a proxy (operating income + D&A from the cash-flow
+statement), not each company's own "Adjusted EBITDA" definition (which typically excludes more
+items and would show a lower leverage ratio); AI Valuation uses trailing, not forward, P/E since
+forward-earnings estimates are analyst-consensus data behind paid terminals; "AI revenue"
+specifically is not disclosed as a discrete XBRL fact by any of these companies, so AI Financial
+Sustainability uses total company revenue instead; and Nvidia does not tag a debt-maturity
+schedule at all, so it shows as `UNAVAILABLE` on the AI Debt Maturity Wall page rather than being
+assumed to have no near-term maturities.
 
 ## Country coverage: G7 + China
 

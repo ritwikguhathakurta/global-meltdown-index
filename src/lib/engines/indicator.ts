@@ -20,6 +20,7 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   aws_status: 1,
   azure_status: 1,
   gcp_status: 1,
+  sec_edgar: 1,
 };
 
 export async function buildIndicator(
@@ -74,6 +75,14 @@ const YAHOO_FALLBACK_KEYS = new Set([
   "privatecredit.bdc_fsk",
   "privatecredit.bdc_obdc",
   "privatecredit.bdc_bxsl",
+  "ai.msft.price",
+  "ai.googl.price",
+  "ai.amzn.price",
+  "ai.meta.price",
+  "ai.orcl.price",
+  "ai.nvda.price",
+  "ai.amd.price",
+  "ai.avgo.price",
 ]);
 
 function guessSourceKey(metricKey: string): string {
@@ -86,5 +95,6 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey === "cyber.aws_status_events_7d") return "aws_status";
   if (metricKey === "cyber.azure_status_events_7d") return "azure_status";
   if (metricKey === "cyber.gcp_status_events_7d") return "gcp_status";
+  if (metricKey.startsWith("ai.") && !metricKey.endsWith(".price")) return "sec_edgar";
   return "fred";
 }

@@ -19,23 +19,32 @@ import { runSupplyChainsEngine } from "./supplyChains";
 import { runChinaEngine } from "./china";
 import { runMarketConcentrationEngine } from "./marketConcentration";
 import { runPrivateCreditEngine } from "./privateCredit";
+import { runAiFinancialSustainabilityEngine } from "./aiFinancialSustainability";
+import { runAiValuationEngine } from "./aiValuation";
+import { runAiCreditFinancingEngine } from "./aiCreditFinancing";
+import { runAiDebtMaturityWallEngine } from "./aiDebtMaturityWall";
 import { computeGfmi, engineResultToGfmiInput } from "./gfmi";
 
 export const HORIZONS: Horizon[] = ["short", "medium", "long"];
 
 /**
  * Engine registry. Each entry maps a V3 §4 engine to its runner and its
- * weight in the GFMI composite. 19 of 24 engines are implemented. Corporate
+ * weight in the GFMI composite. 23 of 24 engines are implemented. Corporate
  * Credit is fulfilled by "credit" (HY/IG/Euro/Asia OAS) and Equity Valuation
- * is folded into "equity_fragility" rather than duplicated. Private Credit
- * and Market Concentration are both market-price proxies rather than the
- * structural data the spec envisions (no free source for either) — see
- * their docstrings. Still not implemented: the 5 AI-related engines
- * (Financial Sustainability, Valuation, Credit/Financing, Circular-Financing,
- * Debt-Maturity-Wall — need SEC EDGAR XBRL parsing) and Central-Bank Policy
- * (needs the NLP hawkish/dovish classifier, deferred — see README). China
- * and India are explicitly partial. None are stubbed with fake scores — see
- * each engine file's docstring for exactly what free data does and doesn't cover.
+ * is folded into "equity_fragility" rather than duplicated. Private Credit,
+ * Market Concentration and AI Valuation are all market-price proxies rather
+ * than the structural data the spec envisions (no free source for the
+ * former two; no free forward-earnings data for the latter) — see their
+ * docstrings. AI Financial Sustainability/Credit-Financing/Debt-Maturity-Wall
+ * run on real SEC EDGAR XBRL data for 8 large-cap AI-capex-relevant
+ * companies (see aiCompanyMetrics.ts/secEdgar.ts). The one engine NOT
+ * implemented is AI Circular Financing — V3 §18 itself says "never infer
+ * undisclosed relationships as fact", and no free source publishes the
+ * equity-investment/purchase-commitment/SPV web it asks for, so building it
+ * would mean guessing at exactly the kind of relationship the spec warns
+ * against inferring. China and India are explicitly partial. None are
+ * stubbed with fake scores — see each engine file's docstring for exactly
+ * what free data does and doesn't cover.
  */
 export const ENGINE_REGISTRY = [
   { key: "global_liquidity", run: runGlobalLiquidityEngine, gfmiWeight: 1.1 },
@@ -57,6 +66,10 @@ export const ENGINE_REGISTRY = [
   { key: "china", run: runChinaEngine, gfmiWeight: 0.6 },
   { key: "market_concentration", run: runMarketConcentrationEngine, gfmiWeight: 0.5 },
   { key: "private_credit", run: runPrivateCreditEngine, gfmiWeight: 0.6 },
+  { key: "ai_financial_sustainability", run: runAiFinancialSustainabilityEngine, gfmiWeight: 0.8 },
+  { key: "ai_valuation", run: runAiValuationEngine, gfmiWeight: 0.6 },
+  { key: "ai_credit_financing", run: runAiCreditFinancingEngine, gfmiWeight: 0.8 },
+  { key: "ai_debt_maturity_wall", run: runAiDebtMaturityWallEngine, gfmiWeight: 0.6 },
 ] as const;
 
 export async function runAllEngines(

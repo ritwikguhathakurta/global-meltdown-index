@@ -34,6 +34,15 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "privatecredit.bdc_fsk", symbol: "FSK", unit: "USD" },
   { metricKey: "privatecredit.bdc_obdc", symbol: "OBDC", unit: "USD" },
   { metricKey: "privatecredit.bdc_bxsl", symbol: "BXSL", unit: "USD" },
+  // AI Valuation engine — stock prices for the SEC-EDGAR-tracked AI companies
+  { metricKey: "ai.msft.price", symbol: "MSFT", unit: "USD" },
+  { metricKey: "ai.googl.price", symbol: "GOOGL", unit: "USD" },
+  { metricKey: "ai.amzn.price", symbol: "AMZN", unit: "USD" },
+  { metricKey: "ai.meta.price", symbol: "META", unit: "USD" },
+  { metricKey: "ai.orcl.price", symbol: "ORCL", unit: "USD" },
+  { metricKey: "ai.nvda.price", symbol: "NVDA", unit: "USD" },
+  { metricKey: "ai.amd.price", symbol: "AMD", unit: "USD" },
+  { metricKey: "ai.avgo.price", symbol: "AVGO", unit: "USD" },
 ];
 
 type ChartResponse = {

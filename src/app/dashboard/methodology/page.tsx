@@ -15,22 +15,63 @@ export default function MethodologyPage() {
       <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">Coverage in this phase</h2>
         <p>
-          The full target specification defines 24 risk engines. This deployment currently implements 19,
+          The full target specification defines 24 risk engines. This deployment currently implements 23,
           chosen because they can be fed entirely by free, official/public data: Global Dollar Liquidity,
           Credit Markets (fulfilling Corporate Credit), Equity Fragility (folding in Equity Valuation),
           US Treasury/Sovereign, Yen Carry Stress, Banking, Property/CRE, Global Sovereign Debt,
           Emerging-Market Debt, Energy, Geopolitical, Derivatives/Leverage, Crypto/Stablecoins,
-          Cyber/Infrastructure, Trade/Economic Policy, Supply Chains, Market Concentration and Private
-          Credit — plus partial China and India Market Regime engines (both are explicitly missing
+          Cyber/Infrastructure, Trade/Economic Policy, Supply Chains, Market Concentration, Private
+          Credit, AI Financial Sustainability, AI Valuation, AI Credit/Financing and AI Debt Maturity
+          Wall — plus partial China and India Market Regime engines (both are explicitly missing
           indicators the full spec calls for; each engine page lists exactly which ones under
           &ldquo;UNAVAILABLE&rdquo;). Market Concentration and Private Credit are both market-price
           proxies (equal-weight-vs-cap-weight ETF ratios, and publicly-traded BDC share prices,
           respectively) rather than the structural weights/AUM/covenant data the spec envisions, since
-          no free source publishes that data at all. Not yet implemented: the five AI-related engines
-          (Financial Sustainability, Valuation, Credit/Financing, Circular-Financing, Debt Maturity Wall
-          — need SEC EDGAR XBRL parsing across several large filers) and a standalone Central-Bank
-          Policy composite (needs the hawkish/dovish NLP classifier, deferred — see README).
+          no free source publishes that data at all. The four AI engines run on real SEC EDGAR XBRL
+          quarterly filings for 8 large-cap companies central to AI capex (Microsoft, Alphabet, Amazon,
+          Meta, Oracle, Nvidia, AMD, Broadcom) — see{" "}
+          <a href="#ai-engines-methodology" className="text-accent hover:underline">AI engines methodology</a>{" "}
+          below for exactly how those figures are extracted and what each ratio does and doesn&apos;t
+          measure. The one engine deliberately NOT built is AI Circular Financing — V3&apos;s own
+          instruction for that engine is &ldquo;never infer undisclosed relationships as fact&rdquo;, and
+          no free source publishes the equity-investment/purchase-commitment/SPV web it asks for, so
+          building it would mean guessing at exactly the kind of relationship the spec warns against.
+          Also not yet implemented: a standalone Central-Bank Policy composite (needs the
+          hawkish/dovish NLP classifier, deferred — see README).
           None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
+        </p>
+      </section>
+
+      <section className="mb-8" id="ai-engines-methodology">
+        <h2 className="mb-2 text-base font-semibold text-text">AI engines methodology</h2>
+        <p className="mb-2">
+          All four AI engines share one data pipeline (<code className="gfew-mono">src/lib/sources/secEdgar.ts</code>,{" "}
+          <code className="gfew-mono">src/lib/engines/aiCompanyMetrics.ts</code>) pulling quarterly XBRL
+          filings for Microsoft, Alphabet, Amazon, Meta, Oracle, Nvidia, AMD and Broadcom directly from
+          SEC EDGAR&apos;s free company-facts API — no scraping, no paid data provider. Two real
+          correctness problems were found and fixed before this shipped, not left as silent bugs:
+        </p>
+        <p className="mb-2">
+          <strong className="text-text">Tag drift.</strong> Companies change which XBRL tag they use for
+          the same concept over time — Microsoft stopped tagging <code className="gfew-mono">CostOfRevenue</code> in
+          2018, and Alphabet&apos;s <code className="gfew-mono">RevenueFromContractWithCustomerExcludingAssessedTax</code> tag
+          went stale in 2025 while it kept reporting the plain <code className="gfew-mono">Revenues</code> tag.
+          A naive &ldquo;first tag that returns any data&rdquo; approach would have silently locked onto a
+          value years out of date. Every concept is instead resolved by comparing all candidate tags and
+          taking whichever has the most recent reporting period.
+        </p>
+        <p>
+          <strong className="text-text">YTD vs. discrete quarters.</strong> Cash-flow-statement items
+          (operating cash flow, capex, depreciation) are reported as year-to-date cumulative figures in
+          most companies&apos; 10-Qs, not standalone quarters — income-statement items usually are
+          discrete. Figures are de-cumulated by grouping filings that share the same fiscal-year start
+          date and taking successive differences, which also recovers the fourth quarter (never
+          separately filed) as full-year total minus the nine-month figure. EBITDA is a proxy (operating
+          income + depreciation from the cash-flow statement), not each company&apos;s own
+          &ldquo;Adjusted EBITDA&rdquo; definition, and AI Valuation uses trailing (not forward) P/E since
+          forward-earnings estimates are analyst-consensus data behind paid terminals. Nvidia does not
+          tag a debt-maturity schedule at all, so it is marked <code className="gfew-mono">UNAVAILABLE</code> on
+          the AI Debt Maturity Wall page rather than assumed to have no near-term maturities.
         </p>
       </section>
 

@@ -23,6 +23,10 @@ const ENGINE_META: Record<string, { label: string; href: string }> = {
   china: { label: "China", href: "/dashboard/china" },
   market_concentration: { label: "Market Concentration", href: "/dashboard/market-concentration" },
   private_credit: { label: "Private Credit", href: "/dashboard/private-credit" },
+  ai_financial_sustainability: { label: "AI Financial Sustainability", href: "/dashboard/ai-financial-sustainability" },
+  ai_valuation: { label: "AI Valuation", href: "/dashboard/ai-valuation" },
+  ai_credit_financing: { label: "AI Credit / Financing", href: "/dashboard/ai-credit-financing" },
+  ai_debt_maturity_wall: { label: "AI Debt Maturity Wall", href: "/dashboard/ai-debt-maturity" },
 };
 
 export default async function DashboardPage() {

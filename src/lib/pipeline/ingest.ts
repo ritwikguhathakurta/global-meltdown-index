@@ -9,6 +9,7 @@ import { fetchGscpiSeries } from "../sources/gscpi";
 import { fetchGprSeries } from "../sources/gpr";
 import { fetchCryptoSnapshot } from "../sources/coingecko";
 import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount } from "../sources/cloudStatus";
+import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -180,6 +181,29 @@ export async function ingestCloudStatus(db: SupabaseClient, runDate: string): Pr
   return { stage: "ingest_cloud_status", status, detail: { ok, total: CLOUD_STATUS_FEEDS.length, errors } };
 }
 
+export async function ingestSecEdgar(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  let totalPoints = 0;
+  let ok = 0;
+  const errors: string[] = [];
+  for (const company of AI_COMPANIES) {
+    try {
+      const points = await fetchSecEdgarCompanyMetrics(company);
+      await upsertMetrics(db, points); // per-company upsert keeps each batch a few hundred rows, not thousands at once
+      totalPoints += points.length;
+      ok++;
+    } catch (e) {
+      errors.push(`${company.ticker}: ${(e as Error).message}`);
+    }
+    // SEC asks for no more than ~10 req/sec; one request per company is well within that,
+    // but a small stagger costs little and is good citizenship for a free public API.
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: AI_COMPANIES.length, points: totalPoints, errors };
+  await logRun(db, runDate, "ingest_sec_edgar", status, detail);
+  return { stage: "ingest_sec_edgar", status, detail };
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   const results = await Promise.all([
@@ -192,6 +216,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestGpr(db, runDate),
     ingestCrypto(db, runDate),
     ingestCloudStatus(db, runDate),
+    ingestSecEdgar(db, runDate),
   ]);
   return { runDate, results };
 }
