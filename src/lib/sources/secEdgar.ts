@@ -43,14 +43,16 @@ type CompanyFacts = { facts?: { "us-gaap"?: Record<string, { units?: Record<stri
 
 // Income-statement-style items: usually already discrete per quarter, but run through the
 // same de-cumulation path anyway since it's a no-op when facts are already discrete.
-const DURATION_CONCEPTS: { metricKey: string; tags: string[]; allowNegative: boolean }[] = [
-  { metricKey: "revenue", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"], allowNegative: false },
-  { metricKey: "operating_income", tags: ["OperatingIncomeLoss"], allowNegative: true },
-  { metricKey: "op_cash_flow", tags: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"], allowNegative: true },
-  { metricKey: "capex", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForCapitalImprovements"], allowNegative: false },
-  { metricKey: "depreciation", tags: ["DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet", "DepreciationAndAmortization", "Depreciation"], allowNegative: false },
-  { metricKey: "interest_expense", tags: ["InterestExpense", "InterestExpenseDebt"], allowNegative: false },
-  { metricKey: "eps_diluted", tags: ["EarningsPerShareDiluted"], allowNegative: true },
+// `unit` matters: everything is tagged under the "USD" unit EXCEPT per-share figures, which
+// XBRL tags under "USD/shares" — using the wrong unit key silently returns zero facts.
+const DURATION_CONCEPTS: { metricKey: string; tags: string[]; allowNegative: boolean; unit: "USD" | "USD/shares" }[] = [
+  { metricKey: "revenue", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"], allowNegative: false, unit: "USD" },
+  { metricKey: "operating_income", tags: ["OperatingIncomeLoss"], allowNegative: true, unit: "USD" },
+  { metricKey: "op_cash_flow", tags: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"], allowNegative: true, unit: "USD" },
+  { metricKey: "capex", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForCapitalImprovements"], allowNegative: false, unit: "USD" },
+  { metricKey: "depreciation", tags: ["DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet", "DepreciationAndAmortization", "Depreciation"], allowNegative: false, unit: "USD" },
+  { metricKey: "interest_expense", tags: ["InterestExpense", "InterestExpenseDebt"], allowNegative: false, unit: "USD" },
+  { metricKey: "eps_diluted", tags: ["EarningsPerShareDiluted"], allowNegative: true, unit: "USD/shares" },
 ];
 
 const INSTANT_CONCEPTS: { metricKey: string; tags: string[]; unit: "USD" }[] = [
@@ -71,10 +73,10 @@ async function fetchCompanyFacts(cik: string): Promise<CompanyFacts> {
   return (await res.json()) as CompanyFacts;
 }
 
-function extractDiscreteQuarterly(facts: CompanyFacts, tags: string[], allowNegative: boolean): { end: string; val: number }[] {
+function extractDiscreteQuarterly(facts: CompanyFacts, tags: string[], allowNegative: boolean, unit: "USD" | "USD/shares"): { end: string; val: number }[] {
   const byKey = new Map<string, XbrlFact>();
   for (const tag of tags) {
-    const usd = facts.facts?.["us-gaap"]?.[tag]?.units?.USD;
+    const usd = facts.facts?.["us-gaap"]?.[tag]?.units?.[unit];
     if (!usd) continue;
     for (const f of usd) {
       if (f.form !== "10-Q" && f.form !== "10-K") continue;
@@ -124,14 +126,14 @@ export async function fetchSecEdgarCompanyMetrics(company: SecCompanyDef): Promi
   const points: MetricPoint[] = [];
 
   for (const def of DURATION_CONCEPTS) {
-    const series = extractDiscreteQuarterly(facts, def.tags, def.allowNegative);
-    const unit = def.metricKey === "eps_diluted" ? "USD/share" : "USD";
+    const series = extractDiscreteQuarterly(facts, def.tags, def.allowNegative, def.unit);
+    const displayUnit = def.unit === "USD/shares" ? "USD/share" : "USD";
     for (const p of series) {
       points.push({
         metric_key: `ai.${company.ticker}.${def.metricKey}`,
         observed_at: p.end,
         value: p.val,
-        unit,
+        unit: displayUnit,
         source_key: "sec_edgar",
         source_tier: 1,
         frequency: "quarterly",
