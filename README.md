@@ -11,13 +11,15 @@ Core question the platform answers: *what is changing now that could matter late
 - **Next.js 16 / TypeScript / Tailwind v4** app, deployable to Vercel.
 - **Supabase** for Postgres (data + auth). Email/password sign-up with a 90-day free trial
   auto-granted on signup; role-based access (`user` / `admin`) enforced server-side in `src/proxy.ts`.
-- **23 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
+- **22 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
   scores with leading/coincident/lagging indicator breakdowns, triggers, transmission mechanism,
   confirmation/invalidation conditions, and a "what has not yet happened" section. Most cover the
   **G7 (US, Canada, UK, Germany, France, Italy, Japan) plus China**, not just the US — see
   [Country coverage](#country-coverage-g7--china) below:
-  - Global Dollar Liquidity, Credit Markets, Equity Fragility, US Treasury / Sovereign, Yen Carry Stress
-  - Banking, Property/CRE, Global Sovereign Debt, Emerging-Market Debt, Energy, Geopolitical,
+  - Global Dollar Liquidity, Credit Markets, Equity Fragility, Yen Carry Stress
+  - Treasury & Sovereign Debt (US plus the rest of the G7 + a China funding-rate proxy — fulfills
+    both US Treasury/Sovereign and Global Sovereign Debt in one engine)
+  - Banking, Property/CRE, Emerging-Market Debt, Energy, Geopolitical,
     Derivatives/Leverage, Crypto/Stablecoins, Cyber/Infrastructure, Trade/Economic Policy, Supply Chains
   - Market Concentration and Private Credit (both market-price proxies — see limitations below)
   - AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI Debt Maturity Wall — built on
@@ -191,9 +193,9 @@ Most engines were originally US-only; they were widened deliberately, not by def
 - **Property/CRE**: BIS real house-price index computed identically for all 8 economies (US, Canada,
   UK, Germany, France, Italy, Japan, China), plus US mortgage-rate/permits/starts as supplementary
   leading context (no free equivalent exists for other countries).
-- **Global Sovereign Debt**: UK, Germany, France, Italy, Japan, Canada 10Y yields + debt-to-GDP, plus
-  the derived Italy-Germany ("BTP-Bund") spread. Paired with the separate, deliberately US-only
-  US Treasury/Sovereign engine so the two are never conflated. China has no free
+- **Treasury & Sovereign Debt**: US 2Y/10Y/30Y yields + debt/GDP, plus UK, Germany, France, Italy,
+  Japan, Canada 10Y yields + debt-to-GDP, the derived Italy-Germany ("BTP-Bund") spread, and China's
+  3-month interbank rate as the closest free proxy for domestic funding stress. China has no free
   government-bond-yield source at all — documented as `UNAVAILABLE`, not guessed.
 - **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
   (includes, but isn't exclusive to, China).
@@ -203,8 +205,8 @@ Most engines were originally US-only; they were widened deliberately, not by def
   real house prices, and the Shanghai Composite.
 - **Banking**: adds ECB/UK policy rates as European funding-cost context — no free source publishes
   bank-level NPL/delinquency data outside the US for any G7 country.
-- Two engines stay intentionally single-country regardless of data availability: **Yen Carry Stress**
-  (a JPY-specific carry-trade mechanic) and **US Treasury/Sovereign**.
+- One engine stays intentionally single-country regardless of data availability: **Yen Carry Stress**
+  (a JPY-specific carry-trade mechanic).
 - **Private Credit** stays US-anchored: BDCs (Business Development Companies) are a US-specific
   regulatory structure with no comparably liquid, quotable G7 equivalent.
 

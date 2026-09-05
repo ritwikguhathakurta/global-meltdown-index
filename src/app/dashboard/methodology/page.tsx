@@ -15,19 +15,21 @@ export default function MethodologyPage() {
       <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">Coverage in this phase</h2>
         <p>
-          The full target specification defines 24 risk engines. This deployment currently implements 23,
-          chosen because they can be fed entirely by free, official/public data: Global Dollar Liquidity,
-          Credit Markets (fulfilling Corporate Credit), Equity Fragility (folding in Equity Valuation),
-          US Treasury/Sovereign, Yen Carry Stress, Banking, Property/CRE, Global Sovereign Debt,
-          Emerging-Market Debt, Energy, Geopolitical, Derivatives/Leverage, Crypto/Stablecoins,
-          Cyber/Infrastructure, Trade/Economic Policy, Supply Chains, Market Concentration, Private
-          Credit, AI Financial Sustainability, AI Valuation, AI Credit/Financing and AI Debt Maturity
-          Wall — plus partial China and India Market Regime engines (both are explicitly missing
-          indicators the full spec calls for; each engine page lists exactly which ones under
-          &ldquo;UNAVAILABLE&rdquo;). Market Concentration and Private Credit are both market-price
-          proxies (equal-weight-vs-cap-weight ETF ratios, and publicly-traded BDC share prices,
-          respectively) rather than the structural weights/AUM/covenant data the spec envisions, since
-          no free source publishes that data at all. The four AI engines run on real SEC EDGAR XBRL
+          The full target specification defines 24 risk engines. This deployment currently implements 22
+          as standalone engines, chosen because they can be fed entirely by free, official/public data:
+          Global Dollar Liquidity, Credit Markets (fulfilling Corporate Credit), Equity Fragility (folding
+          in Equity Valuation), Treasury &amp; Sovereign Debt covering the US plus the rest of the G7 and a
+          China proxy (fulfilling Global Sovereign Debt — see{" "}
+          <a href="#country-coverage" className="text-accent hover:underline">Country coverage</a>{" "}
+          below), Yen Carry Stress, Banking, Property/CRE, Emerging-Market Debt, Energy, Geopolitical,
+          Derivatives/Leverage, Crypto/Stablecoins, Cyber/Infrastructure, Trade/Economic Policy, Supply
+          Chains, Market Concentration, Private Credit, AI Financial Sustainability, AI Valuation, AI
+          Credit/Financing and AI Debt Maturity Wall — plus partial China and India Market Regime engines
+          (both are explicitly missing indicators the full spec calls for; each engine page lists exactly
+          which ones under &ldquo;UNAVAILABLE&rdquo;). Market Concentration and Private Credit are both
+          market-price proxies (equal-weight-vs-cap-weight ETF ratios, and publicly-traded BDC share
+          prices, respectively) rather than the structural weights/AUM/covenant data the spec envisions,
+          since no free source publishes that data at all. The four AI engines run on real SEC EDGAR XBRL
           quarterly filings for 8 large-cap companies central to AI capex (Microsoft, Alphabet, Amazon,
           Meta, Oracle, Nvidia, AMD, Broadcom) — see{" "}
           <a href="#ai-engines-methodology" className="text-accent hover:underline">AI engines methodology</a>{" "}
@@ -75,29 +77,30 @@ export default function MethodologyPage() {
         </p>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8" id="country-coverage">
         <h2 className="mb-2 text-base font-semibold text-text">Country coverage: G7 + China, not just the US</h2>
         <p>
           Every engine that can be extended across the G7 (US, Canada, UK, Germany, France, Italy, Japan)
           plus China with a single free, methodologically-consistent source is: Equity Fragility tracks
           the S&amp;P 500, Nasdaq, Russell 2000, Nikkei 225, DAX, FTSE 100, CAC 40, FTSE MIB, the
           S&amp;P/TSX Composite and the Shanghai Composite together; Property/CRE is built on the BIS
-          real house-price index computed the same way for all eight economies; Global Sovereign Debt
-          covers UK/Germany/France/Italy/Japan/Canada yields and debt-to-GDP (China has no free
-          government-bond-yield source at all — listed as `UNAVAILABLE` on the China engine page, not
-          guessed); Credit adds Euro-area high-yield spreads and an Asia-Pacific EM corporate spread
-          (which includes but isn&apos;t exclusively China) alongside US HY/IG/EM; and Global Liquidity
-          now includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. The standalone China
-          engine itself adds the country&apos;s 3-month interbank rate, real house-price index and
-          Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking. Two engines remain
-          intentionally single-country by definition regardless of data availability: Yen Carry Stress
-          (a JPY-specific carry-trade mechanic) and US Treasury/Sovereign (paired with the separate
-          Global Sovereign Debt engine above so the two are never conflated). Banking, China and Private
-          Credit remain partly single-country-anchored because no free source publishes bank-level
-          NPL/delinquency data for the UK, Eurozone, Canada or Japan, a China government bond yield, or a
-          non-US publicly-traded direct-lending vehicle comparable to US BDCs — those engines add
-          whatever real G7/China context does exist (policy rates, interbank rates) rather than
-          fabricating data that doesn&apos;t exist for free.
+          real house-price index computed the same way for all eight economies; Treasury &amp; Sovereign
+          Debt covers US 2Y/10Y/30Y yields and debt/GDP alongside UK/Germany/France/Italy/Japan/Canada 10Y
+          yields and debt/GDP, the Italy-Germany spread, and China&apos;s 3-month interbank rate as the
+          closest free proxy for domestic funding stress (China has no free government-bond-yield source
+          at all anywhere — listed as <code className="gfew-mono">UNAVAILABLE</code> on the Treasury
+          engine page, not guessed); Credit adds Euro-area high-yield spreads and an Asia-Pacific EM
+          corporate spread (which includes but isn&apos;t exclusively China) alongside US HY/IG/EM; and
+          Global Liquidity now includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. The
+          standalone China engine itself adds the country&apos;s 3-month interbank rate, real house-price
+          index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking. One engine
+          remains intentionally single-country by definition regardless of data availability: Yen Carry
+          Stress (a JPY-specific carry-trade mechanic). Banking, China and Private Credit remain partly
+          single-country-anchored because no free source publishes bank-level NPL/delinquency data for the
+          UK, Eurozone, Canada or Japan, a China government bond yield, or a non-US publicly-traded
+          direct-lending vehicle comparable to US BDCs — those engines add whatever real G7/China context
+          does exist (policy rates, interbank rates) rather than fabricating data that doesn&apos;t exist
+          for free.
         </p>
       </section>
 

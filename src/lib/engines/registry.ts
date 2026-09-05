@@ -7,7 +7,6 @@ import { runTreasuryEngine } from "./treasury";
 import { runYenCarryEngine } from "./yenCarry";
 import { runBankingEngine } from "./banking";
 import { runPropertyEngine } from "./property";
-import { runGlobalSovereignDebtEngine } from "./globalSovereignDebt";
 import { runEmergingMarketDebtEngine } from "./emergingMarketDebt";
 import { runEnergyEngine } from "./energy";
 import { runGeopoliticalEngine } from "./geopolitical";
@@ -29,9 +28,14 @@ export const HORIZONS: Horizon[] = ["short", "medium", "long"];
 
 /**
  * Engine registry. Each entry maps a V3 §4 engine to its runner and its
- * weight in the GFMI composite. 23 of 24 engines are implemented. Corporate
- * Credit is fulfilled by "credit" (HY/IG/Euro/Asia OAS) and Equity Valuation
- * is folded into "equity_fragility" rather than duplicated. Private Credit,
+ * weight in the GFMI composite. 22 of 24 engines are implemented (as
+ * standalone entries here — see below for the two that are folded into
+ * others rather than duplicated). Corporate Credit is fulfilled by "credit"
+ * (HY/IG/Euro/Asia OAS), Equity Valuation is folded into "equity_fragility",
+ * and Global Sovereign Debt is folded into "us_treasury_sovereign" (which
+ * covers the US plus the rest of the G7 and a China funding-rate proxy —
+ * see treasury.ts) rather than each being duplicated as its own engine.
+ * Private Credit,
  * Market Concentration and AI Valuation are all market-price proxies rather
  * than the structural data the spec envisions (no free source for the
  * former two; no free forward-earnings data for the latter) — see their
@@ -50,11 +54,10 @@ export const ENGINE_REGISTRY = [
   { key: "global_liquidity", run: runGlobalLiquidityEngine, gfmiWeight: 1.1 },
   { key: "credit", run: runCreditEngine, gfmiWeight: 1.0 },
   { key: "equity_fragility", run: runEquityFragilityEngine, gfmiWeight: 0.9 },
-  { key: "us_treasury_sovereign", run: runTreasuryEngine, gfmiWeight: 1.0 },
+  { key: "us_treasury_sovereign", run: runTreasuryEngine, gfmiWeight: 1.2 },
   { key: "yen_carry", run: runYenCarryEngine, gfmiWeight: 1.0 },
   { key: "banking", run: runBankingEngine, gfmiWeight: 0.9 },
   { key: "property", run: runPropertyEngine, gfmiWeight: 0.7 },
-  { key: "global_sovereign_debt", run: runGlobalSovereignDebtEngine, gfmiWeight: 0.8 },
   { key: "emerging_market_debt", run: runEmergingMarketDebtEngine, gfmiWeight: 0.7 },
   { key: "energy", run: runEnergyEngine, gfmiWeight: 0.6 },
   { key: "geopolitical", run: runGeopoliticalEngine, gfmiWeight: 0.6 },
