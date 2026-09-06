@@ -34,16 +34,17 @@ export const CLASSIFICATION_WEIGHT_BY_HORIZON: Record<Horizon, Record<IndicatorR
 };
 
 /**
- * Hard confidence ceiling per horizon — even with perfect, fully-fresh data,
- * confidence cannot exceed this. Uncertainty compounds with horizon (the
- * same reasoning behind central-bank fan charts widening further out), so
- * the ceiling is highest for short-term and lowest for long-term. No
- * horizon is ever allowed to reach 100%.
+ * Confidence discount factor per horizon, applied multiplicatively (not as
+ * a min-cap) so confidence differs across horizons at every data-quality
+ * level, not just when data is already near-perfect. Uncertainty compounds
+ * with horizon — the same reasoning behind central-bank fan charts widening
+ * further out — so the factor is highest for short-term and lowest for
+ * long-term. Since it is always < 1, no horizon can ever reach 100%.
  */
-export const CONFIDENCE_CEILING_BY_HORIZON: Record<Horizon, number> = {
+export const CONFIDENCE_FACTOR_BY_HORIZON: Record<Horizon, number> = {
   short: 0.95,
-  medium: 0.9,
-  long: 0.8,
+  medium: 0.88,
+  long: 0.75,
 };
 
 /** Freshness discount applied on top of raw data completeness — a STALE indicator should pull confidence down even if it's technically "present". */
@@ -69,7 +70,7 @@ export function computeConfidence(
   const dataCompleteness = totalCount > 0 ? usableStatuses.length / totalCount : 0;
   const freshnessSum = usableStatuses.reduce((a, s) => a + FRESHNESS_WEIGHT_BY_STATUS[s], 0);
   const freshnessFactor = usableStatuses.length > 0 ? freshnessSum / usableStatuses.length : 0;
-  const confidence = Math.min(dataCompleteness * freshnessFactor, CONFIDENCE_CEILING_BY_HORIZON[horizon]);
+  const confidence = dataCompleteness * freshnessFactor * CONFIDENCE_FACTOR_BY_HORIZON[horizon];
   return {
     confidence: Math.round(confidence * 100) / 100,
     dataCompleteness: Math.round(dataCompleteness * 100) / 100,

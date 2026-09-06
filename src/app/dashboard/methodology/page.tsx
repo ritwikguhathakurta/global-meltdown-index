@@ -131,10 +131,11 @@ export default function MethodologyPage() {
           completeness is the plain fraction of an engine&apos;s intended indicator set that currently has
           usable (LIVE, RECENT or STALE) data — this can honestly be 100% when every indicator is populated.
           Confidence folds in each indicator&apos;s freshness (a STALE indicator counts for less than a LIVE
-          one) and is then capped by a horizon-specific ceiling — 95% short-term, 90% medium-term, 80%
-          long-term — so it can never reach 100% even with perfect data: forecast uncertainty compounds with
-          horizon the same way a central bank&apos;s fan chart widens further out, and a model score should
-          never claim absolute certainty about anything.
+          one) and is then multiplied by a horizon-specific discount factor — 0.95 short-term, 0.88
+          medium-term, 0.75 long-term — applied at every data-quality level, not just as a ceiling near
+          perfect data, so it can never reach 100% and is always lowest for the longest horizon: forecast
+          uncertainty compounds with horizon the same way a central bank&apos;s fan chart widens further
+          out, and a model score should never claim absolute certainty about anything.
         </p>
       </section>
 

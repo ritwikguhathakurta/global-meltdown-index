@@ -224,8 +224,9 @@ Most engines were originally US-only; they were widened deliberately, not by def
   lagging/structural signals (BIS financial-cycle-style, multi-year leverage/debt buildup read).
   Confidence is separate from data completeness: completeness is a plain fraction of the indicator
   set with usable data (honestly 100% when everything is populated); confidence additionally
-  discounts for indicator freshness and is hard-capped per horizon (95%/90%/80% for
-  short/medium/long) so it can never reach 100% — uncertainty compounds with horizon.
+  discounts for indicator freshness and is then multiplied by a per-horizon factor (0.95/0.88/0.75
+  for short/medium/long, applied at every data-quality level, not just near-perfect data) so it can
+  never reach 100% and is always lowest for the longest horizon — uncertainty compounds with horizon.
 - **Source tiers**: 1 = official primary (FRED, CFTC, central-bank feeds, ECB via Frankfurter, NY
   Fed GSCPI, AWS/Azure/GCP status pages), 2 = multilateral institutions or transparent academic
   indices (the Caldara-Iacoviello Geopolitical Risk Index), 3 = licensed/unofficial aggregators
