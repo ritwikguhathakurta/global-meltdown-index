@@ -199,8 +199,13 @@ Most engines were originally US-only; they were widened deliberately, not by def
   leading context (no free equivalent exists for other countries).
 - **Treasury & Sovereign Debt**: US 2Y/10Y/30Y yields + debt/GDP, plus UK, Germany, France, Italy,
   Japan, Canada 10Y yields + debt-to-GDP, the derived Italy-Germany ("BTP-Bund") spread, and China's
-  3-month interbank rate as the closest free proxy for domestic funding stress. China has no free
-  government-bond-yield source at all — documented as `UNAVAILABLE`, not guessed.
+  3-month interbank rate and debt/GDP ratio as the closest free proxies for domestic funding stress.
+  China has no free government-bond-yield source at all — documented as `UNAVAILABLE`, not guessed.
+  UK, Germany and Canada's 10Y yields come directly from their own central bank (Bank of England,
+  Bundesbank, Bank of Canada — `src/lib/sources/govBondYields.ts`), daily with only a few days' lag,
+  rather than the OECD/FRED monthly proxy (`IRLTLT01xxM156N`) the rest of the G7 still uses, which
+  structurally lags 2-4 months; Italy, France and Japan stay on that monthly proxy since no equally
+  clean free daily alternative was found.
 - **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
   (includes, but isn't exclusive to, China).
 - **Global Liquidity**: Fed, ECB and BOJ balance sheets, plus the ECB deposit rate and the Chicago

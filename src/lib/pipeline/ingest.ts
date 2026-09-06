@@ -10,6 +10,7 @@ import { fetchGprSeries } from "../sources/gpr";
 import { fetchCryptoSnapshot } from "../sources/coingecko";
 import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount, fetchCloudStatusBackfill, MIN_BACKFILL_OBSERVATIONS } from "../sources/cloudStatus";
 import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
+import { fetchGermanyYield10y, fetchUkYield10y, fetchCanadaYield10y } from "../sources/govBondYields";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -212,6 +213,31 @@ export async function ingestSecEdgar(db: SupabaseClient, runDate: string): Promi
   return { stage: "ingest_sec_edgar", status, detail };
 }
 
+export async function ingestGovBondYields(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const fetchers = [
+    { name: "Germany (Bundesbank)", fn: fetchGermanyYield10y },
+    { name: "UK (BoE)", fn: fetchUkYield10y },
+    { name: "Canada (BoC)", fn: fetchCanadaYield10y },
+  ];
+  let ok = 0;
+  let points = 0;
+  const errors: string[] = [];
+  for (const f of fetchers) {
+    try {
+      const pts = await f.fn();
+      await upsertMetrics(db, pts);
+      points += pts.length;
+      ok++;
+    } catch (e) {
+      errors.push(`${f.name}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: fetchers.length, points, errors };
+  await logRun(db, runDate, "ingest_gov_bond_yields", status, detail);
+  return { stage: "ingest_gov_bond_yields", status, detail };
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   const results = await Promise.all([
@@ -225,6 +251,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestCrypto(db, runDate),
     ingestCloudStatus(db, runDate),
     ingestSecEdgar(db, runDate),
+    ingestGovBondYields(db, runDate),
   ]);
   return { runDate, results };
 }

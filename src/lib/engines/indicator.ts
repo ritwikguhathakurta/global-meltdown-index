@@ -21,6 +21,9 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   azure_status: 1,
   gcp_status: 1,
   sec_edgar: 1,
+  bundesbank: 1,
+  boe: 1,
+  boc: 1,
 };
 
 export async function buildIndicator(
@@ -98,5 +101,8 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey === "cyber.azure_status_events_7d") return "azure_status";
   if (metricKey === "cyber.gcp_status_events_7d") return "gcp_status";
   if (metricKey.startsWith("ai.") && !metricKey.endsWith(".price")) return "sec_edgar";
+  if (metricKey === "yield.germany_10y") return "bundesbank";
+  if (metricKey === "yield.uk_10y") return "boe";
+  if (metricKey === "yield.canada_10y") return "boc";
   return "fred";
 }

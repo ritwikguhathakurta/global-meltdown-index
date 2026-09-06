@@ -52,23 +52,22 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "property.housing_starts", seriesId: "HOUST", frequency: "monthly", unit: "thousands SAAR" },
   { metricKey: "property.building_permits", seriesId: "PERMIT", frequency: "monthly", unit: "thousands SAAR" },
 
-  // Global Sovereign Debt engine (V3 §21 extended beyond the US)
-  { metricKey: "yield.uk_10y", seriesId: "IRLTLT01GBM156N", frequency: "monthly", unit: "%" },
-  { metricKey: "yield.germany_10y", seriesId: "IRLTLT01DEM156N", frequency: "monthly", unit: "%" },
+  // Global Sovereign Debt engine (V3 §21 extended beyond the US). UK/Germany/Canada 10Y yields
+  // moved to direct central-bank daily sources (src/lib/sources/govBondYields.ts) — the OECD MEI
+  // monthly proxy below structurally lags 2-4 months and a genuinely daily free alternative was
+  // found for those three. Italy and France stay here: no equally clean free daily source found.
   { metricKey: "yield.italy_10y", seriesId: "IRLTLT01ITM156N", frequency: "monthly", unit: "%" },
   { metricKey: "yield.france_10y", seriesId: "IRLTLT01FRM156N", frequency: "monthly", unit: "%" },
-  // These four are actually annual-frequency IMF series (no "annual" bucket
-  // exists in our freshness model) — bucketed as quarterly, which correctly
-  // renders them STALE most of the time rather than falsely claiming LIVE.
-  // Verified against FRED's own series metadata: these 4 (and Canada, below) are genuinely
-  // Annual, not Quarterly — IMF-compiled general-government-debt ratios that publish once a
-  // year with a real multi-month-to-multi-year compilation lag. Mislabeling them "quarterly"
-  // doesn't change their (correctly stale) real-world age, but does miscalibrate the
-  // LIVE/RECENT/STALE thresholds against the wrong publication cadence.
+  // Verified against FRED's own series metadata: these are genuinely Annual, not Quarterly —
+  // IMF-compiled general-government-debt ratios that publish once a year with a real
+  // multi-month-to-multi-year compilation lag. Mislabeling them "quarterly" doesn't change their
+  // (correctly stale) real-world age, but does miscalibrate the LIVE/RECENT/STALE thresholds
+  // against the wrong publication cadence.
   { metricKey: "sovereign.germany_debt_to_gdp", seriesId: "GGGDTADEA188N", frequency: "annual", unit: "%" },
   { metricKey: "sovereign.italy_debt_to_gdp", seriesId: "GGGDTAITA188N", frequency: "annual", unit: "%" },
   { metricKey: "sovereign.japan_debt_to_gdp", seriesId: "GGGDTAJPA188N", frequency: "annual", unit: "%" },
   { metricKey: "sovereign.uk_debt_to_gdp", seriesId: "GGGDTAGBA188N", frequency: "annual", unit: "%" },
+  { metricKey: "sovereign.china_debt_to_gdp", seriesId: "GGGDTACNA188N", frequency: "annual", unit: "%" },
 
   // Emerging-Market Debt engine (V3 §11)
   { metricKey: "credit.em_dollar_index", seriesId: "DTWEXEMEGS", frequency: "daily", unit: "index" },
@@ -89,8 +88,8 @@ export const FRED_SERIES: FredSeriesDef[] = [
 
   // --- G7 coverage (requested explicitly: most engines above were US-only) ---
 
-  // Canada — completes G7 sovereign coverage (Global Sovereign Debt engine had no Canada at all)
-  { metricKey: "yield.canada_10y", seriesId: "IRLTLT01CAM156N", frequency: "monthly", unit: "%" },
+  // Canada — completes G7 sovereign coverage. 10Y yield moved to the Bank of Canada Valet API
+  // (govBondYields.ts) — daily, vs. this FRED/OECD monthly proxy.
   { metricKey: "sovereign.canada_debt_to_gdp", seriesId: "GGGDTACAA188N", frequency: "annual", unit: "%" },
 
   // G7 real house price indices (BIS series, same methodology across all 7 -> genuinely

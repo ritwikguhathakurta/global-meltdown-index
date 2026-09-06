@@ -8,14 +8,29 @@ import { diffSeriesByMonth } from "../metrics/stats";
  * split into a second "Global Sovereign Debt" engine for the rest of the G7;
  * merged back into a single engine so "Treasury" means what it says: US plus
  * every other G7 government bond market with a free source (UK, Germany,
- * France, Italy, Japan, Canada), not the US alone. The Italy-Germany 10Y
- * spread ("BTP-Bund spread") is the single most-watched eurozone
- * fragmentation-risk gauge, computed here rather than fetched since no free
- * source publishes the spread directly. China has no free government-bond-yield
- * source anywhere (verified — no vendor publishes one without a paid feed), so
- * it is represented by its 3-month interbank rate (the closest free proxy for
- * domestic sovereign-adjacent funding stress) and the bond yield itself is
- * listed as UNAVAILABLE rather than guessed.
+ * France, Italy, Japan, Canada), not the US alone.
+ *
+ * UK, Germany and Canada 10Y yields come directly from their own central
+ * bank/statistical warehouse (Bank of England, Bundesbank, Bank of Canada —
+ * see govBondYields.ts), each publishing daily with only a few days' lag.
+ * Italy, France and Japan still come from the FRED/OECD monthly proxy — no
+ * equally clean free daily source was found for those three within
+ * reasonable effort, so they remain genuinely a few months stale by nature
+ * of that specific source, not a pipeline fault (verified directly against
+ * FRED's own metadata: we hold the freshest value the source has ever
+ * published). The Italy-Germany 10Y spread ("BTP-Bund spread") is the
+ * single most-watched eurozone fragmentation-risk gauge, computed here
+ * rather than fetched since no free source publishes the spread directly —
+ * it is still bottlenecked to Italy's monthly cadence even though Germany's
+ * own side of it is now daily.
+ *
+ * China has no free government-bond-yield source anywhere (verified — no
+ * vendor publishes one without a paid feed), so it is represented by its
+ * 3-month interbank rate (the closest free proxy for domestic
+ * sovereign-adjacent funding stress) and its government debt/GDP ratio
+ * (IMF-compiled, same annual cadence and lag as the other G7 countries'
+ * debt ratios); the bond yield itself is listed as UNAVAILABLE rather than
+ * guessed.
  */
 const UNAVAILABLE_INDICATORS: { key: string; label: string; classification: "leading" | "coincident" | "lagging" }[] = [
   { key: "yield.china_10y", label: "China 10Y Government Bond Yield", classification: "coincident" },
@@ -43,23 +58,25 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
     canadaDebt,
     ukDebt,
     chinaInterbank,
+    chinaDebt,
   ] = await Promise.all([
     buildIndicator(ctx.db, "yield.us02y", "US 2Y Treasury Yield", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "yield.us10y", "US 10Y Treasury Yield", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "yield.us30y", "US 30Y Treasury Yield", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "sovereign.us_debt_to_gdp", "US Federal Debt / GDP", "lagging", "quarterly", "%"),
-    buildIndicator(ctx.db, "yield.uk_10y", "UK 10Y Gilt Yield", "coincident", "monthly", "%"),
-    buildIndicator(ctx.db, "yield.germany_10y", "Germany 10Y Bund Yield", "coincident", "monthly", "%"),
+    buildIndicator(ctx.db, "yield.uk_10y", "UK 10Y Gilt Yield (Bank of England, daily)", "coincident", "daily", "%"),
+    buildIndicator(ctx.db, "yield.germany_10y", "Germany 10Y Bund Yield (Bundesbank, daily)", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "yield.italy_10y", "Italy 10Y BTP Yield", "coincident", "monthly", "%"),
     buildIndicator(ctx.db, "yield.france_10y", "France 10Y OAT Yield", "coincident", "monthly", "%"),
     buildIndicator(ctx.db, "yield.japan_10y_proxy", "Japan 10Y JGB Yield (OECD monthly proxy)", "coincident", "monthly", "%"),
-    buildIndicator(ctx.db, "yield.canada_10y", "Canada 10Y Yield", "coincident", "monthly", "%"),
+    buildIndicator(ctx.db, "yield.canada_10y", "Canada 10Y Yield (Bank of Canada, daily)", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "sovereign.germany_debt_to_gdp", "Germany Government Debt / GDP", "lagging", "annual", "%"),
     buildIndicator(ctx.db, "sovereign.italy_debt_to_gdp", "Italy Government Debt / GDP", "lagging", "annual", "%"),
     buildIndicator(ctx.db, "sovereign.japan_debt_to_gdp", "Japan Government Debt / GDP", "lagging", "annual", "%"),
     buildIndicator(ctx.db, "sovereign.canada_debt_to_gdp", "Canada Government Debt / GDP", "lagging", "annual", "%"),
     buildIndicator(ctx.db, "sovereign.uk_debt_to_gdp", "UK Government Debt / GDP", "lagging", "annual", "%"),
     buildIndicator(ctx.db, "china.interbank_rate_3m", "China 3M Interbank Rate (sovereign-yield proxy)", "leading", "monthly", "%"),
+    buildIndicator(ctx.db, "sovereign.china_debt_to_gdp", "China Government Debt / GDP", "lagging", "annual", "%"),
   ]);
 
   const btpBundSpread = diffSeriesByMonth(italy10y.series, germany10y.series);
@@ -92,6 +109,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
       { ref: canadaDebt.ref, series: canadaDebt.series, weight: 0.3, zDirection: 1 },
       { ref: ukDebt.ref, series: ukDebt.series, weight: 0.3, zDirection: 1 },
       { ref: chinaInterbank.ref, series: chinaInterbank.series, weight: 0.4, zDirection: 1 },
+      { ref: chinaDebt.ref, series: chinaDebt.series, weight: 0.3, zDirection: 1 },
       ...UNAVAILABLE_INDICATORS.map((u) => ({ ref: unavailableRef(u), series: [], weight: 0.5, zDirection: 1 as const })),
     ],
     triggerDesc:
@@ -102,7 +120,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
     invalidationConditions: ["Long yields fall or stabilize with strong auction demand", "Term premium and the BTP-Bund spread compress back toward trailing medians"],
     confirmationConditions: ["Auction tails widen (not yet tracked)", "Sovereign CDS widens materially (not yet tracked)"],
     notYetHappened: ["No confirmed pattern of disorderly weak demand across the tracked sovereign markets"],
-    contradictoryEvidence: ["China is represented by an interbank rate proxy, not a sovereign bond yield — no free source publishes one"],
-    methodologyVersion: "v0.2-freedata-g7china",
+    contradictoryEvidence: ["China is represented by an interbank rate and a debt/GDP ratio, not a sovereign bond yield — no free source publishes one", "Italy, France and Japan yields still come from a monthly proxy that lags 2-4 months; UK, Germany and Canada are now daily"],
+    methodologyVersion: "v0.3-freedata-daily-g7-yields",
   });
 }

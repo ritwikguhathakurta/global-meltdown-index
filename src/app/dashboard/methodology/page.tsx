@@ -86,10 +86,16 @@ export default function MethodologyPage() {
           S&amp;P/TSX Composite and the Shanghai Composite together; Property/CRE is built on the BIS
           real house-price index computed the same way for all eight economies; Treasury &amp; Sovereign
           Debt covers US 2Y/10Y/30Y yields and debt/GDP alongside UK/Germany/France/Italy/Japan/Canada 10Y
-          yields and debt/GDP, the Italy-Germany spread, and China&apos;s 3-month interbank rate as the
-          closest free proxy for domestic funding stress (China has no free government-bond-yield source
-          at all anywhere — listed as <code className="gfew-mono">UNAVAILABLE</code> on the Treasury
-          engine page, not guessed); Credit adds Euro-area high-yield spreads and an Asia-Pacific EM
+          yields and debt/GDP, the Italy-Germany spread, and China&apos;s 3-month interbank rate and
+          debt/GDP ratio as the closest free proxies for domestic funding stress (China has no free
+          government-bond-yield source at all anywhere — listed as{" "}
+          <code className="gfew-mono">UNAVAILABLE</code> on the Treasury engine page, not guessed). UK,
+          Germany and Canada&apos;s 10Y yields come directly from their own central bank/statistical
+          warehouse (Bank of England, Bundesbank, Bank of Canada) rather than the OECD/FRED monthly proxy
+          the rest of the non-US G7 still uses, since each publishes daily with only a few days&apos; lag —
+          a real freshness upgrade for those three, not just a relabeling; Italy, France and Japan stay on
+          the monthly proxy since no equally clean free daily alternative was found. Credit adds Euro-area
+          high-yield spreads and an Asia-Pacific EM
           corporate spread (which includes but isn&apos;t exclusively China) alongside US HY/IG/EM; and
           Global Liquidity now includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. The
           standalone China engine itself adds the country&apos;s 3-month interbank rate, real house-price
@@ -177,11 +183,12 @@ export default function MethodologyPage() {
           annual figures (IMF-compiled debt ratios often carry a further multi-month-to-multi-year
           compilation lag; debt-maturity schedules are 10-K-only disclosures, refreshed once a year per
           company) and are compared against an annual-cadence threshold rather than a monthly or quarterly
-          one for exactly this reason; non-US G7 bond yields and China&apos;s interbank rate come from
-          OECD-compiled monthly series that structurally publish 2-4 months behind, and BIS real
-          house-price indices typically lag one to two quarters. None of this means the pipeline missed
-          anything newer — where we&apos;ve checked, our stored value already matches the freshest
-          observation the source has ever published.
+          one for exactly this reason; Italy, France, Japan and China&apos;s interbank rate still come from
+          OECD-compiled monthly series that structurally publish 2-4 months behind (UK, Germany and Canada
+          moved to their own central bank&apos;s daily series and no longer carry this lag — see Country
+          coverage above), and BIS real house-price indices typically lag one to two quarters. None of this
+          means the pipeline missed anything newer — where we&apos;ve checked, our stored value already
+          matches the freshest observation the source has ever published.
         </p>
         <p className="mt-2">
           Bitcoin and Ethereum spot price come from Yahoo
