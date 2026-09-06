@@ -166,7 +166,11 @@ fixed by testing against live filings before this shipped, not left as silent bu
   `RevenueFromContractWithCustomerExcludingAssessedTax` went stale in 2025 while it kept reporting
   the plain `Revenues` tag for the same figure. A naive "first tag that returns any data" approach
   silently locks onto values years out of date — verified this by diffing extraction results
-  against both approaches before choosing "most recent value across all candidate tags."
+  against both approaches before choosing "most recent value across all candidate tags." Found the
+  same pattern again later, live in production this time (`interest_coverage` showing STALE data
+  from mid-2024): Microsoft, Alphabet, Amazon and Nvidia all migrated `InterestExpense` to
+  `InterestExpenseNonoperating` starting FY2025 — the recency-based selection logic already handled
+  it correctly once that tag was added to the candidate list, no new logic needed.
 - **YTD vs. discrete quarters.** Cash-flow-statement items (operating cash flow, capex,
   depreciation) are reported as year-to-date cumulative figures in most companies' 10-Qs, not
   standalone quarters — income-statement items usually are already discrete. Figures are
@@ -227,6 +231,16 @@ Most engines were originally US-only; they were widened deliberately, not by def
   discounts for indicator freshness and is then multiplied by a per-horizon factor (0.95/0.88/0.75
   for short/medium/long, applied at every data-quality level, not just near-perfect data) so it can
   never reach 100% and is always lowest for the longest horizon — uncertainty compounds with horizon.
+- **STALE badges on international/annual data are usually not a bug** (`src/lib/quality/freshness.ts`,
+  `src/lib/metrics/lookback.ts`): verified directly against FRED's and SEC EDGAR's own series
+  metadata that our stored values already match the freshest observation the source has ever
+  published — G7 debt/GDP ratios (`GGGDTA*A188N` on FRED) and AI-engine debt-maturity schedules are
+  genuinely annual (10-K-only, or IMF-compiled with a real multi-month-to-multi-year lag), so they
+  were relabeled from "quarterly" to a proper "annual" frequency with its own, more permissive
+  LIVE/RECENT/STALE thresholds (400/730 days) — this doesn't change the (correctly stale) verdict
+  for data that's genuinely years old, but it did flip several AI-engine debt-maturity figures from
+  a false STALE to correctly LIVE, since a schedule filed 8 months ago is completely current for
+  something that only updates once a year.
 - **Source tiers**: 1 = official primary (FRED, CFTC, central-bank feeds, ECB via Frankfurter, NY
   Fed GSCPI, AWS/Azure/GCP status pages), 2 = multilateral institutions or transparent academic
   indices (the Caldara-Iacoviello Geopolitical Risk Index), 3 = licensed/unofficial aggregators

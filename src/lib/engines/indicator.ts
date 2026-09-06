@@ -28,7 +28,7 @@ export async function buildIndicator(
   key: string,
   label: string,
   classification: "leading" | "coincident" | "lagging",
-  frequency: "daily" | "weekly" | "monthly" | "quarterly" = "daily",
+  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "annual" = "daily",
   unit?: string
 ): Promise<{ ref: IndicatorRef; series: Point[] }> {
   const since = new Date();

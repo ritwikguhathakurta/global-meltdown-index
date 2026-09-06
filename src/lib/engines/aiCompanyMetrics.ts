@@ -66,9 +66,13 @@ export async function loadCompanyDerived(db: SupabaseClient, ticker: string, nam
     buildIndicator(db, `ai.${ticker}.cash`, `${name} Cash`, "coincident", "quarterly", "USD"),
     buildIndicator(db, `ai.${ticker}.debt_noncurrent`, `${name} Long-Term Debt (Noncurrent)`, "coincident", "quarterly", "USD"),
     buildIndicator(db, `ai.${ticker}.debt_current`, `${name} Long-Term Debt (Current)`, "coincident", "quarterly", "USD"),
-    buildIndicator(db, `ai.${ticker}.debt_maturity_y1`, `${name} Debt Maturing in Y1`, "leading", "quarterly", "USD"),
-    buildIndicator(db, `ai.${ticker}.debt_maturity_y2`, `${name} Debt Maturing in Y2`, "leading", "quarterly", "USD"),
-    buildIndicator(db, `ai.${ticker}.debt_maturity_y3`, `${name} Debt Maturing in Y3`, "leading", "quarterly", "USD"),
+    // Debt-maturity schedules are disclosed in 10-Ks, not every 10-Q, so in practice these
+    // refresh once a year per company — "annual" here calibrates staleness against that real
+    // cadence instead of flagging a just-filed, fully-current schedule as STALE for most of the
+    // year it's still the latest available figure.
+    buildIndicator(db, `ai.${ticker}.debt_maturity_y1`, `${name} Debt Maturing in Y1`, "leading", "annual", "USD"),
+    buildIndicator(db, `ai.${ticker}.debt_maturity_y2`, `${name} Debt Maturing in Y2`, "leading", "annual", "USD"),
+    buildIndicator(db, `ai.${ticker}.debt_maturity_y3`, `${name} Debt Maturing in Y3`, "leading", "annual", "USD"),
     buildIndicator(db, `ai.${ticker}.price`, `${name} Stock Price`, "coincident", "daily", "USD"),
   ]);
 

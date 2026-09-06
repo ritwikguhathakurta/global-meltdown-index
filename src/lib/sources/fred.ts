@@ -8,7 +8,7 @@ import type { MetricPoint } from "../metrics/store";
 export type FredSeriesDef = {
   metricKey: string;
   seriesId: string;
-  frequency: "daily" | "weekly" | "monthly" | "quarterly";
+  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "annual";
   unit: string;
 };
 
@@ -60,10 +60,15 @@ export const FRED_SERIES: FredSeriesDef[] = [
   // These four are actually annual-frequency IMF series (no "annual" bucket
   // exists in our freshness model) — bucketed as quarterly, which correctly
   // renders them STALE most of the time rather than falsely claiming LIVE.
-  { metricKey: "sovereign.germany_debt_to_gdp", seriesId: "GGGDTADEA188N", frequency: "quarterly", unit: "%" },
-  { metricKey: "sovereign.italy_debt_to_gdp", seriesId: "GGGDTAITA188N", frequency: "quarterly", unit: "%" },
-  { metricKey: "sovereign.japan_debt_to_gdp", seriesId: "GGGDTAJPA188N", frequency: "quarterly", unit: "%" },
-  { metricKey: "sovereign.uk_debt_to_gdp", seriesId: "GGGDTAGBA188N", frequency: "quarterly", unit: "%" },
+  // Verified against FRED's own series metadata: these 4 (and Canada, below) are genuinely
+  // Annual, not Quarterly — IMF-compiled general-government-debt ratios that publish once a
+  // year with a real multi-month-to-multi-year compilation lag. Mislabeling them "quarterly"
+  // doesn't change their (correctly stale) real-world age, but does miscalibrate the
+  // LIVE/RECENT/STALE thresholds against the wrong publication cadence.
+  { metricKey: "sovereign.germany_debt_to_gdp", seriesId: "GGGDTADEA188N", frequency: "annual", unit: "%" },
+  { metricKey: "sovereign.italy_debt_to_gdp", seriesId: "GGGDTAITA188N", frequency: "annual", unit: "%" },
+  { metricKey: "sovereign.japan_debt_to_gdp", seriesId: "GGGDTAJPA188N", frequency: "annual", unit: "%" },
+  { metricKey: "sovereign.uk_debt_to_gdp", seriesId: "GGGDTAGBA188N", frequency: "annual", unit: "%" },
 
   // Emerging-Market Debt engine (V3 §11)
   { metricKey: "credit.em_dollar_index", seriesId: "DTWEXEMEGS", frequency: "daily", unit: "index" },
@@ -86,7 +91,7 @@ export const FRED_SERIES: FredSeriesDef[] = [
 
   // Canada — completes G7 sovereign coverage (Global Sovereign Debt engine had no Canada at all)
   { metricKey: "yield.canada_10y", seriesId: "IRLTLT01CAM156N", frequency: "monthly", unit: "%" },
-  { metricKey: "sovereign.canada_debt_to_gdp", seriesId: "GGGDTACAA188N", frequency: "quarterly", unit: "%" },
+  { metricKey: "sovereign.canada_debt_to_gdp", seriesId: "GGGDTACAA188N", frequency: "annual", unit: "%" },
 
   // G7 real house price indices (BIS series, same methodology across all 7 -> genuinely
   // comparable, unlike mixing one country's nominal index with another's) — Property engine

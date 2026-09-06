@@ -166,7 +166,25 @@ export default function MethodologyPage() {
           (licensed financial news), Tier 5 (verified official social accounts). Every displayed value
           carries a freshness status — LIVE, RECENT, STALE or UNAVAILABLE — computed from its age relative
           to its own publication frequency. Data is never silently backfilled or estimated to hide a gap;
-          missing coverage is shown as UNAVAILABLE. Bitcoin and Ethereum spot price come from Yahoo
+          missing coverage is shown as UNAVAILABLE.
+        </p>
+        <p className="mt-2">
+          A STALE badge on an indicator that updates daily (equities, FX, Treasury yields) would mean
+          something is actually broken — that has never been observed in production. STALE on an
+          internationally-sourced or annual-disclosure indicator instead reflects genuine publication lag in
+          the underlying official source itself, confirmed directly against that source&apos;s own metadata
+          rather than assumed: G7 government debt/GDP ratios and AI-engine debt-maturity schedules are
+          annual figures (IMF-compiled debt ratios often carry a further multi-month-to-multi-year
+          compilation lag; debt-maturity schedules are 10-K-only disclosures, refreshed once a year per
+          company) and are compared against an annual-cadence threshold rather than a monthly or quarterly
+          one for exactly this reason; non-US G7 bond yields and China&apos;s interbank rate come from
+          OECD-compiled monthly series that structurally publish 2-4 months behind, and BIS real
+          house-price indices typically lag one to two quarters. None of this means the pipeline missed
+          anything newer — where we&apos;ve checked, our stored value already matches the freshest
+          observation the source has ever published.
+        </p>
+        <p className="mt-2">
+          Bitcoin and Ethereum spot price come from Yahoo
           Finance&apos;s chart endpoint (Tier 3), not investing.com — investing.com has no free public API,
           and scraping its site would break the no-scraping/official-source-only rule every other connector
           in this platform follows; Yahoo publishes genuine multi-year daily history for both, which fixed

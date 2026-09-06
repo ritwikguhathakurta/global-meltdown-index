@@ -51,7 +51,11 @@ const DURATION_CONCEPTS: { metricKey: string; tags: string[]; allowNegative: boo
   { metricKey: "op_cash_flow", tags: ["NetCashProvidedByUsedInOperatingActivities", "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"], allowNegative: true, unit: "USD" },
   { metricKey: "capex", tags: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets", "PaymentsForCapitalImprovements"], allowNegative: false, unit: "USD" },
   { metricKey: "depreciation", tags: ["DepreciationDepletionAndAmortization", "DepreciationAmortizationAndAccretionNet", "DepreciationAndAmortization", "Depreciation"], allowNegative: false, unit: "USD" },
-  { metricKey: "interest_expense", tags: ["InterestExpense", "InterestExpenseDebt"], allowNegative: false, unit: "USD" },
+  // Another tag-drift case (see file header): Microsoft, Alphabet, Amazon and Nvidia all
+  // switched from InterestExpense to InterestExpenseNonoperating starting FY2025 — without this
+  // tag, recency-based selection was correctly picking InterestExpense, but that tag simply
+  // stopped being filed, so the "most recent" data under it was stuck at mid-2024.
+  { metricKey: "interest_expense", tags: ["InterestExpense", "InterestExpenseDebt", "InterestExpenseNonoperating"], allowNegative: false, unit: "USD" },
   { metricKey: "eps_diluted", tags: ["EarningsPerShareDiluted"], allowNegative: true, unit: "USD/shares" },
 ];
 

@@ -7,7 +7,7 @@ export type FreshnessStatus = "LIVE" | "RECENT" | "STALE" | "UNAVAILABLE";
  */
 export function freshnessFor(
   observedAtIso: string | null,
-  frequency: "daily" | "weekly" | "monthly" | "quarterly" = "daily"
+  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "annual" = "daily"
 ): FreshnessStatus {
   if (!observedAtIso) return "UNAVAILABLE";
   const ageDays = (Date.now() - new Date(observedAtIso).getTime()) / 86400000;
@@ -16,6 +16,10 @@ export function freshnessFor(
     weekly: [10, 21],
     monthly: [40, 75],
     quarterly: [110, 200],
+    // Annual disclosures (IMF/OECD government debt ratios, 10-K-only debt-maturity schedules)
+    // genuinely only refresh once a year — comparing them to the quarterly window flagged a
+    // just-filed, fully-current annual figure as STALE for most of the year it's still current.
+    annual: [400, 730],
   };
   const [liveMax, recentMax] = thresholds[frequency];
   if (ageDays <= liveMax) return "LIVE";

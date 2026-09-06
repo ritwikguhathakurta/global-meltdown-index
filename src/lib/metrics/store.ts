@@ -8,7 +8,7 @@ export type MetricPoint = {
   unit?: string;
   source_key: string;
   source_tier: number;
-  frequency?: "daily" | "weekly" | "monthly" | "quarterly";
+  frequency?: "daily" | "weekly" | "monthly" | "quarterly" | "annual";
   raw?: unknown;
 };
 
