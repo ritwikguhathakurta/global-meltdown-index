@@ -23,7 +23,15 @@ export function stdev(xs: number[]): number {
   return Math.sqrt(variance);
 }
 
-/** z-score of the most recent value against its own trailing window (excludes itself from the baseline). */
+/**
+ * z-score of the most recent value against its own trailing window (excludes itself from the
+ * baseline). A baseline with zero variance (e.g. a status-event-count indicator that has been
+ * flat at 0 for its entire trailing window) makes the standard formula divide by zero — rather
+ * than returning null and dropping the indicator entirely, a value matching that constant
+ * baseline is "no deviation" (z=0), and any value departing from an otherwise perfectly stable
+ * baseline is maximally anomalous relative to its own history (clamped to the same +/-3 bound
+ * zToRiskScore already clamps to), not "insufficient data".
+ */
 export function zScore(points: Point[], window = 252): number | null {
   if (points.length < 20) return null;
   const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
@@ -33,7 +41,8 @@ export function zScore(points: Point[], window = 252): number | null {
   const vals = baseline.map((p) => p.v);
   const m = mean(vals);
   const sd = stdev(vals);
-  if (!sd || Number.isNaN(sd)) return null;
+  if (Number.isNaN(sd)) return null;
+  if (sd === 0) return current.v === m ? 0 : current.v > m ? 3 : -3;
   return (current.v - m) / sd;
 }
 

@@ -111,7 +111,12 @@ export default function MethodologyPage() {
           indicator with at least 20 trailing observations, we compute a trailing z-score and map it onto a
           0-100 risk scale (0 = 3 standard deviations &ldquo;calmer than usual&rdquo;, 100 = 3 standard
           deviations more stressed than usual). The engine score is the completeness-weighted average of
-          its indicators&apos; scores.
+          its indicators&apos; scores. An indicator whose trailing window has been perfectly flat (zero
+          variance — e.g. a status-event count sitting at 0 for weeks) scores as exactly neutral (50) while
+          it stays flat, and jumps to the scale&apos;s extreme the moment it departs from that constant
+          baseline at all, rather than being dropped as &ldquo;insufficient data&rdquo;: a genuinely
+          unchanging series carries real information (calm), and a first departure from it is maximally
+          notable relative to its own history even before enough of a track record exists to size it precisely.
         </p>
         <p className="mb-2">
           The z-score window and each indicator&apos;s weight both change by horizon, following the
