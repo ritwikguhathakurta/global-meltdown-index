@@ -11,6 +11,7 @@ import { fetchCryptoSnapshot } from "../sources/coingecko";
 import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount, fetchCloudStatusBackfill, MIN_BACKFILL_OBSERVATIONS } from "../sources/cloudStatus";
 import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
 import { fetchGermanyYield10y, fetchUkYield10y, fetchCanadaYield10y } from "../sources/govBondYields";
+import { fetchChinaYield10y } from "../sources/chinaBondYield";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -218,6 +219,7 @@ export async function ingestGovBondYields(db: SupabaseClient, runDate: string): 
     { name: "Germany (Bundesbank)", fn: fetchGermanyYield10y },
     { name: "UK (BoE)", fn: fetchUkYield10y },
     { name: "Canada (BoC)", fn: fetchCanadaYield10y },
+    { name: "China (ChinaBond/CCDC)", fn: fetchChinaYield10y },
   ];
   let ok = 0;
   let points = 0;

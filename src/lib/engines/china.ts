@@ -7,11 +7,13 @@ import { composeEngineResult } from "./compose";
  * developer financing/defaults, LGFV debt, bank NPLs, credit impulse and PMI
  * new orders are all in the document's indicator list but have no free daily
  * source (China macro data of this granularity is behind paid providers like
- * CEIC/Wind), and no free source publishes a China government bond yield at
- * all. Surfaced as UNAVAILABLE per V3 §63 rather than omitted or faked. Real
- * property *prices* (BIS index, as opposed to sales volumes) and mainland
- * equities are now tracked here via the shared cross-country series also used
- * by the Property/Equity Fragility/Credit engines.
+ * CEIC/Wind). Surfaced as UNAVAILABLE per V3 §63 rather than omitted or
+ * faked. Real property *prices* (BIS index, as opposed to sales volumes),
+ * mainland equities, the government debt/GDP ratio and the 10Y government
+ * bond yield are tracked here (the yield via ChinaBond/CCDC directly — see
+ * chinaBondYield.ts and treasury.ts's docstring; no FRED/OECD/BIS source
+ * publishes it, which is why it took direct investigation of CCDC's own
+ * site rather than the usual multilateral aggregators to find).
  */
 const UNAVAILABLE_INDICATORS: { key: string; label: string; classification: "leading" | "coincident" | "lagging" }[] = [
   { key: "china.property_sales", label: "China Property Sales (transaction volume)", classification: "leading" },
@@ -19,7 +21,6 @@ const UNAVAILABLE_INDICATORS: { key: string; label: string; classification: "lea
   { key: "china.credit_impulse", label: "China Credit Impulse", classification: "leading" },
   { key: "china.pmi_new_orders", label: "China PMI New Orders", classification: "leading" },
   { key: "china.lgfv_debt", label: "LGFV (Local Government Financing Vehicle) Debt", classification: "lagging" },
-  { key: "yield.china_10y", label: "China 10Y Government Bond Yield", classification: "coincident" },
 ];
 
 function unavailableRef(u: (typeof UNAVAILABLE_INDICATORS)[number]): IndicatorRef {
@@ -27,7 +28,7 @@ function unavailableRef(u: (typeof UNAVAILABLE_INDICATORS)[number]): IndicatorRe
 }
 
 export async function runChinaEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [exports, imports, cny, cpi, interbankRate, hpi, shanghai] = await Promise.all([
+  const [exports, imports, cny, cpi, interbankRate, hpi, shanghai, yield10y, debtToGdp] = await Promise.all([
     buildIndicator(ctx.db, "china.exports_cny", "China Exports (CNY)", "leading", "monthly", "CNY"),
     buildIndicator(ctx.db, "china.imports_cny", "China Imports (CNY)", "leading", "monthly", "CNY"),
     buildIndicator(ctx.db, "fx.usdcny", "USDCNY", "coincident", "daily", "CNY"),
@@ -35,6 +36,8 @@ export async function runChinaEngine(ctx: EngineContext, horizon: Horizon): Prom
     buildIndicator(ctx.db, "china.interbank_rate_3m", "China 3M Interbank Rate (SHIBOR-equivalent)", "leading", "monthly", "%"),
     buildIndicator(ctx.db, "property.hpi_real_china", "China Real House Price Index (BIS)", "leading", "quarterly", "index"),
     buildIndicator(ctx.db, "equity.shanghai_composite", "Shanghai Composite", "coincident", "daily", "index"),
+    buildIndicator(ctx.db, "yield.china_10y", "China 10Y Government Bond Yield (ChinaBond/CCDC, daily)", "coincident", "daily", "%"),
+    buildIndicator(ctx.db, "sovereign.china_debt_to_gdp", "China Government Debt / GDP", "lagging", "annual", "%"),
   ]);
 
   return composeEngineResult({
@@ -50,6 +53,8 @@ export async function runChinaEngine(ctx: EngineContext, horizon: Horizon): Prom
       { ref: interbankRate.ref, series: interbankRate.series, weight: 0.5, zDirection: 1 },
       { ref: hpi.ref, series: hpi.series, weight: 0.8, zDirection: -1 },
       { ref: shanghai.ref, series: shanghai.series, weight: 0.6, zDirection: -1 },
+      { ref: yield10y.ref, series: yield10y.series, weight: 0.5, zDirection: 1 },
+      { ref: debtToGdp.ref, series: debtToGdp.series, weight: 0.3, zDirection: 1 },
       ...UNAVAILABLE_INDICATORS.map((u) => ({ ref: unavailableRef(u), series: [], weight: 1, zDirection: 1 as const })),
     ],
     triggerDesc:
@@ -60,7 +65,7 @@ export async function runChinaEngine(ctx: EngineContext, horizon: Horizon): Prom
     invalidationConditions: ["CNY stabilizes within its managed band", "Trade volumes and real house prices stabilize"],
     confirmationConditions: ["A confirmed PBOC policy response (rate cut, RRR cut, or explicit FX intervention) — not tracked, requires PBOC statement monitoring not yet built"],
     notYetHappened: ["No confirmed disorderly CNY depreciation in the tracked series"],
-    contradictoryEvidence: ["This engine still cannot see property transaction volumes, credit impulse, PMI or a sovereign bond yield for China — a genuinely deteriorating economy could exist without fully showing up here"],
-    methodologyVersion: "v0.2-freedata-partial",
+    contradictoryEvidence: ["This engine still cannot see property transaction volumes, credit impulse or PMI for China — a genuinely deteriorating economy could exist without fully showing up here"],
+    methodologyVersion: "v0.3-freedata-chinabond",
   });
 }

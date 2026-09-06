@@ -198,14 +198,16 @@ Most engines were originally US-only; they were widened deliberately, not by def
   UK, Germany, France, Italy, Japan, China), plus US mortgage-rate/permits/starts as supplementary
   leading context (no free equivalent exists for other countries).
 - **Treasury & Sovereign Debt**: US 2Y/10Y/30Y yields + debt/GDP, plus UK, Germany, France, Italy,
-  Japan, Canada 10Y yields + debt-to-GDP, the derived Italy-Germany ("BTP-Bund") spread, and China's
-  3-month interbank rate and debt/GDP ratio as the closest free proxies for domestic funding stress.
-  China has no free government-bond-yield source at all — documented as `UNAVAILABLE`, not guessed.
-  UK, Germany and Canada's 10Y yields come directly from their own central bank (Bank of England,
-  Bundesbank, Bank of Canada — `src/lib/sources/govBondYields.ts`), daily with only a few days' lag,
-  rather than the OECD/FRED monthly proxy (`IRLTLT01xxM156N`) the rest of the G7 still uses, which
-  structurally lags 2-4 months; Italy, France and Japan stay on that monthly proxy since no equally
-  clean free daily alternative was found.
+  Japan, Canada and China 10Y yields + debt-to-GDP, the derived Italy-Germany ("BTP-Bund") spread,
+  and China's 3-month interbank rate as an additional funding-stress proxy. UK, Germany, Canada and
+  China's 10Y yields come directly from their own central bank/depository (Bank of England,
+  Bundesbank, Bank of Canada — `src/lib/sources/govBondYields.ts`; ChinaBond/CCDC, the
+  PBOC-designated central bond depository — `src/lib/sources/chinaBondYield.ts`), daily with only a
+  few days' lag, rather than a FRED/OECD monthly proxy. China's yield in particular had been
+  documented `UNAVAILABLE` (no FRED, OECD or BIS series covers it at all) until CCDC's own site was
+  checked directly rather than the usual multilateral aggregators. Italy, France and Japan stay on
+  the FRED/OECD monthly proxy (`IRLTLT01xxM156N`, structurally lags 2-4 months) since no equally
+  clean free daily alternative was found for those three.
 - **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
   (includes, but isn't exclusive to, China).
 - **Global Liquidity**: Fed, ECB and BOJ balance sheets, plus the ECB deposit rate and the Chicago

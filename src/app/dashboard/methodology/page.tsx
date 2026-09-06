@@ -85,28 +85,29 @@ export default function MethodologyPage() {
           the S&amp;P 500, Nasdaq, Russell 2000, Nikkei 225, DAX, FTSE 100, CAC 40, FTSE MIB, the
           S&amp;P/TSX Composite and the Shanghai Composite together; Property/CRE is built on the BIS
           real house-price index computed the same way for all eight economies; Treasury &amp; Sovereign
-          Debt covers US 2Y/10Y/30Y yields and debt/GDP alongside UK/Germany/France/Italy/Japan/Canada 10Y
-          yields and debt/GDP, the Italy-Germany spread, and China&apos;s 3-month interbank rate and
-          debt/GDP ratio as the closest free proxies for domestic funding stress (China has no free
-          government-bond-yield source at all anywhere — listed as{" "}
-          <code className="gfew-mono">UNAVAILABLE</code> on the Treasury engine page, not guessed). UK,
-          Germany and Canada&apos;s 10Y yields come directly from their own central bank/statistical
-          warehouse (Bank of England, Bundesbank, Bank of Canada) rather than the OECD/FRED monthly proxy
-          the rest of the non-US G7 still uses, since each publishes daily with only a few days&apos; lag —
-          a real freshness upgrade for those three, not just a relabeling; Italy, France and Japan stay on
-          the monthly proxy since no equally clean free daily alternative was found. Credit adds Euro-area
+          Debt covers US 2Y/10Y/30Y yields and debt/GDP alongside UK/Germany/France/Italy/Japan/Canada/China
+          10Y yields and debt/GDP, the Italy-Germany spread, and China&apos;s 3-month interbank rate as an
+          additional funding-stress proxy. UK, Germany, Canada and China&apos;s 10Y yields all come directly
+          from their own central bank or central depository (Bank of England, Bundesbank, Bank of Canada,
+          and — for China — ChinaBond/CCDC, the PBOC-designated central bond depository, whose government
+          bond yield curve is the standard benchmark cited internationally as China&apos;s sovereign
+          yield) rather than a FRED/OECD monthly proxy, each publishing daily with only a few days&apos;
+          lag — a real freshness upgrade, and one that closes what had been treated as a genuine data gap
+          (no FRED, OECD or BIS series covers this at all; finding it required looking directly at CCDC&apos;s
+          own site, not the usual multilateral aggregators). Italy, France and Japan still use the
+          FRED/OECD monthly proxy since no equally clean free daily alternative was found for those three.
+          Credit adds Euro-area
           high-yield spreads and an Asia-Pacific EM
           corporate spread (which includes but isn&apos;t exclusively China) alongside US HY/IG/EM; and
           Global Liquidity now includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. The
-          standalone China engine itself adds the country&apos;s 3-month interbank rate, real house-price
-          index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking. One engine
-          remains intentionally single-country by definition regardless of data availability: Yen Carry
-          Stress (a JPY-specific carry-trade mechanic). Banking, China and Private Credit remain partly
+          standalone China engine itself adds the 10Y yield, debt/GDP ratio, 3-month interbank rate, real
+          house-price index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking.
+          One engine remains intentionally single-country by definition regardless of data availability:
+          Yen Carry Stress (a JPY-specific carry-trade mechanic). Banking and Private Credit remain partly
           single-country-anchored because no free source publishes bank-level NPL/delinquency data for the
-          UK, Eurozone, Canada or Japan, a China government bond yield, or a non-US publicly-traded
-          direct-lending vehicle comparable to US BDCs — those engines add whatever real G7/China context
-          does exist (policy rates, interbank rates) rather than fabricating data that doesn&apos;t exist
-          for free.
+          UK, Eurozone, Canada or Japan, or a non-US publicly-traded direct-lending vehicle comparable to
+          US BDCs — those engines add whatever real G7 context does exist (policy rates) rather than
+          fabricating data that doesn&apos;t exist for free.
         </p>
       </section>
 
@@ -184,9 +185,10 @@ export default function MethodologyPage() {
           compilation lag; debt-maturity schedules are 10-K-only disclosures, refreshed once a year per
           company) and are compared against an annual-cadence threshold rather than a monthly or quarterly
           one for exactly this reason; Italy, France, Japan and China&apos;s interbank rate still come from
-          OECD-compiled monthly series that structurally publish 2-4 months behind (UK, Germany and Canada
-          moved to their own central bank&apos;s daily series and no longer carry this lag — see Country
-          coverage above), and BIS real house-price indices typically lag one to two quarters. None of this
+          OECD-compiled monthly series that structurally publish 2-4 months behind (UK, Germany, Canada and
+          China&apos;s 10Y yield moved to their own central bank/depository&apos;s daily series and no
+          longer carry this lag — see Country coverage above), and BIS real house-price indices typically
+          lag one to two quarters. None of this
           means the pipeline missed anything newer — where we&apos;ve checked, our stored value already
           matches the freshest observation the source has ever published.
         </p>

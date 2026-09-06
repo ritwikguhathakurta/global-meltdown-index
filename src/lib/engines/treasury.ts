@@ -1,4 +1,4 @@
-import type { EngineContext, EngineResult, Horizon, IndicatorRef } from "./types";
+import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
 import { diffSeriesByMonth } from "../metrics/stats";
@@ -24,21 +24,16 @@ import { diffSeriesByMonth } from "../metrics/stats";
  * it is still bottlenecked to Italy's monthly cadence even though Germany's
  * own side of it is now daily.
  *
- * China has no free government-bond-yield source anywhere (verified — no
- * vendor publishes one without a paid feed), so it is represented by its
- * 3-month interbank rate (the closest free proxy for domestic
- * sovereign-adjacent funding stress) and its government debt/GDP ratio
- * (IMF-compiled, same annual cadence and lag as the other G7 countries'
- * debt ratios); the bond yield itself is listed as UNAVAILABLE rather than
- * guessed.
+ * China's 10Y yield comes from ChinaBond (CCDC, the PBOC-designated central
+ * bond depository) — its "中债国债收益率曲线" is the standard benchmark cited
+ * internationally as China's sovereign yield curve, published daily (see
+ * chinaBondYield.ts). No FRED/OECD/BIS source publishes this at all, which
+ * is why it took direct investigation of CCDC's own site to find. China is
+ * additionally represented by its 3-month interbank rate (the closest free
+ * proxy for domestic sovereign-adjacent funding stress) and its government
+ * debt/GDP ratio (IMF-compiled, same annual cadence and lag as the other G7
+ * countries' debt ratios).
  */
-const UNAVAILABLE_INDICATORS: { key: string; label: string; classification: "leading" | "coincident" | "lagging" }[] = [
-  { key: "yield.china_10y", label: "China 10Y Government Bond Yield", classification: "coincident" },
-];
-
-function unavailableRef(u: (typeof UNAVAILABLE_INDICATORS)[number]): IndicatorRef {
-  return { key: u.key, label: u.label, classification: u.classification, value: null, status: "UNAVAILABLE", sourceKey: "none", sourceTier: 5, asOf: null };
-}
 
 export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
   const [
@@ -59,6 +54,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
     ukDebt,
     chinaInterbank,
     chinaDebt,
+    china10y,
   ] = await Promise.all([
     buildIndicator(ctx.db, "yield.us02y", "US 2Y Treasury Yield", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "yield.us10y", "US 10Y Treasury Yield", "coincident", "daily", "%"),
@@ -77,6 +73,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
     buildIndicator(ctx.db, "sovereign.uk_debt_to_gdp", "UK Government Debt / GDP", "lagging", "annual", "%"),
     buildIndicator(ctx.db, "china.interbank_rate_3m", "China 3M Interbank Rate (sovereign-yield proxy)", "leading", "monthly", "%"),
     buildIndicator(ctx.db, "sovereign.china_debt_to_gdp", "China Government Debt / GDP", "lagging", "annual", "%"),
+    buildIndicator(ctx.db, "yield.china_10y", "China 10Y Government Bond Yield (ChinaBond/CCDC, daily)", "coincident", "daily", "%"),
   ]);
 
   const btpBundSpread = diffSeriesByMonth(italy10y.series, germany10y.series);
@@ -110,7 +107,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
       { ref: ukDebt.ref, series: ukDebt.series, weight: 0.3, zDirection: 1 },
       { ref: chinaInterbank.ref, series: chinaInterbank.series, weight: 0.4, zDirection: 1 },
       { ref: chinaDebt.ref, series: chinaDebt.series, weight: 0.3, zDirection: 1 },
-      ...UNAVAILABLE_INDICATORS.map((u) => ({ ref: unavailableRef(u), series: [], weight: 0.5, zDirection: 1 as const })),
+      { ref: china10y.ref, series: china10y.series, weight: 0.5, zDirection: 1 },
     ],
     triggerDesc:
       "A rapid, disorderly rise in long-end yields across the US and its G7 peers (rising term premium rather than growth optimism) — especially a widening Italy-Germany spread, the classic eurozone fragmentation gauge — alongside rising debt/GDP trajectories and China funding-rate stress would indicate broad-based, not idiosyncratic, developed-market sovereign funding deterioration.",
@@ -120,7 +117,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
     invalidationConditions: ["Long yields fall or stabilize with strong auction demand", "Term premium and the BTP-Bund spread compress back toward trailing medians"],
     confirmationConditions: ["Auction tails widen (not yet tracked)", "Sovereign CDS widens materially (not yet tracked)"],
     notYetHappened: ["No confirmed pattern of disorderly weak demand across the tracked sovereign markets"],
-    contradictoryEvidence: ["China is represented by an interbank rate and a debt/GDP ratio, not a sovereign bond yield — no free source publishes one", "Italy, France and Japan yields still come from a monthly proxy that lags 2-4 months; UK, Germany and Canada are now daily"],
-    methodologyVersion: "v0.3-freedata-daily-g7-yields",
+    contradictoryEvidence: ["Italy, France and Japan yields still come from a monthly proxy that lags 2-4 months; UK, Germany, Canada and China are now daily"],
+    methodologyVersion: "v0.4-freedata-chinabond",
   });
 }
