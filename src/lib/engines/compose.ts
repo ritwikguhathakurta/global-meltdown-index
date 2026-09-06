@@ -1,6 +1,7 @@
 import type { IndicatorRef, Horizon, EngineResult } from "./types";
 import type { Point } from "../metrics/stats";
 import { zScore, zToRiskScore, changeOverDays } from "../metrics/stats";
+import { ZSCORE_WINDOW_BY_HORIZON, CLASSIFICATION_WEIGHT_BY_HORIZON, computeConfidence } from "./horizon";
 
 export type WeightedIndicator = {
   ref: IndicatorRef;
@@ -36,13 +37,22 @@ function regimeFor(score: number, labels: [string, string, string, string, strin
 
 export function composeEngineResult(input: ComposeInput): EngineResult {
   const usable = input.inputs.filter((i) => i.ref.status !== "UNAVAILABLE" && i.series.length >= 20);
-  const dataCompleteness = input.inputs.length > 0 ? usable.length / input.inputs.length : 0;
+  const { confidence, dataCompleteness } = computeConfidence(
+    usable.map((i) => i.ref.status),
+    input.inputs.length,
+    input.horizon
+  );
 
+  const window = ZSCORE_WINDOW_BY_HORIZON[input.horizon];
+  const classWeight = CLASSIFICATION_WEIGHT_BY_HORIZON[input.horizon];
   const componentScores: { key: string; label: string; score: number; weight: number }[] = [];
   for (const w of usable) {
-    const z = zScore(w.series, 252);
+    const z = zScore(w.series, window);
     const s = zToRiskScore(z, w.zDirection);
-    if (s !== null) componentScores.push({ key: w.ref.key, label: w.ref.label, score: s, weight: w.weight });
+    if (s !== null) {
+      const weight = w.weight * classWeight[w.ref.classification];
+      componentScores.push({ key: w.ref.key, label: w.ref.label, score: s, weight });
+    }
   }
 
   const totalWeight = componentScores.reduce((a, b) => a + b.weight, 0);
@@ -79,7 +89,7 @@ export function composeEngineResult(input: ComposeInput): EngineResult {
     score,
     direction,
     regime: score === null ? "INSUFFICIENT_DATA" : regimeFor(score, input.regimeLabels),
-    confidence: Math.round(dataCompleteness * 100) / 100,
+    confidence,
     topDrivers,
     leadingIndicators,
     coincidentIndicators,
@@ -91,7 +101,7 @@ export function composeEngineResult(input: ComposeInput): EngineResult {
     transmissionMechanism: input.transmissionMechanism,
     invalidationConditions: input.invalidationConditions,
     confirmationConditions: input.confirmationConditions,
-    dataCompleteness: Math.round(dataCompleteness * 100) / 100,
+    dataCompleteness,
     methodologyVersion: input.methodologyVersion,
   };
 }

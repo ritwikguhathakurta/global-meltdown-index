@@ -11,7 +11,7 @@ import type { MetricPoint } from "../metrics/store";
  * proof-of-work bot challenge that a server-side fetch cannot satisfy.
  */
 
-export type YahooIndexDef = { metricKey: string; symbol: string; unit: string };
+export type YahooIndexDef = { metricKey: string; symbol: string; unit: string; range?: string };
 
 export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "equity.russell2000", symbol: "^RUT", unit: "index" },
@@ -43,6 +43,15 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "ai.nvda.price", symbol: "NVDA", unit: "USD" },
   { metricKey: "ai.amd.price", symbol: "AMD", unit: "USD" },
   { metricKey: "ai.avgo.price", symbol: "AVGO", unit: "USD" },
+  // Crypto/Stablecoins engine — spot price with real multi-year history. CoinGecko's free
+  // tier only exposes a live snapshot (no historical backfill), which left this engine stuck
+  // below the 20-observation z-score floor for weeks. investing.com has no free public API and
+  // scraping it would break this project's no-scraping/official-source-only discipline, so BTC
+  // and ETH spot price move to Yahoo's chart endpoint instead, which has genuine daily history
+  // back to 2014-15 for both. CoinGecko remains the source for market cap, BTC dominance and
+  // stablecoin peg/supply, which Yahoo doesn't publish.
+  { metricKey: "crypto.btc_price_usd", symbol: "BTC-USD", unit: "USD", range: "5y" },
+  { metricKey: "crypto.eth_price_usd", symbol: "ETH-USD", unit: "USD", range: "5y" },
 ];
 
 type ChartResponse = {
@@ -58,7 +67,7 @@ type ChartResponse = {
 };
 
 export async function fetchYahooIndexSeries(def: YahooIndexDef): Promise<MetricPoint[]> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(def.symbol)}?range=1y&interval=1d`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(def.symbol)}?range=${def.range ?? "1y"}&interval=1d`;
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; GlobalMeltdownIndex-ingest/1.0)" },
     next: { revalidate: 0 },

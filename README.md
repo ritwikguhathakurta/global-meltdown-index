@@ -217,12 +217,24 @@ Most engines were originally US-only; they were widened deliberately, not by def
   rigid per-domain tables that would need schema migrations every time an engine is added.
 - **Why z-scores drive engine scores**: every score is a deterministic function of stored data
   (`src/lib/metrics/stats.ts`) — no LLM ever computes a number that ends up on a dashboard.
+- **Why short/medium/long horizons actually differ** (`src/lib/engines/horizon.ts`): the z-score
+  window and each indicator's classification weight both change by horizon — short-term uses a
+  ~63-observation window and up-weights leading/coincident signals (IMF GFSR/Fed FSR-style
+  near-term, market-price-driven read), long-term uses a ~756-observation window and up-weights
+  lagging/structural signals (BIS financial-cycle-style, multi-year leverage/debt buildup read).
+  Confidence is separate from data completeness: completeness is a plain fraction of the indicator
+  set with usable data (honestly 100% when everything is populated); confidence additionally
+  discounts for indicator freshness and is hard-capped per horizon (95%/90%/80% for
+  short/medium/long) so it can never reach 100% — uncertainty compounds with horizon.
 - **Source tiers**: 1 = official primary (FRED, CFTC, central-bank feeds, ECB via Frankfurter, NY
   Fed GSCPI, AWS/Azure/GCP status pages), 2 = multilateral institutions or transparent academic
   indices (the Caldara-Iacoviello Geopolitical Risk Index), 3 = licensed/unofficial aggregators
   (Yahoo Finance chart API, CoinGecko — used only where no Tier-1 source exists). Stooq was
   evaluated and rejected: it now fronts a JavaScript proof-of-work bot challenge a server-side fetch
-  can't solve.
+  can't solve. investing.com was also evaluated (for crypto) and rejected: it has no free public
+  API, and scraping it would break the no-scraping/official-source-only rule every connector in
+  this project follows — BTC/ETH spot price uses Yahoo's chart endpoint instead (real multi-year
+  daily history, vs. CoinGecko's free tier which is a live snapshot only).
 - **NY Fed GSCPI and the GPR index only publish legacy binary `.xls` workbooks** (confirmed via
   byte-signature check, not just the URL's extension) — `src/lib/sources/xlsWorkbook.ts` wraps the
   `xlsx` package rather than assuming a clean CSV exists.

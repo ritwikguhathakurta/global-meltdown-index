@@ -104,16 +104,37 @@ export default function MethodologyPage() {
         </p>
       </section>
 
-      <section className="mb-8">
-        <h2 className="mb-2 text-base font-semibold text-text">Engine scoring</h2>
-        <p>
+      <section className="mb-8" id="horizon-differentiation">
+        <h2 className="mb-2 text-base font-semibold text-text">Engine scoring, and why short/medium/long differ</h2>
+        <p className="mb-2">
           Each engine tracks a set of indicators, classified leading, coincident or lagging. For each
-          indicator with at least 20 trailing observations, we compute a trailing 252-observation z-score
-          and map it onto a 0-100 risk scale (0 = 3 standard deviations &ldquo;calmer than usual&rdquo;, 100 = 3
-          standard deviations more stressed than usual). The engine score is the completeness-weighted
-          average of its indicators&apos; scores. An engine&apos;s <em>confidence</em> is the fraction of its
-          indicator set that currently has usable (LIVE or RECENT) data — an engine running on 2 of 6
-          intended indicators will show low confidence even if its score looks decisive.
+          indicator with at least 20 trailing observations, we compute a trailing z-score and map it onto a
+          0-100 risk scale (0 = 3 standard deviations &ldquo;calmer than usual&rdquo;, 100 = 3 standard
+          deviations more stressed than usual). The engine score is the completeness-weighted average of
+          its indicators&apos; scores.
+        </p>
+        <p className="mb-2">
+          The z-score window and each indicator&apos;s weight both change by horizon, following the
+          near-term/medium-term split used in practice by the IMF Global Financial Stability Report and the
+          Fed Financial Stability Report (near-term risk read off market-price signals; medium/long-term
+          vulnerability read off structural buildups like leverage and debt) and BIS&apos;s financial-cycle
+          framing (credit/GDP gaps and property prices measured over multi-year windows): short-term uses a
+          ~63-observation (one trading quarter) window and up-weights leading/coincident indicators;
+          medium-term uses the ~252-observation (one trading year) baseline window with indicators weighted
+          as configured; long-term uses a ~756-observation (three trading year) window and up-weights
+          lagging/structural indicators. This is why the three horizons for the same engine are not the
+          same number — they are answering different questions from the same data, not the same question
+          three times.
+        </p>
+        <p>
+          An engine&apos;s <em>confidence</em> is not the same as its <em>data completeness</em>. Data
+          completeness is the plain fraction of an engine&apos;s intended indicator set that currently has
+          usable (LIVE, RECENT or STALE) data — this can honestly be 100% when every indicator is populated.
+          Confidence folds in each indicator&apos;s freshness (a STALE indicator counts for less than a LIVE
+          one) and is then capped by a horizon-specific ceiling — 95% short-term, 90% medium-term, 80%
+          long-term — so it can never reach 100% even with perfect data: forecast uncertainty compounds with
+          horizon the same way a central bank&apos;s fan chart widens further out, and a model score should
+          never claim absolute certainty about anything.
         </p>
       </section>
 
@@ -139,7 +160,14 @@ export default function MethodologyPage() {
           (licensed financial news), Tier 5 (verified official social accounts). Every displayed value
           carries a freshness status — LIVE, RECENT, STALE or UNAVAILABLE — computed from its age relative
           to its own publication frequency. Data is never silently backfilled or estimated to hide a gap;
-          missing coverage is shown as UNAVAILABLE.
+          missing coverage is shown as UNAVAILABLE. Bitcoin and Ethereum spot price come from Yahoo
+          Finance&apos;s chart endpoint (Tier 3), not investing.com — investing.com has no free public API,
+          and scraping its site would break the no-scraping/official-source-only rule every other connector
+          in this platform follows; Yahoo publishes genuine multi-year daily history for both, which fixed
+          a real gap where the Crypto/Stablecoins engine sat below its 20-observation z-score floor for
+          weeks after every fresh deploy (CoinGecko&apos;s free tier is a live snapshot only, with no
+          historical backfill). CoinGecko remains the source for total market cap, BTC dominance and
+          stablecoin peg/supply, which Yahoo doesn&apos;t publish.
         </p>
       </section>
 

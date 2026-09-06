@@ -1,6 +1,7 @@
 import type { EngineContext, EngineResult, Horizon, IndicatorRef } from "./types";
 import { buildIndicator } from "./indicator";
 import { zScore, changeOverDays, clamp } from "../metrics/stats";
+import { ZSCORE_WINDOW_BY_HORIZON, CLASSIFICATION_WEIGHT_BY_HORIZON, computeConfidence } from "./horizon";
 
 /**
  * India Market Regime (V3 §40-42). Unlike the risk engines, this axis runs
@@ -49,12 +50,16 @@ export async function runIndiaRegimeEngine(ctx: EngineContext, horizon: Horizon)
     buildIndicator(ctx.db, "fx.usdjpy", "USDJPY", "leading", "daily", "JPY"),
   ]);
 
+  const window = ZSCORE_WINDOW_BY_HORIZON[horizon];
+  const classWeight = CLASSIFICATION_WEIGHT_BY_HORIZON[horizon];
+  const usedStatuses: IndicatorRef["status"][] = [];
   const bullishSignals: { key: string; label: string; z: number; weight: number }[] = [];
   function addSignal(ref: IndicatorRef, series: { t: string; v: number }[], weight: number, higherIsBullish: boolean) {
     if (ref.status === "UNAVAILABLE" || series.length < 20) return;
-    const z = zScore(series, 252);
+    usedStatuses.push(ref.status);
+    const z = zScore(series, window);
     if (z === null) return;
-    bullishSignals.push({ key: ref.key, label: ref.label, z: higherIsBullish ? z : -z, weight });
+    bullishSignals.push({ key: ref.key, label: ref.label, z: higherIsBullish ? z : -z, weight: weight * classWeight[ref.classification] });
   }
 
   addSignal(nifty.ref, nifty.series, 0, true); // Nifty itself is the target, not an input driver
@@ -71,10 +76,7 @@ export async function runIndiaRegimeEngine(ctx: EngineContext, horizon: Horizon)
       : null;
   const score = rawScore === null ? null : Math.round(clamp(rawScore, 0, 100));
 
-  const dataCompleteness =
-    ([nifty, usdinr, us10y, dxy, vix, usdjpy].filter((i) => i.ref.status !== "UNAVAILABLE").length +
-      0) /
-    (6 + UNAVAILABLE_INDICATORS.length);
+  const { confidence, dataCompleteness } = computeConfidence(usedStatuses, 6 + UNAVAILABLE_INDICATORS.length, horizon);
 
   const topDrivers = [...bullishSignals]
     .filter((s) => s.weight > 0)
@@ -96,7 +98,7 @@ export async function runIndiaRegimeEngine(ctx: EngineContext, horizon: Horizon)
     score,
     direction,
     regime: score === null ? "INSUFFICIENT_DATA" : classify(score),
-    confidence: Math.round(dataCompleteness * 100) / 100,
+    confidence,
     topDrivers,
     leadingIndicators,
     coincidentIndicators,
@@ -112,7 +114,7 @@ export async function runIndiaRegimeEngine(ctx: EngineContext, horizon: Horizon)
       "Dollar strength and rising US real yields reduce the relative attractiveness of EM assets, prompting FII outflows that pressure both the Nifty and INR simultaneously.",
     invalidationConditions: ["DXY and US 10Y stabilize or fall", "INR stabilizes against the dollar", "VIX reverts to trailing median"],
     confirmationConditions: ["FII cash outflows are confirmed once that data source is added", "Bank Nifty underperforms broader Nifty (credit-sensitivity confirmation, not yet tracked)"],
-    dataCompleteness: Math.round(dataCompleteness * 100) / 100,
+    dataCompleteness,
     methodologyVersion: "v0.1-freedata-partial",
   };
 }

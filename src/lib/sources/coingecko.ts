@@ -5,13 +5,18 @@ import type { MetricPoint } from "../metrics/store";
  * aggregator; there is no Tier-1 official source for crypto market data).
  * Only current snapshot is available on the free tier (no free historical
  * backfill), so each pipeline run appends one point per metric per day —
- * the trailing series still builds up for z-scoring over time.
+ * the trailing series still builds up for z-scoring over time. BTC/ETH spot
+ * price used to come from here too, but that meant waiting ~20 days for
+ * enough daily snapshots to z-score at all; they now come from Yahoo
+ * Finance's chart endpoint instead (yahooIndex.ts), which has genuine
+ * multi-year daily history. CoinGecko stays the source for what only it
+ * publishes: total market cap, BTC dominance, and stablecoin supply/peg.
  */
 export async function fetchCryptoSnapshot(observedAtIso: string): Promise<MetricPoint[]> {
   const [globalRes, priceRes] = await Promise.all([
     fetch("https://api.coingecko.com/api/v3/global", { next: { revalidate: 0 } }),
     fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether,usd-coin&vs_currencies=usd&include_market_cap=true",
+      "https://api.coingecko.com/api/v3/simple/price?ids=tether,usd-coin&vs_currencies=usd&include_market_cap=true",
       { next: { revalidate: 0 } }
     ),
   ]);
@@ -39,8 +44,6 @@ export async function fetchCryptoSnapshot(observedAtIso: string): Promise<Metric
 
   push("crypto.total_market_cap_usd", global.data?.total_market_cap?.usd, "USD");
   push("crypto.btc_dominance_pct", global.data?.market_cap_percentage?.btc, "%");
-  push("crypto.btc_price_usd", prices.bitcoin?.usd, "USD");
-  push("crypto.eth_price_usd", prices.ethereum?.usd, "USD");
 
   const usdtCap = prices.tether?.usd_market_cap;
   const usdcCap = prices["usd-coin"]?.usd_market_cap;

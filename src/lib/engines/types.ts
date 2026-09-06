@@ -19,7 +19,7 @@ export type EngineResult = {
   score: number | null; // 0-100, null if too much data missing to be meaningful
   direction: "improving" | "deteriorating" | "stable" | "unknown";
   regime: string;
-  confidence: number; // 0-1, driven by data completeness
+  confidence: number; // 0-1, capped below 1.0 by horizon (see horizon.ts) — freshness-weighted completeness, never a bare completeness fraction
   topDrivers: { key: string; label: string; contribution: number }[];
   leadingIndicators: IndicatorRef[];
   coincidentIndicators: IndicatorRef[];

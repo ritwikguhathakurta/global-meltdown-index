@@ -7,14 +7,20 @@ import { composeEngineResult } from "./compose";
  * financial-stability-relevant metric here (a depeg is the closest crypto
  * analogue to a money-market-fund "breaking the buck" event); raw price
  * moves and BTC dominance are included as coincident risk-appetite context,
- * not because a falling price is inherently "systemic" on its own.
+ * not because a falling price is inherently "systemic" on its own. BTC/ETH
+ * price come from Yahoo Finance (yahooIndex.ts), not CoinGecko, specifically
+ * because Yahoo has real multi-year daily history — CoinGecko's free tier is
+ * snapshot-only, which otherwise leaves this engine below the 20-observation
+ * z-score floor for weeks after every fresh deploy.
  */
 export async function runCryptoEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [usdtPeg, usdcPeg, totalMcap, btcDominance] = await Promise.all([
+  const [usdtPeg, usdcPeg, totalMcap, btcDominance, btcPrice, ethPrice] = await Promise.all([
     buildIndicator(ctx.db, "crypto.usdt_peg_deviation_bps", "USDT Peg Deviation from $1", "leading", "daily", "bps"),
     buildIndicator(ctx.db, "crypto.usdc_peg_deviation_bps", "USDC Peg Deviation from $1", "leading", "daily", "bps"),
     buildIndicator(ctx.db, "crypto.total_market_cap_usd", "Total Crypto Market Cap", "coincident", "daily", "USD"),
     buildIndicator(ctx.db, "crypto.btc_dominance_pct", "Bitcoin Dominance", "coincident", "daily", "%"),
+    buildIndicator(ctx.db, "crypto.btc_price_usd", "Bitcoin Price (Yahoo)", "coincident", "daily", "USD"),
+    buildIndicator(ctx.db, "crypto.eth_price_usd", "Ethereum Price (Yahoo)", "coincident", "daily", "USD"),
   ]);
 
   return composeEngineResult({
@@ -27,6 +33,8 @@ export async function runCryptoEngine(ctx: EngineContext, horizon: Horizon): Pro
       { ref: usdcPeg.ref, series: usdcPeg.series, weight: 1.0, zDirection: 1 },
       { ref: totalMcap.ref, series: totalMcap.series, weight: 0.4, zDirection: -1 },
       { ref: btcDominance.ref, series: btcDominance.series, weight: 0.3, zDirection: 1 },
+      { ref: btcPrice.ref, series: btcPrice.series, weight: 0.3, zDirection: -1 },
+      { ref: ethPrice.ref, series: ethPrice.series, weight: 0.2, zDirection: -1 },
     ],
     triggerDesc:
       "A sustained (not momentary) deviation of USDT or USDC from their $1 peg — analogous to a money-market fund 'breaking the buck' — would indicate a loss of confidence in stablecoin reserve backing or redemption capacity.",
@@ -37,6 +45,6 @@ export async function runCryptoEngine(ctx: EngineContext, horizon: Horizon): Pro
     confirmationConditions: ["Peg deviation widens and persists across multiple consecutive days rather than reverting intraday", "Total market cap falls sharply in tandem"],
     notYetHappened: ["No confirmed sustained depeg event in the tracked USDT/USDC series"],
     contradictoryEvidence: [],
-    methodologyVersion: "v0.1-freedata",
+    methodologyVersion: "v0.2-freedata-yahoo-price",
   });
 }

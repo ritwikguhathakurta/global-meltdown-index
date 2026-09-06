@@ -83,6 +83,8 @@ const YAHOO_FALLBACK_KEYS = new Set([
   "ai.nvda.price",
   "ai.amd.price",
   "ai.avgo.price",
+  "crypto.btc_price_usd",
+  "crypto.eth_price_usd",
 ]);
 
 function guessSourceKey(metricKey: string): string {
