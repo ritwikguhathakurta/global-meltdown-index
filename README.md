@@ -241,5 +241,10 @@ Most engines were originally US-only; they were widened deliberately, not by def
   `xlsx` package rather than assuming a clean CSV exists.
 - **Cyber/Infrastructure engine** counts status-page item volume per provider over a trailing 7
   days rather than inventing a severity score from free text — see `src/lib/sources/cloudStatus.ts`.
+  On first run it backfills this from whatever dated items the provider's feed already holds
+  (real historical reconstruction, not an estimate), instead of waiting ~20 days of natural daily
+  accumulation to clear the z-score floor; a provider whose feed currently has too little history
+  (e.g. Azure, when its feed is empty) falls back to accumulating day by day rather than assuming
+  a "0" window it has no evidence for.
 - Full engine/indicator list, GFMI formula, and data-quality rules: see `/dashboard/methodology` on
   the running site, or `src/lib/engines/`.

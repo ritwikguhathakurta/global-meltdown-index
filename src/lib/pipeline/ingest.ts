@@ -8,7 +8,7 @@ import { CENTRAL_BANK_FEEDS, fetchCentralBankFeed } from "../sources/centralBank
 import { fetchGscpiSeries } from "../sources/gscpi";
 import { fetchGprSeries } from "../sources/gpr";
 import { fetchCryptoSnapshot } from "../sources/coingecko";
-import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount } from "../sources/cloudStatus";
+import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount, fetchCloudStatusBackfill, MIN_BACKFILL_OBSERVATIONS } from "../sources/cloudStatus";
 import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
 import { lookbackDaysFor } from "../metrics/lookback";
 
@@ -166,19 +166,27 @@ export async function ingestCrypto(db: SupabaseClient, runDate: string): Promise
 
 export async function ingestCloudStatus(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   let ok = 0;
+  let backfilled = 0;
   const errors: string[] = [];
   for (const def of CLOUD_STATUS_FEEDS) {
     try {
-      const points = await fetchCloudStatusCount(def, runDate);
+      const { count, error: countError } = await db
+        .from("metric_series")
+        .select("observed_at", { count: "exact", head: true })
+        .eq("metric_key", def.metricKey);
+      if (countError) throw new Error(`row count check: ${countError.message}`);
+      const needsBackfill = (count ?? 0) < MIN_BACKFILL_OBSERVATIONS;
+      const points = needsBackfill ? await fetchCloudStatusBackfill(def, runDate) : await fetchCloudStatusCount(def, runDate);
       await upsertMetrics(db, points);
       ok++;
+      if (needsBackfill && points.length > 1) backfilled++;
     } catch (e) {
       errors.push(`${def.provider}: ${(e as Error).message}`);
     }
   }
   const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
-  await logRun(db, runDate, "ingest_cloud_status", status, { ok, total: CLOUD_STATUS_FEEDS.length, errors });
-  return { stage: "ingest_cloud_status", status, detail: { ok, total: CLOUD_STATUS_FEEDS.length, errors } };
+  await logRun(db, runDate, "ingest_cloud_status", status, { ok, total: CLOUD_STATUS_FEEDS.length, backfilled, errors });
+  return { stage: "ingest_cloud_status", status, detail: { ok, total: CLOUD_STATUS_FEEDS.length, backfilled, errors } };
 }
 
 export async function ingestSecEdgar(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
