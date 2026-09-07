@@ -351,6 +351,46 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="central-bank-liquidity-forecast">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Central Bank Liquidity Forecast (short / medium / long term) — trend extrapolation, not a prediction
+        </h2>
+        <p className="mb-2">
+          The Liquidity tab also shows a forward-looking table for the same six banks, with three
+          horizons: <strong>short term</strong> (~2 weeks ahead), <strong>medium term</strong>
+          (~2 months ahead) and <strong>long term</strong> (~6 months ahead). This is
+          <strong> not</strong> built from any forward-looking market instrument — no free OIS-forward
+          curve or central-bank dot-plot feed is tracked here. It is a plain ordinary-least-squares
+          fit to each bank&apos;s own real basis series (the exact same spread or rate used for the
+          current-regime table above), fit over a trailing calendar-day window, projected forward,
+          and re-scored against that bank&apos;s own trailing baseline the same way the current
+          regime is computed.
+        </p>
+        <p className="mb-2">
+          The slope-fitting window is measured in calendar days, not observation count, deliberately:
+          five of the six basis series update daily, but China&apos;s (the 3-month interbank rate) is
+          monthly. A 30-calendar-day window fit to a single monthly print cannot support a short-term
+          slope, so it correctly returns <strong>INSUFFICIENT_DATA</strong> for that cell rather than
+          fitting a line through one point. Windows: 30 days for the short-term horizon, 120 days for
+          medium-term, 400 days for long-term — each requiring at least 5 real observations inside its
+          window before it will produce a reading.
+        </p>
+        <p className="mb-2">
+          Each cell shows two things: the <strong>regime pill</strong> (AMPLE/ADEQUATE/NORMAL/
+          TIGHTENING/DEFICIT) the trend would land on if it continued unchanged, and a{" "}
+          <strong>momentum arrow</strong> (↑ tightening, ↓ easing, → stable) showing which direction
+          the projection moves relative to today&apos;s reading. Both are computed off the identical
+          z-score baseline as the live regime table, so a forecast cell is directly comparable to the
+          &ldquo;now&rdquo; column next to it.
+        </p>
+        <p>
+          This is explicitly a momentum read, not a guaranteed outcome — a rate decision, a
+          quantitative-tightening taper or restart, or a funding-market shock is not modeled anywhere
+          in this calculation and can invalidate it instantly. Treat it the same as every other
+          engine&apos;s &ldquo;model estimate, not a guaranteed forecast&rdquo; disclaimer.
+        </p>
+      </section>
+
       <section className="mb-8" id="india-yield-curve-ccil">
         <h2 className="mb-2 text-base font-semibold text-text">
           India Yield Curve (new tab), and why CCIL is not used as a source

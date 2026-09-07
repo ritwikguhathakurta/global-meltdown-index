@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { zScore, subtractSeriesByDate, type Point } from "../metrics/stats";
+import { zScore, subtractSeriesByDate, mean, stdev, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 /**
@@ -58,6 +58,97 @@ function regimeFromZ(z: number | null): LiquidityRegimeLabel {
   return "DEFICIT";
 }
 
+/**
+ * Forecast: NOT a prediction from any forward-looking instrument (no free
+ * OIS-forwards or central-bank-dot-plot feed is tracked here) — it is a
+ * plain ordinary-least-squares extrapolation of each bank's OWN recent
+ * trend in its real basis series (the same spread/rate used for the
+ * current-regime classification above), projected forward and re-scored
+ * against the same trailing baseline. It answers "if the trend of the last
+ * N days continues unchanged, where would this bank's regime land" — a
+ * momentum read, not a guaranteed outcome. A policy decision, QT
+ * taper/restart, or funding-market shock is not modeled and can invalidate
+ * it instantly; see the "Model estimate — not a guaranteed forecast"
+ * disclaimer next to every engine.
+ *
+ * Three horizons, each with its own slope-estimation window (calendar
+ * days, not observation count — this matters because China's basis series
+ * is monthly while every other bank's is daily; a 30-calendar-day window
+ * around a monthly print correctly yields INSUFFICIENT_DATA rather than a
+ * regression fit to a single point):
+ * - short term:  ~2 weeks ahead,  slope fit over the trailing 30 days
+ * - medium term: ~2 months ahead, slope fit over the trailing 120 days
+ * - long term:   ~6 months ahead, slope fit over the trailing 400 days
+ */
+export type MomentumLabel = "EASING" | "STABLE" | "TIGHTENING" | "INSUFFICIENT_DATA";
+
+export type ForecastCell = {
+  regime: LiquidityRegimeLabel;
+  momentum: MomentumLabel;
+};
+
+export type CentralBankForecast = {
+  shortTerm: ForecastCell;
+  mediumTerm: ForecastCell;
+  longTerm: ForecastCell;
+};
+
+const FORECAST_BASELINE_WINDOW = 252;
+const MIN_SLOPE_POINTS = 5;
+const INSUFFICIENT_FORECAST_CELL: ForecastCell = { regime: "INSUFFICIENT_DATA", momentum: "INSUFFICIENT_DATA" };
+
+/** Ordinary-least-squares slope (value per calendar day) of a point series. */
+function olsSlope(points: Point[]): number | null {
+  if (points.length < 2) return null;
+  const t0 = new Date(points[0].t).getTime();
+  const xs = points.map((p) => (new Date(p.t).getTime() - t0) / 86400000);
+  const ys = points.map((p) => p.v);
+  const xMean = mean(xs);
+  const yMean = mean(ys);
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < xs.length; i++) {
+    num += (xs[i] - xMean) * (ys[i] - yMean);
+    den += (xs[i] - xMean) ** 2;
+  }
+  return den === 0 ? 0 : num / den;
+}
+
+function forecastCell(sorted: Point[], baseline: Point[], slopeWindowDays: number, horizonDays: number): ForecastCell {
+  if (baseline.length < 20 || sorted.length === 0) return INSUFFICIENT_FORECAST_CELL;
+  const current = sorted[sorted.length - 1];
+  const cutoffMs = new Date(current.t).getTime() - slopeWindowDays * 86400000;
+  const recentForSlope = sorted.filter((p) => new Date(p.t).getTime() >= cutoffMs);
+  if (recentForSlope.length < MIN_SLOPE_POINTS) return INSUFFICIENT_FORECAST_CELL;
+  const slope = olsSlope(recentForSlope);
+  if (slope === null) return INSUFFICIENT_FORECAST_CELL;
+  const vals = baseline.map((p) => p.v);
+  const m = mean(vals);
+  const sd = stdev(vals);
+  if (Number.isNaN(sd)) return INSUFFICIENT_FORECAST_CELL;
+  const projected = current.v + slope * horizonDays;
+  const zNow = sd === 0 ? 0 : (current.v - m) / sd;
+  const zProjected = sd === 0 ? (projected === m ? 0 : projected > m ? 3 : -3) : (projected - m) / sd;
+  const regime = regimeFromZ(zProjected);
+  const delta = zProjected - zNow;
+  const momentum: MomentumLabel = Math.abs(delta) < 0.25 ? "STABLE" : delta > 0 ? "TIGHTENING" : "EASING";
+  return { regime, momentum };
+}
+
+/** Builds the 3-horizon forecast from the same basis series (spread or level) used for the current regime. */
+function buildForecast(points: Point[]): CentralBankForecast {
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  if (sorted.length < 20) {
+    return { shortTerm: INSUFFICIENT_FORECAST_CELL, mediumTerm: INSUFFICIENT_FORECAST_CELL, longTerm: INSUFFICIENT_FORECAST_CELL };
+  }
+  const baseline = sorted.slice(Math.max(0, sorted.length - 1 - FORECAST_BASELINE_WINDOW), sorted.length - 1);
+  return {
+    shortTerm: forecastCell(sorted, baseline, 30, 14),
+    mediumTerm: forecastCell(sorted, baseline, 120, 60),
+    longTerm: forecastCell(sorted, baseline, 400, 180),
+  };
+}
+
 export type CentralBankLiquidityRow = {
   bank: string;
   balanceSheetLabel: string;
@@ -69,6 +160,7 @@ export type CentralBankLiquidityRow = {
   basisUnit: string;
   basisAsOf: string | null;
   regime: LiquidityRegimeLabel;
+  forecast: CentralBankForecast;
 };
 
 async function loadSeries(db: SupabaseClient, key: string, frequency: "daily" | "weekly" | "monthly" = "daily"): Promise<Point[]> {
@@ -107,6 +199,7 @@ function spreadRow(
     basisUnit: "bps",
     basisAsOf: spread?.t ?? null,
     regime,
+    forecast: buildForecast(spreadBps),
   };
 }
 
@@ -133,6 +226,7 @@ function levelRow(
     basisUnit,
     basisAsOf: r?.t ?? null,
     regime,
+    forecast: buildForecast(rate),
   };
 }
 

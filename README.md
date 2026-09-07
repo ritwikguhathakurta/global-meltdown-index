@@ -255,7 +255,10 @@ Most engines were originally US-only; they were widened deliberately, not by def
   uncollateralized call rate (BOJ's own new public API), feeding both the composite score and a
   live per-bank **AMPLE/ADEQUATE/NORMAL/TIGHTENING/DEFICIT** table on the Liquidity tab
   (`src/lib/engines/liquidityRegime.ts`) — the actual ample-vs-scarce-reserves framework central
-  banks use, not just a balance-sheet-size relabeling.
+  banks use, not just a balance-sheet-size relabeling. A second table forecasts short/medium/long
+  term (~2 weeks/~2 months/~6 months) per bank via real OLS trend extrapolation of that same basis
+  series, re-scored against the same baseline — a momentum read, explicitly not a prediction (see
+  the methodology page).
 - **Supply Chains**: the NY Fed's global GSCPI (which publishes no country breakdown itself) plus
   country-level proxies for US/Germany/France/Italy (OECD order books), Japan (OECD finished-goods
   stocks), Canada (StatCan inventory-to-sales ratio) and China (NBS PMI delivery-time subindex) — the
