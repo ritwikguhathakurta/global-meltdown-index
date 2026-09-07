@@ -50,7 +50,11 @@ export default async function LiquidityPage() {
           banks use to judge whether reserves are ample (market rate trades below policy rate, as
           designed) or scarce (market rate prints at or above it). Japan and China are classified on
           their own rate level trend instead, since no free daily policy/target-rate series exists to
-          pair against — disclosed per row, not blended in silently.
+          pair against — disclosed per row, not blended in silently. Every regime label is
+          relative to that <em>same</em> bank&apos;s own trailing ~1-year range, not a universal
+          scale — read each row as &ldquo;unusually tight or loose for this bank lately,&rdquo; not
+          as directly comparable across banks (see Methodology for why, e.g., a modest-looking ECB
+          spread can still score DEFICIT after the ECB&apos;s 2024 rate-corridor narrowing).
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">

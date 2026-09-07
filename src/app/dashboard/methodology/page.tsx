@@ -337,6 +337,18 @@ export default function MethodologyPage() {
           elsewhere in this project (its 3-month interbank rate), for the same reason no free
           PBOC balance-sheet series exists.
         </p>
+        <p>
+          Every regime label is relative to that <strong>same</strong> bank&apos;s own trailing
+          ~1-year z-score, not a universal absolute threshold shared across banks — the same
+          convention every other z-scored engine in this project uses. A &ldquo;DEFICIT&rdquo;
+          read does not mean the same absolute spread width for the Fed as for the ECB, and is
+          not by itself a crisis-level reading: for example, the ECB narrowed its own interest-rate
+          corridor in April 2024, which mechanically pushed €STR&apos;s spread to the Deposit
+          Facility Rate structurally closer to zero than its pre-2024 range, so a reading near the
+          top of that bank&apos;s own recent range can score as DEFICIT at a numerically modest
+          spread. Read each row as &ldquo;unusually tight or loose for this specific bank
+          lately,&rdquo; not as a cross-bank-comparable absolute scale.
+        </p>
       </section>
 
       <section className="mb-8" id="india-yield-curve-ccil">

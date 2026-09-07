@@ -31,6 +31,18 @@ import { lookbackDaysFor } from "../metrics/lookback";
  * - PBOC (China): already a rate-side-only proxy elsewhere in this project
  *   (no free PBOC balance-sheet/reserve-money series exists) — classified
  *   on its 3-month interbank rate's own level trend.
+ *
+ * IMPORTANT: every regime label here is relative to that SAME bank's own
+ * trailing ~1-year z-score, not a universal absolute threshold shared
+ * across banks — the same convention every other z-scored engine in this
+ * project already uses (see stats.ts). A "DEFICIT" read does not mean the
+ * same absolute spread width for the Fed as for the ECB, and does not by
+ * itself mean a crisis-level reading — e.g. the ECB narrowed its own rate
+ * corridor in April 2024, which mechanically pushed €STR-DFR structurally
+ * closer to zero than its pre-2024 range; a reading near the top of that
+ * bank's OWN recent range can score as "DEFICIT" even at a numerically
+ * modest spread. Read each row as "unusually tight/loose for this bank
+ * lately," not as a cross-bank-comparable absolute scale.
  */
 
 export type LiquidityRegimeLabel = "AMPLE" | "ADEQUATE" | "NORMAL" | "TIGHTENING" | "DEFICIT" | "INSUFFICIENT_DATA";
