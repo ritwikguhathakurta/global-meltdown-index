@@ -30,6 +30,7 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   imf_article_iv: 1,
   statcan: 1,
   rbi_liquidity: 1,
+  rbi_gsec_auctions: 1,
 };
 
 export async function buildIndicator(
@@ -124,5 +125,12 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey === "liquidity.uk_boe_reserves") return "boe";
   if (metricKey === "liquidity.canada_boc_assets") return "boc";
   if (metricKey === "india.rbi_net_liquidity" || metricKey === "india.wacr") return "rbi_liquidity";
+  if (
+    metricKey === "india.tbill_91d" ||
+    metricKey === "india.tbill_364d" ||
+    metricKey === "india.gsec_medium_yield" ||
+    metricKey === "india.gsec_long_yield"
+  )
+    return "rbi_gsec_auctions";
   return "fred";
 }

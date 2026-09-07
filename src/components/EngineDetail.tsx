@@ -110,6 +110,17 @@ export function EngineDetail({ title, rows }: { title: string; rows: EngineRow[]
             </ul>
           </div>
 
+          {rows[0].amplifiers.length > 0 && (
+            <div className="gfew-panel p-5">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-dim">Amplifiers</h3>
+              <ul className="list-inside list-disc text-sm text-text-dim">
+                {rows[0].amplifiers.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {rows[0].contradictory_evidence.length > 0 && (
             <div className="gfew-panel p-5">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-dim">Contradictory Evidence</h3>

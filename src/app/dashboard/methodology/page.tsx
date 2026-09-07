@@ -41,6 +41,10 @@ export default function MethodologyPage() {
           Also not yet implemented: a standalone Central-Bank Policy composite (needs the
           hawkish/dovish NLP classifier, deferred — see README).
           None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
+          Two further engines beyond the original 24-engine spec were added on request — India Liquidity and
+          India Yield Curve, both India-specific reads distinct from India Market Regime — see{" "}
+          <a href="#india-yield-curve-ccil" className="text-accent hover:underline">India Yield Curve, and why CCIL is not used</a>{" "}
+          below.
         </p>
       </section>
 
@@ -102,7 +106,8 @@ export default function MethodologyPage() {
           Global Liquidity now covers all of G7 + China — the ECB (Germany/France/Italy), BOJ, BoE and BoC
           balance-sheet/reserve measures alongside the Fed, plus China&apos;s 3-month interbank rate as a
           rate-side proxy (see &ldquo;Liquidity: G7 + China, and a separate India Liquidity engine&rdquo;
-          below, which also covers the new standalone India Liquidity tab). The
+          below, which also covers the new standalone India Liquidity tab, and &ldquo;India Yield Curve,
+          and why CCIL is not used&rdquo; for the new India-specific sovereign-curve tab). The
           standalone China engine itself adds the 10Y yield, debt/GDP ratio, 3-month interbank rate, real
           house-price index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking —
           plus, as of this update, property sales, a credit-impulse proxy, PMI new orders, LGFV-inclusive
@@ -291,6 +296,72 @@ export default function MethodologyPage() {
           and the Weighted Average Call Rate (WACR, India&apos;s overnight interbank rate, the direct
           analog to SOFR/EFFR). USDINR, already tracked elsewhere in this project, is reused as a
           coincident cross-check.
+        </p>
+      </section>
+
+      <section className="mb-8" id="india-yield-curve-ccil">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          India Yield Curve (new tab), and why CCIL is not used as a source
+        </h2>
+        <p className="mb-2">
+          <strong>CCIL</strong> (the Clearing Corporation of India) publishes the industry-standard
+          secondary-market reference for India&apos;s sovereign curve — its daily Zero Coupon Yield Curve —
+          and was the first source checked for a fuller India debt-market picture. It was deliberately not
+          used: CCIL&apos;s own Terms of Use, read in full, explicitly state (§4.8) that &ldquo;the User
+          shall not conduct any systematic or automated data collection activities which include but are
+          not limited to scrapping, data mining, data extraction and data harvesting&rdquo; on its site, and
+          separately (§4.1) prohibit any commercial use of its published Content without CCIL&apos;s express
+          written consent. This is a legal access restriction stated in plain language, not a technical bot
+          block — but this project treats the two the same way: it does not circumvent either kind of
+          restriction to reach data a source has said it does not want scraped. (Compare the Imperva/TSPD
+          JS bot-mitigation challenge on RBI&apos;s own PDF subdomain, rbidocs.rbi.org.in, discussed above —
+          same principle, different mechanism.)
+        </p>
+        <p className="mb-2">
+          Instead, the new <strong>India Yield Curve</strong> engine is built entirely from RBI&apos;s own
+          primary-auction results — genuine cut-off yields the government actually borrowed at, published
+          as ordinary press releases on rbi.org.in (not gated in any way):
+        </p>
+        <ul className="mb-2 list-inside list-disc space-y-1">
+          <li>
+            <strong>Short</strong> (91-day and 364-day): the weekly &ldquo;T-Bill Auction Result:
+            Cut-off&rdquo; release.
+          </li>
+          <li>
+            <strong>Medium</strong> (residual maturity ≤8 years, e.g. 5Y/7Y reissues) and{" "}
+            <strong>long</strong> (&gt;8 years, e.g. 10Y/14Y/30Y/40Y): the &ldquo;Government Stock - Auction
+            Results: Cut-off&rdquo; release, bucketed by each auctioned security&apos;s maturity year minus
+            the release&apos;s own year. When a release also auctions a Sovereign Green Bond or another
+            non-standard instrument alongside ordinary G-Secs, only the plain G-Secs are bucketed — the
+            others are skipped, not guessed.
+          </li>
+          <li>
+            A continuous long-end cross-check, <span className="gfew-mono">india.gsec_10y</span>, from the
+            OECD/FRED-mirrored India 10Y benchmark (monthly) — since RBI&apos;s own borrowing calendar
+            doesn&apos;t auction a 10Y-ish security every week, this fills the gap between auctions.
+          </li>
+        </ul>
+        <p className="mb-2">
+          Three derived spreads read the curve&apos;s shape directly: 1Y-10Y (the primary inversion gauge —
+          India has no liquid 2Y benchmark, so this plays the role the 2s10s spread plays in the US), 1Y-5Y
+          (front-end steepness) and 5Y-10Y+ (back-end steepness) — each shown as its own live indicator on
+          the India Yield Curve tab, with a plain-language read of which end is currently steeper and
+          whether the curve has inverted. Because the medium/long buckets only update on weeks RBI actually
+          auctions a security in that bucket, they are genuinely irregular (not a pipeline fault) — this is
+          disclosed directly on the engine.
+        </p>
+        <p>
+          <strong>Seasonal liquidity pattern (Diwali / fiscal year-end):</strong> India has a well-documented
+          pattern of banking-system liquidity tightening in the weeks before Diwali (festive currency demand
+          pulls cash out of the banking system) and again in the back half of March (advance-tax payments due
+          March 15, plus the March 31 fiscal year-end) — both repeatedly reported by RBI and financial press
+          across recent years. This project checks that pattern directly against its own backfilled RBI
+          history (india.rbi_net_liquidity/india.wacr, extended via RBI&apos;s own year/month press-release
+          archive — a genuine, publicly-advertised feature of rbi.org.in&apos;s press-release page,
+          reached the same way a browser would: replicating its own postback rather than a bypass of
+          anything) rather than only asserting the pattern in prose — shown as a &ldquo;Seasonal Pattern&rdquo;
+          panel on the India Liquidity tab, with real computed averages and observation counts, and years with
+          too little backfilled history yet named as such rather than papered over.
         </p>
       </section>
 

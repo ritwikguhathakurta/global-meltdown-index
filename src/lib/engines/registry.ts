@@ -17,6 +17,7 @@ import { runTradePolicyEngine } from "./tradePolicy";
 import { runSupplyChainsEngine } from "./supplyChains";
 import { runChinaEngine } from "./china";
 import { runIndiaLiquidityEngine } from "./indiaLiquidity";
+import { runIndiaYieldCurveEngine } from "./indiaYieldCurve";
 import { runMarketConcentrationEngine } from "./marketConcentration";
 import { runPrivateCreditEngine } from "./privateCredit";
 import { runAiFinancialSustainabilityEngine } from "./aiFinancialSustainability";
@@ -53,6 +54,10 @@ export const HORIZONS: Horizon[] = ["short", "medium", "long"];
  * Market Regime (indiaRegime.ts, a bullish/bearish equity-regime call on a
  * different scale, run outside this registry — see compute.ts) since
  * banking-system liquidity is a distinct concept from market direction.
+ * India Yield Curve is a further addition — the short/medium/long shape of
+ * India's sovereign curve and its inversion risk, built from RBI's own
+ * primary-auction results (see indiaYieldCurve.ts) after CCIL, the natural
+ * secondary-market source, was ruled out on its own Terms of Use.
  * None are stubbed with fake scores — see each engine file's docstring for
  * exactly what free data does and doesn't cover.
  */
@@ -74,6 +79,7 @@ export const ENGINE_REGISTRY = [
   { key: "supply_chains", run: runSupplyChainsEngine, gfmiWeight: 0.6 },
   { key: "china", run: runChinaEngine, gfmiWeight: 0.6 },
   { key: "india_liquidity", run: runIndiaLiquidityEngine, gfmiWeight: 0.4 },
+  { key: "india_yield_curve", run: runIndiaYieldCurveEngine, gfmiWeight: 0.3 },
   { key: "market_concentration", run: runMarketConcentrationEngine, gfmiWeight: 0.5 },
   { key: "private_credit", run: runPrivateCreditEngine, gfmiWeight: 0.6 },
   { key: "ai_financial_sustainability", run: runAiFinancialSustainabilityEngine, gfmiWeight: 0.8 },

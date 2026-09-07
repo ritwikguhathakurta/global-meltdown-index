@@ -21,6 +21,7 @@ const ENGINE_META: Record<string, { label: string; href: string }> = {
   supply_chains: { label: "Supply Chains", href: "/dashboard/supply-chains" },
   china: { label: "China", href: "/dashboard/china" },
   india_liquidity: { label: "India Liquidity", href: "/dashboard/india-liquidity" },
+  india_yield_curve: { label: "India Yield Curve", href: "/dashboard/india-yield-curve" },
   market_concentration: { label: "Market Concentration", href: "/dashboard/market-concentration" },
   private_credit: { label: "Private Credit", href: "/dashboard/private-credit" },
   ai_financial_sustainability: { label: "AI Financial Sustainability", href: "/dashboard/ai-financial-sustainability" },

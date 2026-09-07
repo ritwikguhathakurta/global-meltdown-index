@@ -11,7 +11,7 @@ Core question the platform answers: *what is changing now that could matter late
 - **Next.js 16 / TypeScript / Tailwind v4** app, deployable to Vercel.
 - **Supabase** for Postgres (data + auth). Email/password sign-up with a 90-day free trial
   auto-granted on signup; role-based access (`user` / `admin`) enforced server-side in `src/proxy.ts`.
-- **23 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
+- **24 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
   scores with leading/coincident/lagging indicator breakdowns, triggers, transmission mechanism,
   confirmation/invalidation conditions, and a "what has not yet happened" section. Most cover the
   **G7 (US, Canada, UK, Germany, France, Italy, Japan) plus China**, not just the US — see
@@ -28,6 +28,9 @@ Core question the platform answers: *what is changing now that could matter late
     [AI engines](#ai-engines-real-sec-edgar-data-not-a-mockup) below)
   - **India Liquidity** (new, standalone — RBI's own daily net-liquidity and overnight-rate data),
     separate from India Market Regime (a bullish/bearish equity-direction call on a different scale)
+  - **India Yield Curve** (new, standalone — India's short/medium/long sovereign curve and inversion
+    risk, built from RBI's own T-Bill/G-Sec primary-auction results, since CCIL's Terms of Use rule
+    out an automated feed of its secondary-market curve — see [CCIL](#ccil-not-used) below)
   - Plus **partial** China and India Market Regime engines (each page lists exactly which spec
     indicators are `UNAVAILABLE` — see limitations below)
 - **GFMI composite** (Global Financial Meltdown Index): weighted engine average + nonlinear
@@ -88,6 +91,18 @@ Those need data sources or infrastructure this phase doesn't have yet:
   cross-asset shock-sensitivity proxy only. (Banking-system liquidity itself is now covered by the
   separate **India Liquidity** engine/tab — RBI's own daily net-liquidity and WACR data — which is
   not affected by this gap.)
+- <a id="ccil-not-used"></a>**CCIL** (the Clearing Corporation of India) publishes the
+  industry-standard secondary-market India debt-market data (its Zero Coupon Yield Curve, money
+  market/forex/G-Sec turnover) and was evaluated as a source for a fuller India debt-market picture.
+  It is deliberately not used: CCIL's own Terms of Use explicitly forbid "systematic or automated
+  data collection" (§4.8 — scraping, data mining, data extraction and harvesting, stated outright,
+  not just a commercial-use carve-out) and any commercial use of its Content without express written
+  consent (§4.1), verified directly against CCIL's published Terms of Use PDF. This project does not
+  scrape sources whose own terms forbid it — the same standard already applied to RBI's
+  Imperva/TSPD-protected PDF subdomain. The new **India Yield Curve** engine covers the same
+  short/medium/long sovereign-curve ground instead, built entirely from RBI's own T-Bill/G-Sec
+  primary-auction results plus an OECD/FRED-mirrored 10Y cross-check — see the methodology page's
+  "India Yield Curve, and why CCIL is not used" section.
 - **Central-Bank Policy composite** is not a standalone engine yet — it needs the hawkish/dovish
   NLP classifier below.
 - **Central-bank hawkishness/dovishness NLP scoring**, forward-guidance change detection, and the
@@ -246,7 +261,13 @@ Most engines were originally US-only; they were widened deliberately, not by def
   except individual developer defaults (see the methodology page for sourcing detail on each).
 - **India Liquidity** (new, standalone tab): RBI's own daily net-liquidity (LAF) figure and the
   Weighted Average Call Rate, plus USDINR — separate from India Market Regime, which is a
-  bullish/bearish equity-direction call on a different scale, not a liquidity read.
+  bullish/bearish equity-direction call on a different scale, not a liquidity read. Also surfaces a
+  real, computed check of India's documented pre-Diwali/fiscal-year-end seasonal liquidity pattern
+  against this project's own backfilled RBI history (`src/lib/engines/indiaSeasonality.ts`).
+- **India Yield Curve** (new, standalone tab): short (91D/364D T-Bill), medium (~5Y G-Sec) and long
+  (10Y G-Sec + an OECD/FRED cross-check) sovereign yields, all from RBI's own primary-auction
+  results, plus three derived spreads reading front-end vs. back-end steepness and 1Y-10Y inversion
+  risk — built after ruling out CCIL as a source (see [CCIL](#ccil-not-used) above).
 - **Banking**: adds ECB/UK policy rates as European funding-cost context — no free source publishes
   bank-level NPL/delinquency data outside the US for any G7 country.
 - One engine stays intentionally single-country regardless of data availability: **Yen Carry Stress**

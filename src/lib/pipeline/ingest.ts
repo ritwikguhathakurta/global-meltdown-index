@@ -16,7 +16,8 @@ import { fetchChinaCreditGap } from "../sources/bisCreditGap";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
 import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
 import { fetchCanadaInventoryToSalesRatio } from "../sources/statCan";
-import { fetchIndiaLiquiditySeries } from "../sources/rbiLiquidity";
+import { fetchIndiaLiquiditySeries, fetchIndiaLiquidityBackfill } from "../sources/rbiLiquidity";
+import { fetchIndiaYieldCurveSeries } from "../sources/rbiYieldCurve";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -269,17 +270,65 @@ export async function ingestGovLiquidity(db: SupabaseClient, runDate: string): P
   return { stage: "ingest_gov_liquidity", status, detail };
 }
 
+// Below this many stored observations, ingestion additionally pulls full prior
+// calendar years via RBI's own year/month archive (rbiArchive.ts) — the default
+// listing alone only shows a rolling few weeks, which isn't enough history to see
+// more than one Diwali/fiscal-year-end cycle for the seasonal analysis
+// (indiaSeasonality.ts). Runs once; subsequent runs see the row count above the
+// threshold and fall back to the cheap current-listing-only fetch.
+const MIN_RBI_LIQUIDITY_OBSERVATIONS = 700; // ~2 years of daily net-liquidity/WACR pairs
+const MIN_RBI_YIELD_CURVE_OBSERVATIONS = 150; // T-Bill+G-Sec auctions are weekly/irregular, not daily
+
+function priorCalendarYears(count: number): number[] {
+  const currentYear = new Date().getUTCFullYear();
+  return Array.from({ length: count }, (_, i) => currentYear - count + i);
+}
+
 export async function ingestRbiLiquidity(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
-    const points = await fetchIndiaLiquiditySeries();
+    const { count, error: countError } = await db
+      .from("metric_series")
+      .select("observed_at", { count: "exact", head: true })
+      .eq("metric_key", "india.rbi_net_liquidity");
+    if (countError) throw new Error(`row count check: ${countError.message}`);
+    const needsBackfill = (count ?? 0) < MIN_RBI_LIQUIDITY_OBSERVATIONS;
+
+    const [current, backfill] = await Promise.all([
+      fetchIndiaLiquiditySeries(),
+      needsBackfill ? fetchIndiaLiquidityBackfill(priorCalendarYears(3)) : Promise.resolve([]),
+    ]);
+    const points = [...current, ...backfill];
     await upsertMetrics(db, points);
     const status = points.length > 0 ? "ok" : "warning";
-    await logRun(db, runDate, "ingest_rbi_liquidity", status, { points: points.length });
-    return { stage: "ingest_rbi_liquidity", status, detail: { points: points.length } };
+    const detail = { points: points.length, backfilled: needsBackfill, currentPoints: current.length, backfillPoints: backfill.length };
+    await logRun(db, runDate, "ingest_rbi_liquidity", status, detail);
+    return { stage: "ingest_rbi_liquidity", status, detail };
   } catch (e) {
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_rbi_liquidity", "failed", detail);
     return { stage: "ingest_rbi_liquidity", status: "failed", detail };
+  }
+}
+
+export async function ingestRbiYieldCurve(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const { count, error: countError } = await db
+      .from("metric_series")
+      .select("observed_at", { count: "exact", head: true })
+      .eq("metric_key", "india.tbill_364d");
+    if (countError) throw new Error(`row count check: ${countError.message}`);
+    const needsBackfill = (count ?? 0) < MIN_RBI_YIELD_CURVE_OBSERVATIONS;
+
+    const points = await fetchIndiaYieldCurveSeries(needsBackfill ? priorCalendarYears(3) : []);
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length, backfilled: needsBackfill };
+    await logRun(db, runDate, "ingest_rbi_yield_curve", status, detail);
+    return { stage: "ingest_rbi_yield_curve", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_rbi_yield_curve", "failed", detail);
+    return { stage: "ingest_rbi_yield_curve", status: "failed", detail };
   }
 }
 
@@ -380,6 +429,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestGovBondYields(db, runDate),
     ingestGovLiquidity(db, runDate),
     ingestRbiLiquidity(db, runDate),
+    ingestRbiYieldCurve(db, runDate),
     ingestChinaCreditGap(db, runDate),
     ingestChinaLgfvDebt(db, runDate),
     ingestGovCnStatistics(db, runDate),

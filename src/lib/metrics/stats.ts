@@ -162,6 +162,33 @@ export function divideByLastKnown(dense: Point[], sparse: Point[]): Point[] {
   return out;
 }
 
+/**
+ * As-of spread: for each point in `index` (the series whose own dates should
+ * drive the output cadence — normally the more frequently-updated or more
+ * decision-relevant side), finds the latest `lookup` point dated on or
+ * before it and returns (index - lookup) * scale. Same as-of join as
+ * divideByLastKnown, but subtracting instead of dividing — for yield-curve
+ * spreads built from tenors that publish on genuinely different, irregular
+ * cadences (e.g. a weekly T-Bill auction vs a monthly OECD 10Y benchmark, or
+ * an irregular primary-auction cutoff that only prints on weeks that tenor
+ * is actually auctioned).
+ */
+export function spreadByLastKnown(index: Point[], lookup: Point[], scale = 1): Point[] {
+  const sortedLookup = [...lookup].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const sortedIndex = [...index].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const out: Point[] = [];
+  let i = 0;
+  let lastVal: number | null = null;
+  for (const p of sortedIndex) {
+    while (i < sortedLookup.length && sortedLookup[i].t <= p.t) {
+      lastVal = sortedLookup[i].v;
+      i++;
+    }
+    if (lastVal !== null) out.push({ t: p.t, v: (p.v - lastVal) * scale });
+  }
+  return out;
+}
+
 /** Trailing rolling sum over the last `window` observations (e.g. TTM = rollingSum(quarterlySeries, 4)). */
 export function rollingSum(points: Point[], window: number): Point[] {
   const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));

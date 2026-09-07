@@ -1,5 +1,6 @@
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { computeIndiaSeasonalNotes } from "@/lib/engines/indiaSeasonality";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -131,6 +132,17 @@ export async function getSourceRegistry(): Promise<SourceRow[]> {
     () => db.from("sources").select("*").order("tier", { ascending: true }),
     []
   );
+}
+
+export async function getIndiaSeasonalNotes(): Promise<string[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeIndiaSeasonalNotes(db, new Date().toISOString());
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
+  }
 }
 
 export async function getRecentPipelineRuns(limit = 20): Promise<PipelineRunRow[]> {

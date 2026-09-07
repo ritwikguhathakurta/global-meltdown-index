@@ -139,6 +139,15 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "supplychain.france_order_books", seriesId: "BSOBLV02FRM460S", frequency: "monthly", unit: "% balance" },
   { metricKey: "supplychain.italy_order_books", seriesId: "BSOBLV02ITM460S", frequency: "monthly", unit: "% balance" },
   { metricKey: "supplychain.japan_finished_goods_stocks", seriesId: "JPNBSFGLV02STSAQ", frequency: "quarterly", unit: "% balance" },
+
+  // India Yield Curve engine — long-end cross-check. RBI's own G-Sec auction
+  // cutoffs (rbiYieldCurve.ts) only update the long end on weeks a 10Y+
+  // security is actually auctioned; this OECD-mirrored monthly benchmark
+  // fills the gap between those auctions. CCIL's own secondary-market Zero
+  // Coupon Yield Curve was deliberately not used — its Terms of Use forbid
+  // automated data collection and commercial use without written consent
+  // (see rbiYieldCurve.ts and rbiLiquidity.ts for the full explanation).
+  { metricKey: "india.gsec_10y", seriesId: "INDIRLTLT01STM", frequency: "monthly", unit: "%" },
 ];
 
 export async function fetchFredSeries(
