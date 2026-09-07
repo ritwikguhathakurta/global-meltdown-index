@@ -10,19 +10,33 @@ import { diffSeriesByMonth } from "../metrics/stats";
  * every other G7 government bond market with a free source (UK, Germany,
  * France, Italy, Japan, Canada), not the US alone.
  *
- * UK, Germany and Canada 10Y yields come directly from their own central
- * bank/statistical warehouse (Bank of England, Bundesbank, Bank of Canada —
- * see govBondYields.ts), each publishing daily with only a few days' lag.
- * Italy, France and Japan still come from the FRED/OECD monthly proxy — no
- * equally clean free daily source was found for those three within
- * reasonable effort, so they remain genuinely a few months stale by nature
- * of that specific source, not a pipeline fault (verified directly against
+ * UK, Germany, Canada and Japan 10Y yields come directly from their own
+ * central bank/finance-ministry (Bank of England, Bundesbank, Bank of
+ * Canada, Japan's Ministry of Finance — see govBondYields.ts), each
+ * publishing daily with only a few days' lag.
+ * Italy and France still come from the FRED/OECD monthly proxy. France's
+ * own daily rate (TEC 10) is Euronext-licensed with an explicit
+ * no-redistribution clause, so it isn't used (see govBondYields.ts); no
+ * equally clean, unrestricted, free daily source was found for Italy within
+ * reasonable effort. Both remain genuinely a few months stale by nature of
+ * that specific source, not a pipeline fault (verified directly against
  * FRED's own metadata: we hold the freshest value the source has ever
  * published). The Italy-Germany 10Y spread ("BTP-Bund spread") is the
  * single most-watched eurozone fragmentation-risk gauge, computed here
  * rather than fetched since no free source publishes the spread directly —
  * it is still bottlenecked to Italy's monthly cadence even though Germany's
  * own side of it is now daily.
+ *
+ * Government debt/GDP ratios for every non-US economy here (plus the US's
+ * own quarterly figure) are annual or quarterly official national-accounts
+ * statistics with a genuine 1-2+ year real-world publication lag — verified
+ * directly against FRED's own latest-observation metadata that each series
+ * already holds the newest figure that exists anywhere for free. IMF's own
+ * WEO database, the only plausible fresher source, sits behind an Akamai
+ * bot-mitigation challenge this project will not solve (the same policy
+ * already applied to RBI's Imperva/TSPD block). These cannot be made "live"
+ * without fabricating data between real annual prints — STALE here reflects
+ * the real world, not a fixable gap.
  *
  * China's 10Y yield comes from ChinaBond (CCDC, the PBOC-designated central
  * bond depository) — its "中债国债收益率曲线" is the standard benchmark cited
@@ -64,7 +78,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
     buildIndicator(ctx.db, "yield.germany_10y", "Germany 10Y Bund Yield (Bundesbank, daily)", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "yield.italy_10y", "Italy 10Y BTP Yield", "coincident", "monthly", "%"),
     buildIndicator(ctx.db, "yield.france_10y", "France 10Y OAT Yield", "coincident", "monthly", "%"),
-    buildIndicator(ctx.db, "yield.japan_10y_proxy", "Japan 10Y JGB Yield (OECD monthly proxy)", "coincident", "monthly", "%"),
+    buildIndicator(ctx.db, "yield.japan_10y", "Japan 10Y JGB Yield (Ministry of Finance, daily)", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "yield.canada_10y", "Canada 10Y Yield (Bank of Canada, daily)", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "sovereign.germany_debt_to_gdp", "Germany Government Debt / GDP", "lagging", "annual", "%"),
     buildIndicator(ctx.db, "sovereign.italy_debt_to_gdp", "Italy Government Debt / GDP", "lagging", "annual", "%"),
@@ -117,7 +131,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
     invalidationConditions: ["Long yields fall or stabilize with strong auction demand", "Term premium and the BTP-Bund spread compress back toward trailing medians"],
     confirmationConditions: ["Auction tails widen (not yet tracked)", "Sovereign CDS widens materially (not yet tracked)"],
     notYetHappened: ["No confirmed pattern of disorderly weak demand across the tracked sovereign markets"],
-    contradictoryEvidence: ["Italy, France and Japan yields still come from a monthly proxy that lags 2-4 months; UK, Germany, Canada and China are now daily"],
-    methodologyVersion: "v0.4-freedata-chinabond",
+    contradictoryEvidence: ["Italy and France yields still come from a monthly proxy that lags 2-4 months (France's own daily rate is Euronext-licensed and not used, per govBondYields.ts); UK, Germany, Canada, Japan and China are now daily", "Government debt/GDP ratios genuinely lag 1-2+ years by nature of the underlying national-accounts statistics — not fixable without a source IMF WEO update this project can't reach (Akamai-blocked)"],
+    methodologyVersion: "v0.5-freedata-mof-japan",
   });
 }

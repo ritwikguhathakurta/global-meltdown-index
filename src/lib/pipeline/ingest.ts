@@ -14,6 +14,7 @@ import {
   fetchGermanyYield10y,
   fetchUkYield10y,
   fetchCanadaYield10y,
+  fetchJapanYield10y,
   fetchUkReserveBalances,
   fetchCanadaCentralBankAssets,
   fetchUkShortRates,
@@ -237,6 +238,7 @@ export async function ingestGovBondYields(db: SupabaseClient, runDate: string): 
     { name: "Canada (BoC)", fn: fetchCanadaYield10y },
     { name: "China (ChinaBond/CCDC)", fn: fetchChinaYield10y },
     { name: "China Corporate AAA (ChinaBond/CCDC)", fn: fetchChinaCorpAaaYield10y },
+    { name: "Japan (Ministry of Finance)", fn: fetchJapanYield10y },
   ];
   let ok = 0;
   let points = 0;

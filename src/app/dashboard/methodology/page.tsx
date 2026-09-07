@@ -91,15 +91,23 @@ export default function MethodologyPage() {
           real house-price index computed the same way for all eight economies; Treasury &amp; Sovereign
           Debt covers US 2Y/10Y/30Y yields and debt/GDP alongside UK/Germany/France/Italy/Japan/Canada/China
           10Y yields and debt/GDP, the Italy-Germany spread, and China&apos;s 3-month interbank rate as an
-          additional funding-stress proxy. UK, Germany, Canada and China&apos;s 10Y yields all come directly
-          from their own central bank or central depository (Bank of England, Bundesbank, Bank of Canada,
-          and — for China — ChinaBond/CCDC, the PBOC-designated central bond depository, whose government
-          bond yield curve is the standard benchmark cited internationally as China&apos;s sovereign
-          yield) rather than a FRED/OECD monthly proxy, each publishing daily with only a few days&apos;
-          lag — a real freshness upgrade, and one that closes what had been treated as a genuine data gap
-          (no FRED, OECD or BIS series covers this at all; finding it required looking directly at CCDC&apos;s
-          own site, not the usual multilateral aggregators). Italy, France and Japan still use the
-          FRED/OECD monthly proxy since no equally clean free daily alternative was found for those three.
+          additional funding-stress proxy. UK, Germany, Canada, Japan and China&apos;s 10Y yields all come
+          directly from their own central bank, finance ministry or central depository (Bank of England,
+          Bundesbank, Bank of Canada, Japan&apos;s Ministry of Finance, and — for China — ChinaBond/CCDC,
+          the PBOC-designated central bond depository, whose government bond yield curve is the standard
+          benchmark cited internationally as China&apos;s sovereign yield) rather than a FRED/OECD monthly
+          proxy, each publishing daily with only a few days&apos; lag — a real freshness upgrade. Japan&apos;s
+          own Ministry of Finance publishes a free daily JGB yield curve (1Y-40Y, back to 1974) as two plain
+          CSV files — a historical archive plus a rolling current-month file — found directly on its own
+          site, closing what had been a 2-4-month-stale proxy. China&apos;s case closes what had been treated
+          as a genuine data gap entirely (no FRED, OECD or BIS series covers it at all; finding it required
+          looking directly at CCDC&apos;s own site, not the usual multilateral aggregators). Italy and
+          France still use the FRED/OECD monthly proxy: no equally clean free daily alternative was found
+          for Italy, and France&apos;s own daily rate (the TEC 10 / CNO-TEC® index published by Agence
+          France Trésor) is explicitly Euronext-licensed — its own publisher page states the values &ldquo;may
+          not be redistributed, sub-licensed or used for commercial purposes... without the prior written
+          authorisation of Euronext Paris&rdquo;, the same category of restriction this project already
+          declines to route around for CCIL&apos;s India debt-market data (see below) — so it is not used.
           Credit adds Euro-area
           high-yield spreads and an Asia-Pacific EM
           corporate spread (which includes but isn&apos;t exclusively China) alongside US HY/IG/EM; and
@@ -125,6 +133,44 @@ export default function MethodologyPage() {
           UK, Eurozone, Canada or Japan, or a non-US publicly-traded direct-lending vehicle comparable to
           US BDCs — those engines add whatever real G7 context does exist (policy rates) rather than
           fabricating data that doesn&apos;t exist for free.
+        </p>
+      </section>
+
+      <section className="mb-8" id="treasury-freshness">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Treasury &amp; Sovereign Debt: why a few indicators still show STALE
+        </h2>
+        <p className="mb-2">
+          After the Japan yield upgrade above, five of the seven non-US G7+China 10Y yields (UK, Germany,
+          Canada, Japan, China) are now genuinely daily, direct-from-source figures. Two categories of
+          indicator on this tab will still legitimately show STALE some of the time, and this is the real
+          world, not a fixable pipeline gap, verified directly against each source&apos;s own metadata
+          rather than assumed.
+        </p>
+        <p className="mb-2">
+          Italy and France 10Y yields (and the derived Italy-Germany &ldquo;BTP-Bund&rdquo; spread) still
+          come from a FRED/OECD proxy that itself only updates monthly and typically lags a further 2-3
+          months in publication, so at any given time the freshest value available is genuinely 2-4 months
+          old. France&apos;s own daily rate exists but is Euronext-licensed and not used (see above); no
+          equally clean, unrestricted daily source was found for Italy.
+        </p>
+        <p className="mb-2">
+          Government debt/GDP ratios for every economy here (Germany, Italy, Japan, Canada, UK, China
+          annual; the US&apos;s own quarterly figure) are official national-accounts statistics that take
+          governments and the IMF/OECD 1-2+ years to finalize, checked directly against FRED&apos;s own
+          latest-observation metadata for all seven series, confirming each one already holds the newest
+          figure that source has ever published. There is nothing fresher being missed. IMF&apos;s own
+          World Economic Outlook database, the only plausible source with a shorter lag, sits behind an
+          Akamai bot-mitigation block that returned an explicit &ldquo;Access Denied&rdquo; to a plain,
+          correctly-formed request, the same category of technical block this project already declines to
+          solve for RBI&apos;s Weekly Statistical Supplement (Imperva/TSPD).
+        </p>
+        <p>
+          Making every Treasury indicator show LIVE or RECENT at all times is not achievable without either
+          fabricating data between real publication dates or silently loosening the freshness thresholds
+          until a genuinely 2-year-old debt/GDP figure reads as fresh, both would misrepresent what the data
+          actually is. STALE on this tab is the system telling the truth about a real-world reporting lag,
+          not a broken feed.
         </p>
       </section>
 

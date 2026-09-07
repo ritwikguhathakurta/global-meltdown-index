@@ -235,15 +235,22 @@ Most engines were originally US-only; they were widened deliberately, not by def
   leading context (no free equivalent exists for other countries).
 - **Treasury & Sovereign Debt**: US 2Y/10Y/30Y yields + debt/GDP, plus UK, Germany, France, Italy,
   Japan, Canada and China 10Y yields + debt-to-GDP, the derived Italy-Germany ("BTP-Bund") spread,
-  and China's 3-month interbank rate as an additional funding-stress proxy. UK, Germany, Canada and
-  China's 10Y yields come directly from their own central bank/depository (Bank of England,
-  Bundesbank, Bank of Canada — `src/lib/sources/govBondYields.ts`; ChinaBond/CCDC, the
-  PBOC-designated central bond depository — `src/lib/sources/chinaBondYield.ts`), daily with only a
-  few days' lag, rather than a FRED/OECD monthly proxy. China's yield in particular had been
-  documented `UNAVAILABLE` (no FRED, OECD or BIS series covers it at all) until CCDC's own site was
-  checked directly rather than the usual multilateral aggregators. Italy, France and Japan stay on
-  the FRED/OECD monthly proxy (`IRLTLT01xxM156N`, structurally lags 2-4 months) since no equally
-  clean free daily alternative was found for those three.
+  and China's 3-month interbank rate as an additional funding-stress proxy. UK, Germany, Canada,
+  Japan and China's 10Y yields come directly from their own central bank/finance-ministry/depository
+  (Bank of England, Bundesbank, Bank of Canada, Japan's Ministry of Finance —
+  `src/lib/sources/govBondYields.ts`; ChinaBond/CCDC, the PBOC-designated central bond depository —
+  `src/lib/sources/chinaBondYield.ts`), daily with only a few days' lag, rather than a FRED/OECD
+  monthly proxy. China's yield in particular had been documented `UNAVAILABLE` (no FRED, OECD or BIS
+  series covers it at all) until CCDC's own site was checked directly rather than the usual
+  multilateral aggregators; Japan's own MOF publishes a free daily JGB curve (1Y-40Y, back to 1974)
+  as two CSV files, closing a 2-4-month-stale proxy. Italy and France stay on the FRED/OECD monthly
+  proxy (`IRLTLT01xxM156N`): no equally clean free daily source was found for Italy, and France's own
+  daily rate (TEC 10) is Euronext-licensed with an explicit no-redistribution clause — the same
+  category of restriction already declined for CCIL — so it isn't used. Government debt/GDP ratios
+  for every non-US economy here are annual official statistics that genuinely lag 1-2+ years
+  (verified each already holds FRED's freshest available observation; IMF's own WEO database, the
+  only plausible fresher source, is Akamai-blocked) — see the methodology page's "why a few
+  indicators still show STALE" section for the full detail.
 - **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
   (includes, but isn't exclusive to, China). Also now a G7+China per-country table
   (`src/lib/engines/creditRegime.ts`) on the Credit tab: a dedicated China AAA

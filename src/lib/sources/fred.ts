@@ -37,7 +37,6 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "credit.ig_oas", seriesId: "BAMLC0A0CM", frequency: "daily", unit: "%" },
   { metricKey: "credit.em_oas", seriesId: "BAMLEMCBPIOAS", frequency: "daily", unit: "%" },
   { metricKey: "sovereign.us_debt_to_gdp", seriesId: "GFDEGDQ188S", frequency: "quarterly", unit: "%" },
-  { metricKey: "yield.japan_10y_proxy", seriesId: "IRLTLT01JPM156N", frequency: "monthly", unit: "%" },
   { metricKey: "macro.us_cpi_yoy", seriesId: "CPIAUCSL", frequency: "monthly", unit: "index" },
   { metricKey: "equity.sp500", seriesId: "SP500", frequency: "daily", unit: "index" },
   { metricKey: "equity.nasdaq_composite", seriesId: "NASDAQCOM", frequency: "daily", unit: "index" },

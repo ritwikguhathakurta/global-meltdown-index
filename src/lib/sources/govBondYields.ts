@@ -1,17 +1,34 @@
 import type { MetricPoint } from "../metrics/store";
 
 /**
- * Direct-from-central-bank daily government bond yields for Germany, the UK
- * and Canada — replacing the OECD Main Economic Indicators monthly proxy
- * these three used to share with the rest of the G7 on FRED
- * (IRLTLT01xxM156N), which structurally lags 2-4 months in publication.
- * Each of these three national statistical warehouses publishes its own
- * 10-year benchmark yield daily with only a few days' lag, free, no key —
- * a real freshness upgrade, not just a relabeling. Italy, France and Japan
- * have no equally clean free daily source that was found (Italy's own
- * central bank and finance-ministry statistical APIs were checked and
- * didn't resolve to a working public endpoint within reasonable effort),
- * so those three stay on the FRED/OECD monthly proxy in fred.ts.
+ * Direct-from-central-bank/finance-ministry daily government bond yields
+ * for Germany, the UK, Canada and (as of this file's latest addition) Japan
+ * — replacing the OECD Main Economic Indicators monthly proxy these four
+ * used to share with the rest of the G7 on FRED (IRLTLT01xxM156N), which
+ * structurally lags 2-4 months in publication. Each of these four national
+ * statistical warehouses publishes its own 10-year benchmark yield daily
+ * with only a few days' lag, free, no key — a real freshness upgrade, not
+ * just a relabeling.
+ *
+ * Italy and France do NOT get the same upgrade, for two different reasons
+ * checked directly rather than assumed:
+ * - France: Agence France Trésor's own daily 10-year rate (the TEC 10 /
+ *   CNO-TEC® index) is real and free to view, but its own publisher page
+ *   states outright that the underlying index is "calculated and
+ *   administered by Euronext Paris" and that "these values may not be
+ *   redistributed, sub-licensed or used for commercial purposes... without
+ *   the prior written authorisation of Euronext Paris" — the same category
+ *   of explicit-redistribution-restriction this project already declines to
+ *   route around for CCIL's India debt-market data (see the methodology
+ *   page). Not used, for the same reason.
+ * - Italy: no equally clean, unrestricted, free daily source was found
+ *   within reasonable effort (Banca d'Italia's own statistical database
+ *   didn't resolve to a working public query endpoint, and its BTP
+ *   secondary-market yields are, like France's, calculated by a licensed
+ *   market operator (MTS) rather than published as the central bank's own
+ *   unrestricted series).
+ *
+ * Both stay on the FRED/OECD monthly proxy in fred.ts, disclosed as such.
  *
  * Each fetcher re-downloads the full available history and upserts it —
  * these are official permanent archives (not a status feed that trims old
@@ -340,5 +357,70 @@ export async function fetchCanadaYield10y(): Promise<MetricPoint[]> {
       frequency: "daily",
     });
   }
+  return points;
+}
+
+/**
+ * Japan's Ministry of Finance publishes its own daily JGB interest-rate
+ * curve (1Y through 40Y, calculated from JSDA reference OTC bond-transaction
+ * prices) as two plain CSV files, free, no key, no auth: a full historical
+ * archive back to 1974 and a rolling "current month" file that stays a few
+ * business days behind live. Replaces the FRED/OECD monthly proxy
+ * (IRLTLT01JPM156N, which structurally lagged 2-4 months) that
+ * `yield.japan_10y_proxy` used to be — this is now `yield.japan_10y`,
+ * matching the direct-source naming already used for Germany/UK/Canada/
+ * China, since it's no longer a proxy. A non-browser User-Agent works fine
+ * here (verified directly — no bot-mitigation challenge, just a plain
+ * static file server); the request was blocked only when using an empty
+ * default User-Agent, resolved by sending the same identifying header used
+ * for every other source in this file.
+ */
+const JGB_CURRENT_URL = "https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/jgbcme.csv";
+const JGB_HISTORICAL_URL = "https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/historical/jgbcme_all.csv";
+
+function parseJgbCsv(csv: string): Map<string, number> {
+  const out = new Map<string, number>();
+  const lines = csv.trim().split("\n");
+  const header = lines[1]?.split(",").map((s) => s.trim());
+  const tenIdx = header?.indexOf("10Y") ?? -1;
+  if (tenIdx === -1) throw new Error("MOF JGB yields: unexpected CSV header (no 10Y column)");
+  for (const line of lines.slice(2)) {
+    const cols = line.split(",");
+    const dateRaw = cols[0]?.trim();
+    const m = dateRaw?.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+    if (!m) continue;
+    const v = parseFloat(cols[tenIdx]);
+    if (Number.isNaN(v)) continue;
+    const iso = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+    out.set(iso, v);
+  }
+  return out;
+}
+
+export async function fetchJapanYield10y(): Promise<MetricPoint[]> {
+  const [histRes, currentRes] = await Promise.all([
+    fetch(JGB_HISTORICAL_URL, { headers: commonHeaders, next: { revalidate: 0 } }),
+    fetch(JGB_CURRENT_URL, { headers: commonHeaders, next: { revalidate: 0 } }),
+  ]);
+  if (!histRes.ok) throw new Error(`MOF JGB yields (historical): HTTP ${histRes.status}`);
+  if (!currentRes.ok) throw new Error(`MOF JGB yields (current): HTTP ${currentRes.status}`);
+
+  const merged = new Map<string, number>();
+  for (const [date, v] of parseJgbCsv(await histRes.text())) merged.set(date, v);
+  for (const [date, v] of parseJgbCsv(await currentRes.text())) merged.set(date, v);
+
+  const points: MetricPoint[] = [];
+  for (const [date, value] of merged) {
+    points.push({
+      metric_key: "yield.japan_10y",
+      observed_at: date,
+      value,
+      unit: "%",
+      source_key: "mof_japan",
+      source_tier: 1,
+      frequency: "daily",
+    });
+  }
+  if (points.length === 0) throw new Error("MOF JGB yields: no data parsed from either file");
   return points;
 }

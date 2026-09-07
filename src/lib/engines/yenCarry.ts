@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { stdev } from "../metrics/stats";
+import { stdev, subtractSeriesByDate } from "../metrics/stats";
 import type { Point } from "../metrics/stats";
 
 function realizedVolAnnualized(series: Point[], window = 20): number | null {
@@ -18,19 +18,21 @@ function realizedVolAnnualized(series: Point[], window = 20): number | null {
 }
 
 export async function runYenCarryEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [usdjpy, audjpy, nzdjpy, us10y, jp10yProxy, cotNet] = await Promise.all([
+  const [usdjpy, audjpy, nzdjpy, us10y, jp10y, cotNet] = await Promise.all([
     buildIndicator(ctx.db, "fx.usdjpy", "USDJPY", "coincident", "daily", "JPY"),
     buildIndicator(ctx.db, "fx.audjpy", "AUDJPY", "coincident", "daily", "JPY"),
     buildIndicator(ctx.db, "fx.nzdjpy", "NZDJPY", "coincident", "daily", "JPY"),
     buildIndicator(ctx.db, "yield.us10y", "US 10Y Yield", "leading", "daily", "%"),
-    buildIndicator(ctx.db, "yield.japan_10y_proxy", "Japan 10Y Yield (OECD monthly proxy)", "leading", "monthly", "%"),
+    buildIndicator(ctx.db, "yield.japan_10y", "Japan 10Y JGB Yield (Ministry of Finance, daily)", "leading", "daily", "%"),
     buildIndicator(ctx.db, "cot.jpy.noncomm_net_pct_oi", "CFTC JPY Non-Commercial Net Position (% OI)", "leading", "weekly", "%"),
   ]);
 
-  const usJpSpread: Point[] =
-    us10y.series.length && jp10yProxy.series.length
-      ? diffAligned(us10y.series, jp10yProxy.series)
-      : [];
+  // Now that Japan's yield is a genuine daily series (was a monthly OECD
+  // proxy — see govBondYields.ts), the US-Japan spread can be aligned by
+  // exact date instead of by calendar month, and is a real enough signal to
+  // feed into the composite score directly rather than only being surfaced
+  // as a topDriver.
+  const usJpSpread: Point[] = subtractSeriesByDate(us10y.series, jp10y.series).map((p) => ({ t: p.t, v: p.v * 100 }));
 
   const realizedVol = realizedVolAnnualized(usdjpy.series);
 
@@ -48,6 +50,22 @@ export async function runYenCarryEngine(ctx: EngineContext, horizon: Horizon): P
         ref: { ...cotNet.ref, label: "CFTC JPY Net Short Positioning (% OI, inverted)" },
         series: cotNet.series,
         weight: 0.9,
+        zDirection: -1,
+      },
+      {
+        ref: {
+          key: "yield.us_jp_10y_spread",
+          label: "US-Japan 10Y Spread (bps, derived)",
+          classification: "leading",
+          value: usJpSpread.at(-1)?.v ?? null,
+          unit: "bps",
+          status: jp10y.ref.status,
+          sourceKey: jp10y.ref.sourceKey,
+          sourceTier: jp10y.ref.sourceTier,
+          asOf: usJpSpread.at(-1)?.t ?? null,
+        },
+        series: usJpSpread,
+        weight: 0.7,
         zDirection: -1,
       },
     ],
@@ -76,29 +94,9 @@ export async function runYenCarryEngine(ctx: EngineContext, horizon: Horizon): P
       "No confirmed simultaneous cross-carry-pair selloff (AUD/NZD/JPY) has been detected",
     ],
     contradictoryEvidence:
-      jp10yProxy.ref.status === "STALE"
-        ? ["Japan 10Y proxy series is a monthly OECD-sourced rate and may lag current BOJ policy moves by weeks"]
-        : [],
-    methodologyVersion: "v0.1-freedata",
+      jp10y.ref.status === "STALE" ? ["Japan 10Y series is temporarily stale — may lag current BOJ policy moves"] : [],
+    methodologyVersion: "v0.2-freedata-mof-japan-daily-spread",
   });
 
-  return {
-    ...result,
-    topDrivers: [
-      ...result.topDrivers,
-      ...(usJpSpread.length > 0
-        ? [{ key: "yield.us_jp_10y_spread", label: "US-Japan 10Y Spread (bps, derived)", contribution: 0 }]
-        : []),
-    ],
-  };
-}
-
-function diffAligned(a: Point[], b: Point[]): Point[] {
-  const bMap = new Map(b.map((p) => [p.t.slice(0, 7), p.v]));
-  return a
-    .map((p) => {
-      const bv = bMap.get(p.t.slice(0, 7));
-      return bv === undefined ? null : { t: p.t, v: (p.v - bv) * 100 };
-    })
-    .filter((p): p is Point => p !== null);
+  return result;
 }
