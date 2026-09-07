@@ -66,9 +66,9 @@ export type CountryCreditRow = {
   note: string | null;
 };
 
-async function loadSeries(db: SupabaseClient, key: string): Promise<Point[]> {
+async function loadSeries(db: SupabaseClient, key: string, frequency: "daily" | "quarterly" = "daily"): Promise<Point[]> {
   const since = new Date();
-  since.setUTCDate(since.getUTCDate() - lookbackDaysFor("daily"));
+  since.setUTCDate(since.getUTCDate() - lookbackDaysFor(frequency));
   return fetchSeries(db, key, since.toISOString());
 }
 
@@ -98,9 +98,9 @@ export async function getCountryCreditTable(db: SupabaseClient): Promise<Country
     loadSeries(db, "credit.euro_hy_oas"),
     loadSeries(db, "credit.china_corp_aaa_10y"),
     loadSeries(db, "yield.china_10y"),
-    loadSeries(db, "credit.uk_credit_gap"),
-    loadSeries(db, "credit.canada_credit_gap"),
-    loadSeries(db, "credit.japan_credit_gap"),
+    loadSeries(db, "credit.uk_credit_gap", "quarterly"),
+    loadSeries(db, "credit.canada_credit_gap", "quarterly"),
+    loadSeries(db, "credit.japan_credit_gap", "quarterly"),
   ]);
 
   const chinaSpread = subtractSeriesByDate(chinaCorpAaa, chinaGov).map((p) => ({ t: p.t, v: p.v * 100 }));
