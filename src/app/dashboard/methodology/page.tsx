@@ -496,6 +496,55 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="em-debt-by-country">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Emerging-Market Debt — extended to all prominent EM currencies
+        </h2>
+        <p className="mb-2">
+          The EM Debt tab originally tracked only three high-beta currencies (BRL, ZAR, MXN)
+          alongside the broad ICE BofA EM Corporate Plus OAS and the Fed&apos;s EM Dollar Index. It
+          now shows a per-country table across the full set of <strong>MSCI Emerging Markets
+          constituents that the ECB itself publishes a daily reference rate for</strong>: Brazil,
+          Mexico, South Africa, Turkey, India, Indonesia, China, the Philippines, Poland, Hungary,
+          the Czech Republic, Thailand, Malaysia and South Korea — 14 countries, verified directly
+          against Frankfurter&apos;s (the ECB reference-rate mirror already used elsewhere in this
+          project) own currency list rather than assumed.
+        </p>
+        <p className="mb-2">
+          <strong>Basis: USD exchange rate, not a sovereign bond spread.</strong> JPMorgan&apos;s
+          EMBI (Emerging Markets Bond Index) is the standard benchmark for EM sovereign
+          dollar-bond spreads, but it is a paid, proprietary index — no free per-country equivalent
+          was found, the same gap that led the Credit tab to use the BIS credit-to-GDP gap for
+          UK/Canada/Japan instead of a corporate spread. The USD exchange rate is used here instead,
+          not as a fallback of convenience but because it is the actual transmission channel this
+          engine&apos;s own trigger describes: a weaker local currency directly raises the
+          local-currency cost of servicing dollar-denominated debt, and makes rolling that debt at
+          maturity more expensive. Regime bands are the same 0-20/20-40/40-60/60-80/80-100 z-score
+          scale and label set (Ample Access → Normal → Tightening → Funding Stress → Sudden Stop) as
+          the composite engine shown below it.
+        </p>
+        <p className="mb-2">
+          <strong>What is not included, and why.</strong> Taiwan, Chile, Colombia, Peru, Saudi
+          Arabia, the UAE, Qatar and Kuwait are also prominent EM debt issuers (several are MSCI EM
+          constituents themselves), but the ECB does not publish reference rates for
+          TWD/CLP/COP/PEN/SAR/AED/QAR/KWD — checked directly against Frankfurter&apos;s currency
+          list, not assumed — so no free daily source was reused for them here. This is disclosed
+          on the dashboard rather than silently omitted; a future pass could add a second FX source
+          for this remaining group if one is found that meets the same free/no-key/verified bar as
+          every other source in this project.
+        </p>
+        <p>
+          The composite Emerging-Market Debt engine folds all 11 newly-added currencies in as
+          additional weighted inputs (0.3 each — deliberately modest, so the basket as a whole
+          moves the score without any single new country outweighing the two broad EM-wide inputs,
+          EM OAS at 1.0 and the EM Dollar Index at 0.9, which stay the largest individual weights).
+          The per-country table exists precisely because a single blended score can mask which
+          specific country is actually under stress at a given moment — e.g. a Turkey-specific
+          currency crisis reads clearly in that one row even when averaged into a composite score
+          that isn&apos;t moving much.
+        </p>
+      </section>
+
       <section className="mb-8" id="india-yield-curve-ccil">
         <h2 className="mb-2 text-base font-semibold text-text">
           India Yield Curve (new tab), and why CCIL is not used as a source

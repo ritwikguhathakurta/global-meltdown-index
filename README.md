@@ -285,6 +285,17 @@ Most engines were originally US-only; they were widened deliberately, not by def
   Shanghai Composite, the 10Y yield, debt/GDP, property sales, a credit-impulse proxy, PMI new
   orders, LGFV-inclusive augmented debt, and a developer-financing proxy — every V3-spec indicator
   except individual developer defaults (see the methodology page for sourcing detail on each).
+- **Emerging-Market Debt**: widened from a 3-currency basket (BRL/ZAR/MXN) to all 14 MSCI
+  Emerging Markets constituents the ECB publishes a daily reference rate for — adds Turkey, India,
+  Indonesia, China, the Philippines, Poland, Hungary, the Czech Republic, Thailand, Malaysia and
+  South Korea (verified against Frankfurter's own currency list, not assumed). No free per-country
+  EM sovereign dollar-bond spread exists (JPMorgan's EMBI is paid/proprietary), so each country's
+  USD exchange rate is used as the stress proxy instead — the actual transmission channel this
+  engine's trigger describes — shown on a per-country table (`src/lib/engines/emDebtRegime.ts`) on
+  the EM Debt tab alongside the broad EM OAS/Dollar Index composite, which now folds in all 11
+  newly-added currencies as modest (0.3 each) additional weighted inputs. Taiwan, Chile, Colombia,
+  Peru, Saudi Arabia, the UAE, Qatar and Kuwait are prominent EM debt issuers too but have no ECB
+  reference rate and thus no free daily source found yet — disclosed, not silently dropped.
 - **India Liquidity** (new, standalone tab): RBI's own daily net-liquidity (LAF) figure and the
   Weighted Average Call Rate, plus USDINR — separate from India Market Regime, which is a
   bullish/bearish equity-direction call on a different scale, not a liquidity read. Also surfaces a

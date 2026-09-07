@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { computeIndiaSeasonalNotes } from "@/lib/engines/indiaSeasonality";
 import { getCentralBankLiquidityTable as computeCentralBankLiquidityTable, type CentralBankLiquidityRow } from "@/lib/engines/liquidityRegime";
 import { getCountryCreditTable as computeCountryCreditTable, type CountryCreditRow } from "@/lib/engines/creditRegime";
+import { getCountryEmDebtTable as computeCountryEmDebtTable, type CountryEmDebtRow } from "@/lib/engines/emDebtRegime";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -163,6 +164,17 @@ export async function getCountryCreditTable(): Promise<CountryCreditRow[]> {
   try {
     const db = await createServerSupabase();
     return await computeCountryCreditTable(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
+  }
+}
+
+export async function getCountryEmDebtTable(): Promise<CountryEmDebtRow[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeCountryEmDebtTable(db);
   } catch (e) {
     console.error((e as Error).message);
     return [];
