@@ -72,6 +72,14 @@ Those need data sources or infrastructure this phase doesn't have yet:
   section for the full sourcing detail and honesty caveats on each. Developer-level *default*
   events specifically remain genuinely unavailable free (no free source tracks those in structured
   form; aggregate default data is otherwise behind paid providers like CEIC/Wind).
+- **Supply Chains** was a single global NY Fed GSCPI number (which publishes no country breakdown
+  itself) and now also tracks country-level proxies for 6 of 8 G7+China economies: US/Germany/
+  France/Italy manufacturing order books and Japan finished-goods stocks (OECD Business Tendency
+  Survey, via FRED), Canada's inventory-to-sales ratio (direct from Statistics Canada's API), and
+  China's PMI supplier-delivery-time subindex (NBS, via english.www.gov.cn). The UK remains
+  genuinely uncovered — its OECD-submitted series were discontinued in 2021 and the CBI's own
+  survey site is Cloudflare-protected — see the methodology page's "Supply Chains: from one global
+  number to G7+China" section for the full detail.
 - **India Market Regime** is a partial implementation: FII/DII flows, PMI new orders, bank credit
   growth and GST collections have no free daily source yet, so the regime read is currently a
   cross-asset shock-sensitivity proxy only.

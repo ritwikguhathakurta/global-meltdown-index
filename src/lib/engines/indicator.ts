@@ -28,6 +28,7 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   bis: 1,
   gov_cn_statistics: 1,
   imf_article_iv: 1,
+  statcan: 1,
 };
 
 export async function buildIndicator(
@@ -110,7 +111,14 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey === "yield.canada_10y") return "boc";
   if (metricKey === "yield.china_10y") return "chinabond";
   if (metricKey === "china.credit_impulse") return "bis";
-  if (metricKey === "china.pmi_new_orders" || metricKey === "china.property_sales" || metricKey === "china.developer_financing") return "gov_cn_statistics";
+  if (
+    metricKey === "china.pmi_new_orders" ||
+    metricKey === "china.property_sales" ||
+    metricKey === "china.developer_financing" ||
+    metricKey === "supplychain.china_supplier_delivery_time"
+  )
+    return "gov_cn_statistics";
   if (metricKey === "china.lgfv_debt") return "imf_article_iv";
+  if (metricKey === "supplychain.canada_inventory_sales_ratio") return "statcan";
   return "fred";
 }

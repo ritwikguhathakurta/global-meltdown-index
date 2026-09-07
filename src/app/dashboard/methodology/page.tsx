@@ -106,6 +106,11 @@ export default function MethodologyPage() {
           augmented debt and a developer-financing proxy (see &ldquo;China: closing the
           property/credit/PMI/LGFV/financing gap&rdquo; below) — every indicator the V3 spec calls for
           except individual developer default events, which no free source tracks in structured form.
+          Supply Chains was, until this update, a single global NY Fed GSCPI number with no country
+          breakdown (GSCPI itself publishes no such breakdown — checked its own workbook directly); it now
+          adds country-level proxies for six of the eight G7+China economies (see &ldquo;Supply Chains:
+          from one global number to G7+China&rdquo; below) — the UK is the one economy still genuinely
+          uncovered, disclosed there rather than silently dropped.
           One engine remains intentionally single-country by definition regardless of data availability:
           Yen Carry Stress (a JPY-specific carry-trade mechanic). Banking and Private Credit remain partly
           single-country-anchored because no free source publishes bank-level NPL/delinquency data for the
@@ -186,6 +191,61 @@ export default function MethodologyPage() {
           just with a manual rather than automated refresh step. Until the next report, it will correctly
           show RECENT or STALE under the annual freshness window, which reflects how often this data
           actually changes, not a pipeline bug.
+        </p>
+      </section>
+
+      <section className="mb-8" id="supply-chains-g7-china">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Supply Chains: from one global number to G7+China
+        </h2>
+        <p className="mb-2">
+          The NY Fed&apos;s Global Supply Chain Pressure Index (GSCPI) is a genuine Tier-1, single
+          authoritative composite already built from shipping/freight/PMI data across the major economies
+          driving global trade — but it publishes no country or region breakdown (checked its own
+          downloadable workbook directly: only the composite value is in there). Extending &ldquo;Supply
+          Chains&rdquo; to G7+China therefore meant finding separate, genuinely free, national data — and
+          unlike most of the other country extensions on this page, the same *kind* of series wasn&apos;t
+          available everywhere, so each country&apos;s proxy is disclosed for exactly what it is:
+        </p>
+        <p className="mb-2">
+          <strong>US, Germany, France, Italy</strong> use the OECD Business Tendency Survey&apos;s
+          &ldquo;Order Books: Current&rdquo; series (mirrored on FRED) — a net-balance survey of
+          manufacturers reporting order books above vs. below normal. Rising backlogs relative to normal is
+          a real capacity/delivery-strain signal, conceptually close to what GSCPI&apos;s own PMI
+          sub-components measure.
+        </p>
+        <p className="mb-2">
+          <strong>Japan</strong> has no Order Books series in this dataset, so &ldquo;Finished Goods
+          Stocks: Current&rdquo; (also OECD BTS, quarterly) is used instead — a related but distinct
+          concept. It is included because unsold/unshipped goods piling up is exactly what happened during
+          the 2021-22 chip-shortage period, when automakers couldn&apos;t ship finished vehicles because
+          production itself was blocked, not because demand had fallen — but it can also simply reflect
+          demand weakness, which is a real interpretive caveat this indicator carries that the Order Books
+          series doesn&apos;t.
+        </p>
+        <p className="mb-2">
+          <strong>Canada</strong> comes directly from Statistics Canada&apos;s own Web Data Service API — a
+          manufacturing inventory-to-sales ratio, free, no key, updated monthly. This is a direct-from-source
+          connector rather than the FRED/OECD mirror because that mirror&apos;s Canadian submission for this
+          concept stopped updating in 2023, while StatCan itself is still current (the aggregator lagged,
+          not the underlying source — the same pattern already seen with UK/Germany/Canada bond yields
+          earlier in this document).
+        </p>
+        <p className="mb-2">
+          <strong>China</strong> uses NBS&apos;s own PMI supplier-delivery-time subindex, parsed from the
+          same English press releases already used for property sales and PMI new orders (see the China
+          section above). NBS alternates between a short wire brief and a longer release that includes this
+          subindex, so this series is real but genuinely sparser than PMI new orders — not a parsing gap,
+          just a less consistently-reported figure at the source.
+        </p>
+        <p>
+          <strong>The UK</strong> is the one G7 economy still genuinely uncovered here. Its own
+          OECD-submitted Order Books and Finished Goods Stocks series were both discontinued in March 2021
+          (confirmed directly against FRED&apos;s series metadata), and the UK&apos;s real-world equivalent
+          — the CBI Industrial Trends Survey — sits behind Cloudflare bot-protection on cbi.org.uk, which
+          this project will not work around. Rather than force a stale or fabricated UK figure into the
+          engine, this gap is disclosed in the engine&apos;s contradictory-evidence field and here, not
+          silently dropped.
         </p>
       </section>
 

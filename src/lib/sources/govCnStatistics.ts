@@ -1,12 +1,16 @@
 import type { MetricPoint } from "../metrics/store";
 
 /**
- * China Property Sales (transaction volume), China PMI New Orders, and
- * China Developer Financing — all genuine NBS (National Bureau of
- * Statistics of China) releases, described in exact prose form, in
- * English, in the State Council's own English-language news portal
- * (english.www.gov.cn), which syndicates NBS's monthly statistical press
- * releases.
+ * China Property Sales (transaction volume), China PMI New Orders, China
+ * Developer Financing, and China's Supply Chains proxy (the PMI supplier
+ * delivery time subindex) — all genuine NBS (National Bureau of Statistics
+ * of China) releases, described in exact prose form, in English, in the
+ * State Council's own English-language news portal (english.www.gov.cn),
+ * which syndicates NBS's monthly statistical press releases. The supplier
+ * delivery time subindex only appears in a subset of PMI releases (NBS
+ * alternates between a short wire brief and a longer quote-driven release —
+ * see parseSupplierDeliveryTime below), so that series is real but sparser
+ * than the others by nature of the source, not a parsing gap.
  *
  * Developer financing is a proxy, and honestly labeled as one: NBS's own
  * detailed "funds in place" breakdown for real estate developers (domestic
@@ -166,6 +170,21 @@ function parsePmiNewOrders(text: string): number | null {
   return null;
 }
 
+/**
+ * Only a subset of monthly PMI releases include this figure at all — NBS
+ * alternates between a short Xinhua wire brief (headline + new
+ * orders/production only) and a longer NBS-quote-driven release (which adds
+ * the supplier delivery time subindex, verified present in the December
+ * 2025 release and absent from the May/August 2026 briefs). No match simply
+ * means no point for that month, same as every other prose-parsed series
+ * here — this one is just sparser than PMI new orders by nature of the
+ * source, not a parsing gap.
+ */
+function parseSupplierDeliveryTime(text: string): number | null {
+  const m = text.match(/supplier delivery time index (?:was|stood at|came in at) ([\d.]+) percent/i);
+  return m ? parseFloat(m[1]) : null;
+}
+
 function parsePropertyFloorSpaceYtd(text: string): number | null {
   const m = text.match(/floor space of newly-built commercial buildings sold was ([\d,.]+) million square meters/i);
   if (!m) return null;
@@ -194,13 +213,14 @@ function parseDeveloperFinancingYoy(text: string): number | null {
   return null;
 }
 
-async function fetchPmiPoints(articles: Article[]): Promise<MetricPoint[]> {
+async function fetchPmiPoints(articles: Article[]): Promise<{ newOrders: MetricPoint[]; deliveryTime: MetricPoint[] }> {
   const results = await mapWithConcurrency(articles, CONCURRENCY, async (a) => {
     const res = await fetch(a.url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = stripHtml(await res.text());
-    const value = parsePmiNewOrders(text);
-    if (value === null) throw new Error("no match");
+    const newOrders = parsePmiNewOrders(text);
+    const deliveryTime = parseSupplierDeliveryTime(text);
+    if (newOrders === null && deliveryTime === null) throw new Error("no match");
     const dateMatch = text.match(/Updated: (\w+) (\d{1,2}), (\d{4})/);
     const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     let observedAt: string;
@@ -210,23 +230,37 @@ async function fetchPmiPoints(articles: Article[]): Promise<MetricPoint[]> {
     } else {
       observedAt = `${a.year}-01-01`;
     }
-    return { observedAt, value };
+    return { observedAt, newOrders, deliveryTime };
   });
 
-  const points: MetricPoint[] = [];
+  const newOrders: MetricPoint[] = [];
+  const deliveryTime: MetricPoint[] = [];
   for (const r of results) {
     if (r.status !== "fulfilled") continue;
-    points.push({
-      metric_key: "china.pmi_new_orders",
-      observed_at: r.value.observedAt,
-      value: r.value.value,
-      unit: "index",
-      source_key: "gov_cn_statistics",
-      source_tier: 1,
-      frequency: "monthly",
-    });
+    if (r.value.newOrders !== null) {
+      newOrders.push({
+        metric_key: "china.pmi_new_orders",
+        observed_at: r.value.observedAt,
+        value: r.value.newOrders,
+        unit: "index",
+        source_key: "gov_cn_statistics",
+        source_tier: 1,
+        frequency: "monthly",
+      });
+    }
+    if (r.value.deliveryTime !== null) {
+      deliveryTime.push({
+        metric_key: "supplychain.china_supplier_delivery_time",
+        observed_at: r.value.observedAt,
+        value: r.value.deliveryTime,
+        unit: "index",
+        source_key: "gov_cn_statistics",
+        source_tier: 1,
+        frequency: "monthly",
+      });
+    }
   }
-  return points;
+  return { newOrders, deliveryTime };
 }
 
 function periodEndDate(year: number, month: number): string {
@@ -304,14 +338,16 @@ async function fetchPropertyAndFinancingPoints(articles: Article[]): Promise<{ p
 
 export async function fetchChinaMonthlyReleases(pageLimit: number): Promise<{
   pmi: MetricPoint[];
+  supplierDeliveryTime: MetricPoint[];
   property: MetricPoint[];
   financing: MetricPoint[];
   discovered: { pmi: number; property: number };
 }> {
   const { pmi: pmiArticles, property: propertyArticles } = await discoverArticles(pageLimit);
-  const [pmi, propertyAndFinancing] = await Promise.all([fetchPmiPoints(pmiArticles), fetchPropertyAndFinancingPoints(propertyArticles)]);
+  const [pmiResult, propertyAndFinancing] = await Promise.all([fetchPmiPoints(pmiArticles), fetchPropertyAndFinancingPoints(propertyArticles)]);
   return {
-    pmi,
+    pmi: pmiResult.newOrders,
+    supplierDeliveryTime: pmiResult.deliveryTime,
     property: propertyAndFinancing.property,
     financing: propertyAndFinancing.financing,
     discovered: { pmi: pmiArticles.length, property: propertyArticles.length },

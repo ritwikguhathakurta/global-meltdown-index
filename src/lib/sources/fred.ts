@@ -110,6 +110,35 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "liquidity.boj_balance_sheet", seriesId: "JPNASSETS", frequency: "monthly", unit: "JPY bn" },
   { metricKey: "rate.ecb_deposit_facility", seriesId: "ECBDFR", frequency: "daily", unit: "%" },
   { metricKey: "rate.uk_short_term", seriesId: "IRSTCI01GBM156N", frequency: "monthly", unit: "%" },
+
+  // Supply Chains engine (V3 §24) — extending beyond the single global NY Fed
+  // GSCPI number to per-country OECD Business Tendency Survey (BTS) series,
+  // mirrored on FRED. "Order Books: Current" is a net-balance survey (%
+  // reporting above-normal minus % reporting below-normal): rising backlogs
+  // relative to normal is a genuine capacity/delivery-strain signal, the same
+  // concept GSCPI's own PMI sub-components draw on. Checked all G7 + China:
+  // US/Germany/France/Italy have live Order Books series; the UK's own
+  // OECD-submitted Order Books AND Finished Goods Stocks series were both
+  // discontinued in March 2021 (confirmed via FRED's own series metadata),
+  // and the UK's real-world equivalent (the CBI Industrial Trends Survey) is
+  // behind Cloudflare bot-protection on cbi.org.uk — so the UK is the one G7
+  // member still genuinely uncovered here, not silently dropped. Japan has
+  // no Order Books series in this dataset at all, but does have "Finished
+  // Goods Stocks: Current" (JPNBSFGLV02STSAQ, quarterly) — used as Japan's
+  // proxy instead; interpreted the same direction (goods piling up unable to
+  // move through the chain, the 2021-22 chip-shortage pattern where WIP/
+  // finished-vehicle inventory rose because production couldn't ship), which
+  // is a real but distinct reading from plain demand-weakness inventory
+  // buildup — disclosed as an interpretive caveat on the methodology page.
+  // Canada has no matching OECD/FRED series either (its own submission
+  // stopped in 2023) — see statCan.ts for its direct-from-source connector.
+  // China's proxy comes from NBS's own PMI supplier-delivery-time subindex
+  // (see govCnStatistics.ts).
+  { metricKey: "supplychain.us_order_books", seriesId: "BSOBLV02USM460S", frequency: "monthly", unit: "% balance" },
+  { metricKey: "supplychain.germany_order_books", seriesId: "BSOBLV02DEM460S", frequency: "monthly", unit: "% balance" },
+  { metricKey: "supplychain.france_order_books", seriesId: "BSOBLV02FRM460S", frequency: "monthly", unit: "% balance" },
+  { metricKey: "supplychain.italy_order_books", seriesId: "BSOBLV02ITM460S", frequency: "monthly", unit: "% balance" },
+  { metricKey: "supplychain.japan_finished_goods_stocks", seriesId: "JPNBSFGLV02STSAQ", frequency: "quarterly", unit: "% balance" },
 ];
 
 export async function fetchFredSeries(

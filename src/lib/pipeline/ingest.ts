@@ -15,6 +15,7 @@ import { fetchChinaYield10y } from "../sources/chinaBondYield";
 import { fetchChinaCreditGap } from "../sources/bisCreditGap";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
 import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
+import { fetchCanadaInventoryToSalesRatio } from "../sources/statCan";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -286,11 +287,20 @@ export async function ingestGovCnStatistics(db: SupabaseClient, runDate: string)
       (financingCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS;
     const pageLimit = needsBackfill ? GOV_CN_BACKFILL_PAGE_LIMIT : GOV_CN_APPEND_PAGE_LIMIT;
 
-    const { pmi, property, financing, discovered } = await fetchChinaMonthlyReleases(pageLimit);
+    const { pmi, supplierDeliveryTime, property, financing, discovered } = await fetchChinaMonthlyReleases(pageLimit);
     await upsertMetrics(db, pmi);
+    await upsertMetrics(db, supplierDeliveryTime);
     await upsertMetrics(db, property);
     await upsertMetrics(db, financing);
-    const detail = { pageLimit, backfilled: needsBackfill, pmiPoints: pmi.length, propertyPoints: property.length, financingPoints: financing.length, discovered };
+    const detail = {
+      pageLimit,
+      backfilled: needsBackfill,
+      pmiPoints: pmi.length,
+      supplierDeliveryTimePoints: supplierDeliveryTime.length,
+      propertyPoints: property.length,
+      financingPoints: financing.length,
+      discovered,
+    };
     const status = pmi.length > 0 || property.length > 0 || financing.length > 0 ? "ok" : "warning";
     await logRun(db, runDate, "ingest_gov_cn_statistics", status, detail);
     return { stage: "ingest_gov_cn_statistics", status, detail };
@@ -298,6 +308,20 @@ export async function ingestGovCnStatistics(db: SupabaseClient, runDate: string)
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_gov_cn_statistics", "failed", detail);
     return { stage: "ingest_gov_cn_statistics", status: "failed", detail };
+  }
+}
+
+export async function ingestStatCan(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchCanadaInventoryToSalesRatio();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    await logRun(db, runDate, "ingest_statcan", status, { points: points.length });
+    return { stage: "ingest_statcan", status, detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_statcan", "failed", detail);
+    return { stage: "ingest_statcan", status: "failed", detail };
   }
 }
 
@@ -318,6 +342,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestChinaCreditGap(db, runDate),
     ingestChinaLgfvDebt(db, runDate),
     ingestGovCnStatistics(db, runDate),
+    ingestStatCan(db, runDate),
   ]);
   return { runDate, results };
 }
