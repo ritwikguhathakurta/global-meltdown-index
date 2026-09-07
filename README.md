@@ -250,7 +250,12 @@ Most engines were originally US-only; they were widened deliberately, not by def
   deposit rate, the Chicago Fed NFCI, Bank of England reserve balances (UK), Bank of Canada total
   assets (Canada — both direct from those central banks' own APIs), and China's 3-month interbank
   rate as a rate-side proxy (no free, verified PBOC balance-sheet/reserve-money series was found —
-  see the methodology page).
+  see the methodology page). Also now tracks each bank's money-market-rate-vs-policy-rate spread
+  (SOFR-IORB, SONIA-Bank Rate, €STR-Deposit Facility Rate, CORRA-Target) and Japan's daily
+  uncollateralized call rate (BOJ's own new public API), feeding both the composite score and a
+  live per-bank **AMPLE/ADEQUATE/NORMAL/TIGHTENING/DEFICIT** table on the Liquidity tab
+  (`src/lib/engines/liquidityRegime.ts`) — the actual ample-vs-scarce-reserves framework central
+  banks use, not just a balance-sheet-size relabeling.
 - **Supply Chains**: the NY Fed's global GSCPI (which publishes no country breakdown itself) plus
   country-level proxies for US/Germany/France/Italy (OECD order books), Japan (OECD finished-goods
   stocks), Canada (StatCan inventory-to-sales ratio) and China (NBS PMI delivery-time subindex) — the

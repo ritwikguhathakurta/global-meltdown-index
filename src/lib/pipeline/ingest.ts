@@ -10,7 +10,17 @@ import { fetchGprSeries } from "../sources/gpr";
 import { fetchCryptoSnapshot } from "../sources/coingecko";
 import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount, fetchCloudStatusBackfill, MIN_BACKFILL_OBSERVATIONS } from "../sources/cloudStatus";
 import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
-import { fetchGermanyYield10y, fetchUkYield10y, fetchCanadaYield10y, fetchUkReserveBalances, fetchCanadaCentralBankAssets } from "../sources/govBondYields";
+import {
+  fetchGermanyYield10y,
+  fetchUkYield10y,
+  fetchCanadaYield10y,
+  fetchUkReserveBalances,
+  fetchCanadaCentralBankAssets,
+  fetchUkShortRates,
+  fetchCanadaShortRates,
+  fetchEcbShortRate,
+  fetchBojCallRate,
+} from "../sources/govBondYields";
 import { fetchChinaYield10y } from "../sources/chinaBondYield";
 import { fetchChinaCreditGap } from "../sources/bisCreditGap";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
@@ -284,6 +294,32 @@ function priorCalendarYears(count: number): number[] {
   return Array.from({ length: count }, (_, i) => currentYear - count + i);
 }
 
+export async function ingestCentralBankShortRates(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const fetchers = [
+    { name: "UK (BoE SONIA/Bank Rate)", fn: fetchUkShortRates },
+    { name: "Canada (BoC CORRA/Target)", fn: fetchCanadaShortRates },
+    { name: "Eurozone (ECB €STR)", fn: fetchEcbShortRate },
+    { name: "Japan (BOJ call rate)", fn: fetchBojCallRate },
+  ];
+  let ok = 0;
+  let points = 0;
+  const errors: string[] = [];
+  for (const f of fetchers) {
+    try {
+      const pts = await f.fn();
+      await upsertMetrics(db, pts);
+      points += pts.length;
+      ok++;
+    } catch (e) {
+      errors.push(`${f.name}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: fetchers.length, points, errors };
+  await logRun(db, runDate, "ingest_central_bank_short_rates", status, detail);
+  return { stage: "ingest_central_bank_short_rates", status, detail };
+}
+
 export async function ingestRbiLiquidity(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const { count, error: countError } = await db
@@ -428,6 +464,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestSecEdgar(db, runDate),
     ingestGovBondYields(db, runDate),
     ingestGovLiquidity(db, runDate),
+    ingestCentralBankShortRates(db, runDate),
     ingestRbiLiquidity(db, runDate),
     ingestRbiYieldCurve(db, runDate),
     ingestChinaCreditGap(db, runDate),

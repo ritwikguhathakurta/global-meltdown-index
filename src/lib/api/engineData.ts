@@ -1,6 +1,7 @@
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { computeIndiaSeasonalNotes } from "@/lib/engines/indiaSeasonality";
+import { getCentralBankLiquidityTable as computeCentralBankLiquidityTable, type CentralBankLiquidityRow } from "@/lib/engines/liquidityRegime";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -139,6 +140,17 @@ export async function getIndiaSeasonalNotes(): Promise<string[]> {
   try {
     const db = await createServerSupabase();
     return await computeIndiaSeasonalNotes(db, new Date().toISOString());
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
+  }
+}
+
+export async function getCentralBankLiquidityTable(): Promise<CentralBankLiquidityRow[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeCentralBankLiquidityTable(db);
   } catch (e) {
     console.error((e as Error).message);
     return [];

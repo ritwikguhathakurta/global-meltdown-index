@@ -22,6 +22,12 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "rate.fed_funds_effective", seriesId: "DFF", frequency: "daily", unit: "%" },
   { metricKey: "rate.sofr", seriesId: "SOFR", frequency: "daily", unit: "%" },
   { metricKey: "liquidity.fed_balance_sheet", seriesId: "WALCL", frequency: "weekly", unit: "USD mm" },
+  // Ample-vs-scarce reserves gauge (see liquidityRegime.ts): IORB is the rate the Fed
+  // itself sets as the reserves-supply control lever; WRESBAL is the actual weekly level
+  // of reserve balances (Fed H.4.1) — the direct "ample reserves framework" metric, a
+  // cleaner signal than total balance-sheet size (WALCL also includes non-reserve assets).
+  { metricKey: "rate.us_iorb", seriesId: "IORB", frequency: "daily", unit: "%" },
+  { metricKey: "liquidity.fed_reserve_balances", seriesId: "WRESBAL", frequency: "weekly", unit: "USD mm" },
   { metricKey: "liquidity.reverse_repo", seriesId: "RRPONTSYD", frequency: "daily", unit: "USD bn" },
   { metricKey: "liquidity.m2", seriesId: "M2SL", frequency: "monthly", unit: "USD bn" },
   { metricKey: "liquidity.treasury_general_account", seriesId: "WTREGEN", frequency: "weekly", unit: "USD bn" },

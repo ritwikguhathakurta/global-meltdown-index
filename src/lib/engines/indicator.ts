@@ -31,6 +31,8 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   statcan: 1,
   rbi_liquidity: 1,
   rbi_gsec_auctions: 1,
+  ecb_sdw: 1,
+  boj_stats: 1,
 };
 
 export async function buildIndicator(
@@ -122,8 +124,10 @@ function guessSourceKey(metricKey: string): string {
     return "gov_cn_statistics";
   if (metricKey === "china.lgfv_debt") return "imf_article_iv";
   if (metricKey === "supplychain.canada_inventory_sales_ratio") return "statcan";
-  if (metricKey === "liquidity.uk_boe_reserves") return "boe";
-  if (metricKey === "liquidity.canada_boc_assets") return "boc";
+  if (metricKey === "liquidity.uk_boe_reserves" || metricKey === "rate.uk_sonia" || metricKey === "rate.uk_bank_rate") return "boe";
+  if (metricKey === "liquidity.canada_boc_assets" || metricKey === "rate.canada_corra" || metricKey === "rate.canada_target") return "boc";
+  if (metricKey === "rate.ecb_estr") return "ecb_sdw";
+  if (metricKey === "rate.japan_call_rate") return "boj_stats";
   if (metricKey === "india.rbi_net_liquidity" || metricKey === "india.wacr") return "rbi_liquidity";
   if (
     metricKey === "india.tbill_91d" ||

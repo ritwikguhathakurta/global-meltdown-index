@@ -299,6 +299,46 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="central-bank-liquidity-regime">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Central Bank Liquidity: Ample, Adequate or Deficit — not just balance-sheet size
+        </h2>
+        <p className="mb-2">
+          The Global Liquidity engine above blends everything into one G7+China composite score,
+          which answers &ldquo;how tight is liquidity globally&rdquo; but not &ldquo;is the Fed
+          specifically ample right now, or is the ECB the tight one?&rdquo; The Liquidity tab now
+          also shows a per-central-bank table answering that directly, classified into AMPLE /
+          ADEQUATE / NORMAL / TIGHTENING / DEFICIT.
+        </p>
+        <p className="mb-2">
+          The classification basis is deliberately the <strong>money-market rate vs. the bank&apos;s
+          own policy rate</strong> — the actual framework central banks themselves use to judge
+          reserve scarcity, not balance-sheet size. Under a floor system, the market rate should sit
+          a few basis points <em>below</em> the policy rate when reserves are ample; it prints at or
+          <em> above</em> the policy rate (arbitrage/collateral pressure) when reserves start getting
+          scarce — the same mechanism behind the September 2019 US repo spike. A raw balance-sheet
+          z-score only says &ldquo;bigger or smaller than its own recent trend,&rdquo; a materially
+          weaker signal for this specific question, so it is now paired with a real rate spread for
+          four of the six banks tracked:
+        </p>
+        <ul className="mb-2 list-inside list-disc space-y-1">
+          <li><strong>Fed:</strong> SOFR − IORB (Interest on Reserve Balances, FRED series IORB, daily since mid-2021), alongside the actual weekly reserve-balances level (WRESBAL) rather than only total balance-sheet size (WALCL also includes non-reserve assets).</li>
+          <li><strong>Bank of England:</strong> SONIA − Bank Rate, both from BoE&apos;s own IADB (series IUDSOIA and IUDBEDR).</li>
+          <li><strong>ECB:</strong> €STR − Deposit Facility Rate, €STR from the ECB&apos;s own public Data Portal API (no key required — the successor to the old SDW web service, same request syntax).</li>
+          <li><strong>Bank of Canada:</strong> CORRA − Target Overnight Rate, both from the BoC&apos;s own Valet API.</li>
+        </ul>
+        <p className="mb-2">
+          Two of six deliberately do <strong>not</strong> use a spread, disclosed per row rather than
+          papered over: <strong>Bank of Japan</strong> is classified on its uncollateralized
+          overnight call rate&apos;s own level trend — sourced from BOJ&apos;s own new (launched
+          February 2026) public Time-Series Data Search API, series STRDCLUCON, free and
+          key-less — since no free daily BOJ policy/target-rate time series was found to pair it
+          with for a spread. <strong>PBOC (China)</strong> stays the rate-only proxy already used
+          elsewhere in this project (its 3-month interbank rate), for the same reason no free
+          PBOC balance-sheet series exists.
+        </p>
+      </section>
+
       <section className="mb-8" id="india-yield-curve-ccil">
         <h2 className="mb-2 text-base font-semibold text-text">
           India Yield Curve (new tab), and why CCIL is not used as a source

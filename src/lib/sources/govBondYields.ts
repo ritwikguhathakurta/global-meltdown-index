@@ -19,9 +19,14 @@ import type { MetricPoint } from "../metrics/store";
  * silently overwriting a correct historical value with a truncated one.
  *
  * Also holds the UK and Canada inputs for the Global Liquidity engine
- * (reserve balances and central-bank total assets respectively) — grouped
- * here rather than in a separate file since they reuse the same BoE/BoC
- * connections and date-parsing helpers as the yield fetchers above.
+ * (reserve balances and central-bank total assets respectively), plus each
+ * central bank's money-market-rate-vs-policy-rate pair (SONIA/Bank Rate for
+ * the UK, CORRA/Target for Canada) and the ECB's/BOJ's equivalents (€STR,
+ * the uncollateralized overnight call rate) — grouped here rather than in a
+ * separate file since they reuse the same connections and date-parsing
+ * helpers as the yield fetchers above. See liquidityRegime.ts for how these
+ * rate pairs turn into an AMPLE/ADEQUATE/TIGHTENING/DEFICIT read per
+ * central bank on the Liquidity dashboard.
  */
 
 const commonHeaders = { "User-Agent": "GlobalMeltdownIndex-ingest/1.0" };
@@ -183,6 +188,130 @@ export async function fetchCanadaCentralBankAssets(): Promise<MetricPoint[]> {
       source_tier: 1,
       frequency: "weekly",
     });
+  }
+  return points;
+}
+
+/**
+ * SONIA (IUDSOIA) and the Official Bank Rate (IUDBEDR), both from BoE's IADB
+ * in one request. SONIA-vs-Bank-Rate is the standard UK gauge of whether
+ * banking-system reserves are ample (SONIA trades a few bps under Bank
+ * Rate, as designed under the BoE's floor system) or scarce (SONIA prints
+ * meaningfully above Bank Rate) — the same "money-market rate vs policy
+ * rate" framework used across all G7 central banks here (see
+ * liquidityRegime.ts), not just a balance-sheet-size read.
+ */
+export async function fetchUkShortRates(): Promise<MetricPoint[]> {
+  const url =
+    "https://www.bankofengland.co.uk/boeapps/iadb/fromshowcolumns.asp?csv.x=yes&SeriesCodes=IUDSOIA,IUDBEDR&UsingCodes=Y&Datefrom=01/Jan/2000&Dateto=31/Dec/2030&CSVF=TT";
+  const res = await fetch(url, { headers: commonHeaders, next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`Bank of England SONIA/Bank Rate: HTTP ${res.status}`);
+  const csv = await res.text();
+
+  const points: MetricPoint[] = [];
+  for (const line of csv.split("\n")) {
+    const [dateRaw, soniaRaw, bankRateRaw] = line.split(",").map((s) => s.trim());
+    const isoDate = dateRaw ? parseBoeDate(dateRaw) : null;
+    if (!isoDate) continue;
+    const sonia = parseFloat(soniaRaw);
+    if (!Number.isNaN(sonia)) {
+      points.push({ metric_key: "rate.uk_sonia", observed_at: isoDate, value: sonia, unit: "%", source_key: "boe", source_tier: 1, frequency: "daily" });
+    }
+    const bankRate = parseFloat(bankRateRaw);
+    if (!Number.isNaN(bankRate)) {
+      points.push({ metric_key: "rate.uk_bank_rate", observed_at: isoDate, value: bankRate, unit: "%", source_key: "boe", source_tier: 1, frequency: "daily" });
+    }
+  }
+  return points;
+}
+
+/**
+ * CORRA (AVG.INTWO) and the Target for the Overnight Rate (V39079), both
+ * from the Bank of Canada's Valet API — Canada's equivalent of the
+ * SOFR-vs-IORB / SONIA-vs-Bank-Rate ample-reserves gauge.
+ */
+export async function fetchCanadaShortRates(): Promise<MetricPoint[]> {
+  const [corraRes, targetRes] = await Promise.all([
+    fetch("https://www.bankofcanada.ca/valet/observations/AVG.INTWO/json?start_date=2000-01-01", { headers: commonHeaders, next: { revalidate: 0 } }),
+    fetch("https://www.bankofcanada.ca/valet/observations/V39079/json?start_date=2000-01-01", { headers: commonHeaders, next: { revalidate: 0 } }),
+  ]);
+  if (!corraRes.ok) throw new Error(`Bank of Canada CORRA: HTTP ${corraRes.status}`);
+  if (!targetRes.ok) throw new Error(`Bank of Canada target rate: HTTP ${targetRes.status}`);
+  const corraJson = (await corraRes.json()) as { observations: { d: string; "AVG.INTWO"?: { v: string } }[] };
+  const targetJson = (await targetRes.json()) as { observations: { d: string; V39079?: { v: string } }[] };
+
+  const points: MetricPoint[] = [];
+  for (const row of corraJson.observations) {
+    const v = parseFloat(row["AVG.INTWO"]?.v ?? "");
+    if (row.d && !Number.isNaN(v)) points.push({ metric_key: "rate.canada_corra", observed_at: row.d, value: v, unit: "%", source_key: "boc", source_tier: 1, frequency: "daily" });
+  }
+  for (const row of targetJson.observations) {
+    const v = parseFloat(row.V39079?.v ?? "");
+    if (row.d && !Number.isNaN(v)) points.push({ metric_key: "rate.canada_target", observed_at: row.d, value: v, unit: "%", source_key: "boc", source_tier: 1, frequency: "daily" });
+  }
+  return points;
+}
+
+/**
+ * Euro short-term rate (€STR), ECB Data Portal API — data-api.ecb.europa.eu,
+ * free and public with no API key, the successor endpoint to the old SDW
+ * web service (same request syntax, per the ECB's own migration notice).
+ * €STR vs the ECB Deposit Facility Rate (already tracked as
+ * rate.ecb_deposit_facility) is the eurozone's equivalent ample-reserves
+ * gauge — under the ECB's floor system €STR normally trades a few bps below
+ * the deposit rate.
+ */
+export async function fetchEcbShortRate(): Promise<MetricPoint[]> {
+  const url = "https://data-api.ecb.europa.eu/service/data/EST/B.EU000A2X2A25.WT?format=csvdata";
+  const res = await fetch(url, { headers: commonHeaders, next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`ECB €STR: HTTP ${res.status}`);
+  const csv = await res.text();
+
+  const lines = csv.trim().split("\n");
+  const header = lines[0].split(",");
+  const dateIdx = header.indexOf("TIME_PERIOD");
+  const valueIdx = header.indexOf("OBS_VALUE");
+  if (dateIdx < 0 || valueIdx < 0) throw new Error("ECB €STR: unexpected CSV header");
+
+  const points: MetricPoint[] = [];
+  for (const line of lines.slice(1)) {
+    const cols = line.split(",");
+    const date = cols[dateIdx];
+    const v = parseFloat(cols[valueIdx]);
+    if (!date || Number.isNaN(v)) continue;
+    points.push({ metric_key: "rate.ecb_estr", observed_at: date, value: v, unit: "%", source_key: "ecb_sdw", source_tier: 1, frequency: "daily" });
+  }
+  return points;
+}
+
+/**
+ * Japan's uncollateralized overnight call rate (average), series STRDCLUCON
+ * from BOJ's new (Feb 2026) public Time-Series Data Search API — free, no
+ * key, official. Japan has no equally clean free daily policy-rate series
+ * to pair it with for a spread (BOJ's own "Reserves"/MD07 database doesn't
+ * publish a single target-rate time series the way IORB/Bank Rate/Target
+ * do), so this is tracked and classified on its own level trend rather than
+ * a spread — disclosed as a real difference in kind from the other five
+ * central banks, not silently treated the same way.
+ */
+export async function fetchBojCallRate(): Promise<MetricPoint[]> {
+  const url = "https://www.stat-search.boj.or.jp/api/v1/getDataCode?format=json&lang=en&db=FM01&code=STRDCLUCON";
+  const res = await fetch(url, { headers: commonHeaders, next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`BOJ call rate: HTTP ${res.status}`);
+  const json = (await res.json()) as {
+    STATUS: number;
+    RESULTSET?: { VALUES: { SURVEY_DATES: number[]; VALUES: (number | null)[] } }[];
+  };
+  if (json.STATUS !== 200 || !json.RESULTSET?.[0]) throw new Error(`BOJ call rate: API status ${json.STATUS}`);
+
+  const { SURVEY_DATES, VALUES } = json.RESULTSET[0].VALUES;
+  const points: MetricPoint[] = [];
+  for (let i = 0; i < SURVEY_DATES.length; i++) {
+    const v = VALUES[i];
+    if (v === null || v === undefined) continue;
+    const s = String(SURVEY_DATES[i]);
+    const isoDate = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+    points.push({ metric_key: "rate.japan_call_rate", observed_at: isoDate, value: v, unit: "%", source_key: "boj_stats", source_tier: 1, frequency: "daily" });
   }
   return points;
 }
