@@ -12,6 +12,9 @@ import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount, fetchCloudStatusBackfill, MI
 import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
 import { fetchGermanyYield10y, fetchUkYield10y, fetchCanadaYield10y } from "../sources/govBondYields";
 import { fetchChinaYield10y } from "../sources/chinaBondYield";
+import { fetchChinaCreditGap } from "../sources/bisCreditGap";
+import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
+import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -240,6 +243,58 @@ export async function ingestGovBondYields(db: SupabaseClient, runDate: string): 
   return { stage: "ingest_gov_bond_yields", status, detail };
 }
 
+export async function ingestChinaCreditGap(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchChinaCreditGap();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    await logRun(db, runDate, "ingest_china_credit_gap", status, { points: points.length });
+    return { stage: "ingest_china_credit_gap", status, detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_china_credit_gap", "failed", detail);
+    return { stage: "ingest_china_credit_gap", status: "failed", detail };
+  }
+}
+
+export async function ingestChinaLgfvDebt(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = fetchChinaLgfvDebt();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_china_lgfv_debt", "ok", { points: points.length });
+    return { stage: "ingest_china_lgfv_debt", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_china_lgfv_debt", "failed", detail);
+    return { stage: "ingest_china_lgfv_debt", status: "failed", detail };
+  }
+}
+
+export async function ingestGovCnStatistics(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const [pmiCount, propertyCount] = await Promise.all([
+      db.from("metric_series").select("observed_at", { count: "exact", head: true }).eq("metric_key", "china.pmi_new_orders"),
+      db.from("metric_series").select("observed_at", { count: "exact", head: true }).eq("metric_key", "china.property_sales"),
+    ]);
+    if (pmiCount.error) throw new Error(`row count check (pmi): ${pmiCount.error.message}`);
+    if (propertyCount.error) throw new Error(`row count check (property): ${propertyCount.error.message}`);
+    const needsBackfill = (pmiCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS || (propertyCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS;
+    const pageLimit = needsBackfill ? GOV_CN_BACKFILL_PAGE_LIMIT : GOV_CN_APPEND_PAGE_LIMIT;
+
+    const { pmi, property, discovered } = await fetchChinaMonthlyReleases(pageLimit);
+    await upsertMetrics(db, pmi);
+    await upsertMetrics(db, property);
+    const detail = { pageLimit, backfilled: needsBackfill, pmiPoints: pmi.length, propertyPoints: property.length, discovered };
+    const status = pmi.length > 0 || property.length > 0 ? "ok" : "warning";
+    await logRun(db, runDate, "ingest_gov_cn_statistics", status, detail);
+    return { stage: "ingest_gov_cn_statistics", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_gov_cn_statistics", "failed", detail);
+    return { stage: "ingest_gov_cn_statistics", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   const results = await Promise.all([
@@ -254,6 +309,9 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestCloudStatus(db, runDate),
     ingestSecEdgar(db, runDate),
     ingestGovBondYields(db, runDate),
+    ingestChinaCreditGap(db, runDate),
+    ingestChinaLgfvDebt(db, runDate),
+    ingestGovCnStatistics(db, runDate),
   ]);
   return { runDate, results };
 }

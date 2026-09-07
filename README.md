@@ -60,10 +60,14 @@ Those need data sources or infrastructure this phase doesn't have yet:
   Credit uses publicly-traded BDC (Business Development Company) share prices as a leading proxy
   for portfolio credit quality. BDCs are a US-specific structure with no comparably liquid G7
   equivalent, so Private Credit stays intentionally US-anchored.
-- **China** is a partial implementation: property sales *volumes*, developer financing, credit
-  impulse, PMI new orders, LGFV debt, and a government bond yield (no free source publishes one at
-  all) have no free daily source. It now tracks trade + CNY + CPI + the 3-month interbank rate +
-  real house *prices* (via the shared BIS series) + the Shanghai Composite.
+- **China** is still a partial implementation, but most of the original gap is now closed: trade +
+  CNY + CPI + 3-month interbank rate + real house *prices* (shared BIS series) + Shanghai Composite
+  + the 10Y government bond yield (ChinaBond/CCDC) + debt/GDP + property sales volumes (NBS, via
+  english.www.gov.cn) + a BIS credit-to-GDP-gap credit-impulse proxy + PMI new orders (NBS) +
+  LGFV-inclusive augmented debt (IMF Article IV staff estimate, manually-refreshed annually — see
+  the methodology page's "China: closing the property/credit/PMI/LGFV gap" section for the full
+  sourcing detail and honesty caveats on each). Only developer-level financing/defaults remain
+  genuinely unavailable free (behind paid providers like CEIC/Wind).
 - **India Market Regime** is a partial implementation: FII/DII flows, PMI new orders, bank credit
   growth and GST collections have no free daily source yet, so the regime read is currently a
   cross-asset shock-sensitivity proxy only.

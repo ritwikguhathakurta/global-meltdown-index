@@ -101,13 +101,74 @@ export default function MethodologyPage() {
           corporate spread (which includes but isn&apos;t exclusively China) alongside US HY/IG/EM; and
           Global Liquidity now includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. The
           standalone China engine itself adds the 10Y yield, debt/GDP ratio, 3-month interbank rate, real
-          house-price index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking.
+          house-price index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking —
+          plus, as of this update, property sales, a credit-impulse proxy, PMI new orders and LGFV-inclusive
+          augmented debt (see &ldquo;China: closing the property/credit/PMI/LGFV gap&rdquo; below).
           One engine remains intentionally single-country by definition regardless of data availability:
           Yen Carry Stress (a JPY-specific carry-trade mechanic). Banking and Private Credit remain partly
           single-country-anchored because no free source publishes bank-level NPL/delinquency data for the
           UK, Eurozone, Canada or Japan, or a non-US publicly-traded direct-lending vehicle comparable to
           US BDCs — those engines add whatever real G7 context does exist (policy rates) rather than
           fabricating data that doesn&apos;t exist for free.
+        </p>
+      </section>
+
+      <section className="mb-8" id="china-property-credit-pmi-lgfv">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          China: closing the property/credit/PMI/LGFV gap
+        </h2>
+        <p className="mb-2">
+          Property sales, credit impulse, PMI new orders and LGFV debt were previously all marked
+          UNAVAILABLE for China — genuinely no free source was found at the time. All four have real,
+          verified, non-fabricated sources now, though not all four update the same way:
+        </p>
+        <p className="mb-2">
+          <strong>Property sales</strong> (floor space of newly-built commercial buildings sold, million
+          m²) and <strong>PMI new orders</strong> come from NBS&apos;s (National Bureau of Statistics of
+          China) own monthly English-language press releases — but reached via{" "}
+          <span className="gfew-mono">english.www.gov.cn</span>, the State Council&apos;s English news
+          portal that syndicates NBS content, rather than <span className="gfew-mono">stats.gov.cn</span>{" "}
+          directly. NBS&apos;s own domain actively blocks non-browser HTTP clients — a WAF 403 with an
+          explicit &ldquo;UrlACL&rdquo; rule on its data-query API, and a deterministic TLS-level connection
+          reset on its press-release pages for any Node-based HTTP client (reproduced with two different
+          Node HTTP clients, while a plain <span className="gfew-mono">curl</span> from the same network
+          succeeds) — which this project will not work around with TLS-fingerprint spoofing or similar
+          anti-bot evasion. Since the same NBS releases are openly republished on a State Council domain
+          that isn&apos;t behind that block, that is used instead: using an open, reachable government
+          publication, not circumventing a control. Both releases are highly templated (same NBS press
+          office, same phrasing every month), which is what makes prose parsing viable here — the same
+          approach already used for SEC EDGAR tag selection and YTD de-cumulation elsewhere in this project,
+          applied to English prose instead of XBRL facts. A month whose exact phrasing doesn&apos;t match
+          the parser simply contributes no point for that month rather than a guessed one, so both series
+          currently have real but incomplete history that fills in further with each future release.
+        </p>
+        <p className="mb-2">
+          <strong>Credit impulse</strong> is, honestly, a proxy: the BIS (Bank for International
+          Settlements) Credit-to-GDP Gap for China&apos;s private non-financial sector — the official
+          Basel III countercyclical-capital-buffer signal, i.e. the standard central-bank early-warning
+          measure for a credit boom. A literal credit impulse (the second derivative of PBOC Total Social
+          Financing flow, scaled by GDP) would mean deriving a growth-of-growth-rate metric ourselves from
+          raw flow data; consuming BIS&apos;s own already-computed, officially-published series is less
+          fabrication-adjacent, and BIS&apos;s free SDMX API (no key, no auth) made it directly reachable.
+          It is labeled as a proxy on the dashboard, not as a literal replica of any bank&apos;s proprietary
+          credit-impulse calculation.
+        </p>
+        <p>
+          <strong>LGFV (Local Government Financing Vehicle) debt</strong> has no standing, machine-readable
+          data series anywhere — checked FRED, OECD, World Bank, BIS and the IMF&apos;s own DataMapper API
+          (which covers China&apos;s narrow General Government Debt but nothing LGFV-specific). The one real
+          number that exists comes from the IMF&apos;s own annual China Article IV Consultation staff
+          report, which publishes a staff-estimated &ldquo;Augmented Debt&rdquo; figure (general government
+          debt plus LGFVs and other off-budget government funds) once a year, in a PDF table, with no API.
+          The values tracked here — 97.5% of GDP (2020) through 126.6% (2025) — were extracted directly from
+          that report&apos;s own historical table (IMF Country Report No. 26/044, February 2026), excluding
+          the same table&apos;s 2026-2030 columns, which are explicitly staff <em>projections</em>, not
+          observations. This is not an auto-refreshing feed: it is a manually-verified figure that needs a
+          human to append one new point after each new Article IV report is published (usually annually) —
+          the same honest treatment already given to other genuinely-annual indicators like debt/GDP ratios,
+          just with a manual rather than automated refresh step. Until the next report, it will correctly
+          show RECENT or STALE under the annual freshness window, which reflects how often this data
+          actually changes, not a pipeline bug.
         </p>
       </section>
 

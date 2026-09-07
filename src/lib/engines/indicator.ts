@@ -25,6 +25,9 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   boe: 1,
   boc: 1,
   chinabond: 1,
+  bis: 1,
+  gov_cn_statistics: 1,
+  imf_article_iv: 1,
 };
 
 export async function buildIndicator(
@@ -106,5 +109,8 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey === "yield.uk_10y") return "boe";
   if (metricKey === "yield.canada_10y") return "boc";
   if (metricKey === "yield.china_10y") return "chinabond";
+  if (metricKey === "china.credit_impulse") return "bis";
+  if (metricKey === "china.pmi_new_orders" || metricKey === "china.property_sales") return "gov_cn_statistics";
+  if (metricKey === "china.lgfv_debt") return "imf_article_iv";
   return "fred";
 }
