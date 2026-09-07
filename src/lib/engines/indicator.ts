@@ -110,7 +110,7 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey === "yield.canada_10y") return "boc";
   if (metricKey === "yield.china_10y") return "chinabond";
   if (metricKey === "china.credit_impulse") return "bis";
-  if (metricKey === "china.pmi_new_orders" || metricKey === "china.property_sales") return "gov_cn_statistics";
+  if (metricKey === "china.pmi_new_orders" || metricKey === "china.property_sales" || metricKey === "china.developer_financing") return "gov_cn_statistics";
   if (metricKey === "china.lgfv_debt") return "imf_article_iv";
   return "fred";
 }

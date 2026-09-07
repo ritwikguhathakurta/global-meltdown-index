@@ -102,8 +102,10 @@ export default function MethodologyPage() {
           Global Liquidity now includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. The
           standalone China engine itself adds the 10Y yield, debt/GDP ratio, 3-month interbank rate, real
           house-price index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking —
-          plus, as of this update, property sales, a credit-impulse proxy, PMI new orders and LGFV-inclusive
-          augmented debt (see &ldquo;China: closing the property/credit/PMI/LGFV gap&rdquo; below).
+          plus, as of this update, property sales, a credit-impulse proxy, PMI new orders, LGFV-inclusive
+          augmented debt and a developer-financing proxy (see &ldquo;China: closing the
+          property/credit/PMI/LGFV/financing gap&rdquo; below) — every indicator the V3 spec calls for
+          except individual developer default events, which no free source tracks in structured form.
           One engine remains intentionally single-country by definition regardless of data availability:
           Yen Carry Stress (a JPY-specific carry-trade mechanic). Banking and Private Credit remain partly
           single-country-anchored because no free source publishes bank-level NPL/delinquency data for the
@@ -115,32 +117,47 @@ export default function MethodologyPage() {
 
       <section className="mb-8" id="china-property-credit-pmi-lgfv">
         <h2 className="mb-2 text-base font-semibold text-text">
-          China: closing the property/credit/PMI/LGFV gap
+          China: closing the property/credit/PMI/LGFV/financing gap
         </h2>
         <p className="mb-2">
-          Property sales, credit impulse, PMI new orders and LGFV debt were previously all marked
-          UNAVAILABLE for China — genuinely no free source was found at the time. All four have real,
-          verified, non-fabricated sources now, though not all four update the same way:
+          Property sales, credit impulse, PMI new orders, LGFV debt and developer financing were previously
+          all marked UNAVAILABLE for China — genuinely no free source was found at the time. All five have
+          real, verified, non-fabricated sources now, though not all five update the same way, and one is
+          honestly a proxy rather than the literal thing its name suggests:
         </p>
         <p className="mb-2">
           <strong>Property sales</strong> (floor space of newly-built commercial buildings sold, million
-          m²) and <strong>PMI new orders</strong> come from NBS&apos;s (National Bureau of Statistics of
-          China) own monthly English-language press releases — but reached via{" "}
-          <span className="gfew-mono">english.www.gov.cn</span>, the State Council&apos;s English news
-          portal that syndicates NBS content, rather than <span className="gfew-mono">stats.gov.cn</span>{" "}
-          directly. NBS&apos;s own domain actively blocks non-browser HTTP clients — a WAF 403 with an
-          explicit &ldquo;UrlACL&rdquo; rule on its data-query API, and a deterministic TLS-level connection
-          reset on its press-release pages for any Node-based HTTP client (reproduced with two different
-          Node HTTP clients, while a plain <span className="gfew-mono">curl</span> from the same network
-          succeeds) — which this project will not work around with TLS-fingerprint spoofing or similar
-          anti-bot evasion. Since the same NBS releases are openly republished on a State Council domain
-          that isn&apos;t behind that block, that is used instead: using an open, reachable government
-          publication, not circumventing a control. Both releases are highly templated (same NBS press
-          office, same phrasing every month), which is what makes prose parsing viable here — the same
-          approach already used for SEC EDGAR tag selection and YTD de-cumulation elsewhere in this project,
-          applied to English prose instead of XBRL facts. A month whose exact phrasing doesn&apos;t match
-          the parser simply contributes no point for that month rather than a guessed one, so both series
-          currently have real but incomplete history that fills in further with each future release.
+          m²), <strong>PMI new orders</strong>, and <strong>developer financing</strong> all come from
+          NBS&apos;s (National Bureau of Statistics of China) own monthly English-language press releases —
+          but reached via <span className="gfew-mono">english.www.gov.cn</span>, the State Council&apos;s
+          English news portal that syndicates NBS content, rather than{" "}
+          <span className="gfew-mono">stats.gov.cn</span> directly. NBS&apos;s own domain actively blocks
+          non-browser HTTP clients — a WAF 403 with an explicit &ldquo;UrlACL&rdquo; rule on its data-query
+          API, and a deterministic TLS-level connection reset on its press-release pages for any Node-based
+          HTTP client (reproduced with two different Node HTTP clients, while a plain{" "}
+          <span className="gfew-mono">curl</span> from the same network succeeds) — which this project will
+          not work around with TLS-fingerprint spoofing or similar anti-bot evasion. Since the same NBS
+          releases are openly republished on a State Council domain that isn&apos;t behind that block, that
+          is used instead: using an open, reachable government publication, not circumventing a control.
+          These releases are highly templated (same NBS press office, same phrasing every month), which is
+          what makes prose parsing viable here — the same approach already used for SEC EDGAR tag selection
+          and YTD de-cumulation elsewhere in this project, applied to English prose instead of XBRL facts. A
+          month whose exact phrasing doesn&apos;t match the parser simply contributes no point for that
+          month rather than a guessed one, so these series currently have real but incomplete history that
+          fills in further with each future release.
+        </p>
+        <p className="mb-2">
+          <strong>Developer financing</strong> is honestly a proxy, and labeled as one: NBS&apos;s literal
+          &ldquo;funds in place&rdquo; breakdown for real estate developers (domestic loans, self-raised
+          funds, deposits/advances, mortgages) is published in a separate release that only exists on the
+          blocked <span className="gfew-mono">stats.gov.cn</span> domain, not syndicated to
+          english.www.gov.cn. What the syndicated release does carry is the year-on-year change in real
+          estate development investment itself (&ldquo;...and that in real estate development declined by
+          19.2 percent&rdquo;) — a real, official, closely related aggregate: a slump in developer capital
+          deployment is exactly what financing stress produces, even though it isn&apos;t the financing-source
+          breakdown by name. Individual developer bond <em>default</em> events remain genuinely unavailable
+          free — no free source tracks those in structured form — so this indicator covers the financing
+          trend, not defaults.
         </p>
         <p className="mb-2">
           <strong>Credit impulse</strong> is, honestly, a proxy: the BIS (Bank for International

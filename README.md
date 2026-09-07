@@ -60,14 +60,18 @@ Those need data sources or infrastructure this phase doesn't have yet:
   Credit uses publicly-traded BDC (Business Development Company) share prices as a leading proxy
   for portfolio credit quality. BDCs are a US-specific structure with no comparably liquid G7
   equivalent, so Private Credit stays intentionally US-anchored.
-- **China** is still a partial implementation, but most of the original gap is now closed: trade +
-  CNY + CPI + 3-month interbank rate + real house *prices* (shared BIS series) + Shanghai Composite
-  + the 10Y government bond yield (ChinaBond/CCDC) + debt/GDP + property sales volumes (NBS, via
-  english.www.gov.cn) + a BIS credit-to-GDP-gap credit-impulse proxy + PMI new orders (NBS) +
-  LGFV-inclusive augmented debt (IMF Article IV staff estimate, manually-refreshed annually — see
-  the methodology page's "China: closing the property/credit/PMI/LGFV gap" section for the full
-  sourcing detail and honesty caveats on each). Only developer-level financing/defaults remain
-  genuinely unavailable free (behind paid providers like CEIC/Wind).
+- **China** now has every V3-spec indicator covered by a real, free source except individual
+  developer bond default events: trade + CNY + CPI + 3-month interbank rate + real house *prices*
+  (shared BIS series) + Shanghai Composite + the 10Y government bond yield (ChinaBond/CCDC) +
+  debt/GDP + property sales volumes (NBS, via english.www.gov.cn) + a BIS credit-to-GDP-gap
+  credit-impulse proxy + PMI new orders (NBS) + LGFV-inclusive augmented debt (IMF Article IV staff
+  estimate, manually-refreshed annually) + a developer-financing proxy (NBS real estate development
+  investment YoY, via the same english.www.gov.cn releases — honestly a proxy for the literal
+  "funds in place" financing-source breakdown, which only exists on the blocked stats.gov.cn
+  domain). See the methodology page's "China: closing the property/credit/PMI/LGFV/financing gap"
+  section for the full sourcing detail and honesty caveats on each. Developer-level *default*
+  events specifically remain genuinely unavailable free (no free source tracks those in structured
+  form; aggregate default data is otherwise behind paid providers like CEIC/Wind).
 - **India Market Regime** is a partial implementation: FII/DII flows, PMI new orders, bank credit
   growth and GST collections have no free daily source yet, so the regime read is currently a
   cross-asset shock-sensitivity proxy only.

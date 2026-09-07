@@ -272,20 +272,26 @@ export async function ingestChinaLgfvDebt(db: SupabaseClient, runDate: string): 
 
 export async function ingestGovCnStatistics(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
-    const [pmiCount, propertyCount] = await Promise.all([
+    const [pmiCount, propertyCount, financingCount] = await Promise.all([
       db.from("metric_series").select("observed_at", { count: "exact", head: true }).eq("metric_key", "china.pmi_new_orders"),
       db.from("metric_series").select("observed_at", { count: "exact", head: true }).eq("metric_key", "china.property_sales"),
+      db.from("metric_series").select("observed_at", { count: "exact", head: true }).eq("metric_key", "china.developer_financing"),
     ]);
     if (pmiCount.error) throw new Error(`row count check (pmi): ${pmiCount.error.message}`);
     if (propertyCount.error) throw new Error(`row count check (property): ${propertyCount.error.message}`);
-    const needsBackfill = (pmiCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS || (propertyCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS;
+    if (financingCount.error) throw new Error(`row count check (financing): ${financingCount.error.message}`);
+    const needsBackfill =
+      (pmiCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS ||
+      (propertyCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS ||
+      (financingCount.count ?? 0) < MIN_GOV_CN_OBSERVATIONS;
     const pageLimit = needsBackfill ? GOV_CN_BACKFILL_PAGE_LIMIT : GOV_CN_APPEND_PAGE_LIMIT;
 
-    const { pmi, property, discovered } = await fetchChinaMonthlyReleases(pageLimit);
+    const { pmi, property, financing, discovered } = await fetchChinaMonthlyReleases(pageLimit);
     await upsertMetrics(db, pmi);
     await upsertMetrics(db, property);
-    const detail = { pageLimit, backfilled: needsBackfill, pmiPoints: pmi.length, propertyPoints: property.length, discovered };
-    const status = pmi.length > 0 || property.length > 0 ? "ok" : "warning";
+    await upsertMetrics(db, financing);
+    const detail = { pageLimit, backfilled: needsBackfill, pmiPoints: pmi.length, propertyPoints: property.length, financingPoints: financing.length, discovered };
+    const status = pmi.length > 0 || property.length > 0 || financing.length > 0 ? "ok" : "warning";
     await logRun(db, runDate, "ingest_gov_cn_statistics", status, detail);
     return { stage: "ingest_gov_cn_statistics", status, detail };
   } catch (e) {

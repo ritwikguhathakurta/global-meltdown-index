@@ -1,11 +1,32 @@
 import type { MetricPoint } from "../metrics/store";
 
 /**
- * China Property Sales (transaction volume) and China PMI New Orders —
- * both of these are genuine NBS (National Bureau of Statistics of China)
- * releases and both are described in exact prose form, in English, in the
- * State Council's own English-language news portal (english.www.gov.cn),
- * which syndicates NBS's monthly statistical press releases.
+ * China Property Sales (transaction volume), China PMI New Orders, and
+ * China Developer Financing — all genuine NBS (National Bureau of
+ * Statistics of China) releases, described in exact prose form, in
+ * English, in the State Council's own English-language news portal
+ * (english.www.gov.cn), which syndicates NBS's monthly statistical press
+ * releases.
+ *
+ * Developer financing is a proxy, and honestly labeled as one: NBS's own
+ * detailed "funds in place" breakdown for real estate developers (domestic
+ * loans, self-raised funds, deposits/advances, mortgages — the literal
+ * financing-source data) is published in a *separate* release
+ * ("Investment in Real Estate Development for ...") that only exists on
+ * stats.gov.cn/english/PressRelease/ — the blocked domain, not syndicated
+ * to english.www.gov.cn. What IS present in the same "National economy..."
+ * release already used for property sales is the year-on-year change in
+ * real estate development investment itself ("...and that in real estate
+ * development declined by X percent") — not the financing-source
+ * breakdown, but a real, official, closely-related aggregate: a slump in
+ * developer capital deployment is exactly what financing stress produces.
+ * Used here as that proxy rather than left UNAVAILABLE, on the same logic
+ * already applied to the BIS credit-to-GDP gap standing in for a literal
+ * credit impulse. Developer-level *defaults* (as opposed to the aggregate
+ * financing/investment trend) remain genuinely unavailable free — no free
+ * source tracks individual Chinese developer bond defaults in structured
+ * form; that half of "Developer Financing/Defaults" is not covered by this
+ * proxy and is disclosed as a limitation, not silently dropped.
  *
  * This exists as a *separate* domain from stats.gov.cn on purpose: NBS's
  * own site (stats.gov.cn, including its data-query API at
@@ -152,6 +173,27 @@ function parsePropertyFloorSpaceYtd(text: string): number | null {
   return Number.isNaN(v) ? null : v;
 }
 
+const FINANCING_NEGATIVE_VERBS = /^(declined|decreased|dropped|fell|shrank|slid|slumped)$/i;
+const FINANCING_POSITIVE_VERBS = /^(grew|increased|rose|expanded|rebounded|climbed|jumped)$/i;
+
+/**
+ * Matches "...and that in real estate development declined by 19.2 percent"
+ * — an ellipsis construction ("that" standing in for "the investment")
+ * that consistently follows the infrastructure/manufacturing investment
+ * breakdown sentence in every sampled release. Verified against three
+ * different periods (Q1, H1, first-seven-months 2026) with three different
+ * magnitudes, same sentence shape each time.
+ */
+function parseDeveloperFinancingYoy(text: string): number | null {
+  const m = text.match(/that in real estate development (declined|decreased|dropped|fell|shrank|slid|slumped|grew|increased|rose|expanded|rebounded|climbed|jumped) by ([\d.]+) percent/i);
+  if (!m) return null;
+  const magnitude = parseFloat(m[2]);
+  if (Number.isNaN(magnitude)) return null;
+  if (FINANCING_NEGATIVE_VERBS.test(m[1])) return -magnitude;
+  if (FINANCING_POSITIVE_VERBS.test(m[1])) return magnitude;
+  return null;
+}
+
 async function fetchPmiPoints(articles: Article[]): Promise<MetricPoint[]> {
   const results = await mapWithConcurrency(articles, CONCURRENCY, async (a) => {
     const res = await fetch(a.url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
@@ -187,26 +229,47 @@ async function fetchPmiPoints(articles: Article[]): Promise<MetricPoint[]> {
   return points;
 }
 
-async function fetchPropertyPoints(articles: Article[]): Promise<MetricPoint[]> {
+function periodEndDate(year: number, month: number): string {
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+}
+
+async function fetchPropertyAndFinancingPoints(articles: Article[]): Promise<{ property: MetricPoint[]; financing: MetricPoint[] }> {
   const parsed = await mapWithConcurrency(articles, CONCURRENCY, async (a) => {
     const res = await fetch(a.url, { headers: HEADERS, signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = stripHtml(await res.text());
-    const cumulative = parsePropertyFloorSpaceYtd(text);
     const periodEndMonth = parsePeriodEndMonth(text.slice(0, 800));
-    if (cumulative === null || periodEndMonth === null) throw new Error("no match");
-    return { year: a.year, periodEndMonth, cumulative };
+    if (periodEndMonth === null) throw new Error("no match");
+    return {
+      year: a.year,
+      periodEndMonth,
+      cumulativeFloorSpace: parsePropertyFloorSpaceYtd(text),
+      financingYoy: parseDeveloperFinancingYoy(text),
+    };
   });
 
-  const byYear = new Map<number, { periodEndMonth: number; cumulative: number }[]>();
+  const byYear = new Map<number, { periodEndMonth: number; cumulativeFloorSpace: number | null }[]>();
+  const financing: MetricPoint[] = [];
   for (const r of parsed) {
     if (r.status !== "fulfilled") continue;
-    const { year, periodEndMonth, cumulative } = r.value;
+    const { year, periodEndMonth, cumulativeFloorSpace, financingYoy } = r.value;
     if (!byYear.has(year)) byYear.set(year, []);
-    byYear.get(year)!.push({ periodEndMonth, cumulative });
+    byYear.get(year)!.push({ periodEndMonth, cumulativeFloorSpace });
+    if (financingYoy !== null) {
+      financing.push({
+        metric_key: "china.developer_financing",
+        observed_at: periodEndDate(year, periodEndMonth),
+        value: financingYoy,
+        unit: "% YoY (YTD, real estate development investment)",
+        source_key: "gov_cn_statistics",
+        source_tier: 1,
+        frequency: "monthly",
+      });
+    }
   }
 
-  const points: MetricPoint[] = [];
+  const property: MetricPoint[] = [];
   for (const [year, periods] of byYear) {
     periods.sort((a, b) => a.periodEndMonth - b.periodEndMonth);
     // Only start accumulating once the year's genuine first release ("first two
@@ -216,18 +279,18 @@ async function fetchPropertyPoints(articles: Article[]): Promise<MetricPoint[]> 
     // Years where that baseline isn't in range simply contribute no points.
     let previousCumulative: number | null = null;
     for (const p of periods) {
+      if (p.cumulativeFloorSpace === null) continue;
       let flow: number | null = null;
       if (p.periodEndMonth === 2) {
-        flow = p.cumulative;
+        flow = p.cumulativeFloorSpace;
       } else if (previousCumulative !== null) {
-        flow = p.cumulative - previousCumulative;
+        flow = p.cumulativeFloorSpace - previousCumulative;
       }
-      previousCumulative = p.cumulative;
+      previousCumulative = p.cumulativeFloorSpace;
       if (flow === null) continue;
-      const lastDay = new Date(Date.UTC(year, p.periodEndMonth, 0)).getUTCDate();
-      points.push({
+      property.push({
         metric_key: "china.property_sales",
-        observed_at: `${year}-${String(p.periodEndMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+        observed_at: periodEndDate(year, p.periodEndMonth),
         value: flow,
         unit: "million m² (period flow)",
         source_key: "gov_cn_statistics",
@@ -236,11 +299,21 @@ async function fetchPropertyPoints(articles: Article[]): Promise<MetricPoint[]> 
       });
     }
   }
-  return points;
+  return { property, financing };
 }
 
-export async function fetchChinaMonthlyReleases(pageLimit: number): Promise<{ pmi: MetricPoint[]; property: MetricPoint[]; discovered: { pmi: number; property: number } }> {
+export async function fetchChinaMonthlyReleases(pageLimit: number): Promise<{
+  pmi: MetricPoint[];
+  property: MetricPoint[];
+  financing: MetricPoint[];
+  discovered: { pmi: number; property: number };
+}> {
   const { pmi: pmiArticles, property: propertyArticles } = await discoverArticles(pageLimit);
-  const [pmi, property] = await Promise.all([fetchPmiPoints(pmiArticles), fetchPropertyPoints(propertyArticles)]);
-  return { pmi, property, discovered: { pmi: pmiArticles.length, property: propertyArticles.length } };
+  const [pmi, propertyAndFinancing] = await Promise.all([fetchPmiPoints(pmiArticles), fetchPropertyAndFinancingPoints(propertyArticles)]);
+  return {
+    pmi,
+    property: propertyAndFinancing.property,
+    financing: propertyAndFinancing.financing,
+    discovered: { pmi: pmiArticles.length, property: propertyArticles.length },
+  };
 }
