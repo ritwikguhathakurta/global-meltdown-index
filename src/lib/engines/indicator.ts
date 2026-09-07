@@ -114,7 +114,7 @@ function guessSourceKey(metricKey: string): string {
   if (metricKey === "yield.uk_10y") return "boe";
   if (metricKey === "yield.canada_10y") return "boc";
   if (metricKey === "yield.china_10y" || metricKey === "credit.china_corp_aaa_10y") return "chinabond";
-  if (metricKey === "china.credit_impulse") return "bis";
+  if (metricKey === "china.credit_impulse" || metricKey === "credit.uk_credit_gap" || metricKey === "credit.canada_credit_gap" || metricKey === "credit.japan_credit_gap") return "bis";
   if (
     metricKey === "china.pmi_new_orders" ||
     metricKey === "china.property_sales" ||

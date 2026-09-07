@@ -406,13 +406,47 @@ export default function MethodologyPage() {
           <li><strong>United States:</strong> US High-Yield OAS (ICE BofA, via FRED) — already tracked, genuinely US-specific.</li>
           <li><strong>Germany, France, Italy:</strong> all three show the <em>same</em> Euro-Area High-Yield OAS value. This is not a data gap — eurozone corporate bonds are issued and spread-quoted in one EUR-currency market, not split by nation the way government debt is (there is no separate &ldquo;German corporate index&rdquo; distinct from the Euro-area one). Country-specific eurozone credit risk shows up on the <em>sovereign</em> side instead (the Treasury tab&apos;s Italy-Germany &ldquo;BTP-Bund&rdquo; and France-Germany &ldquo;OAT-Bund&rdquo; spreads), which is not duplicated here since it is a different signal.</li>
           <li><strong>China:</strong> a new, dedicated <strong>AAA Corporate-Government Spread</strong> — ChinaBond (CCDC) publishes a full corporate-bond yield curve by credit rating alongside its government curve (already used for China&apos;s 10Y sovereign yield), found via the site&apos;s own curve-tree API. Both legs are the same publisher, same 10Y tenor, same day, so the derived spread is a clean, real, China-specific corporate signal (currently ~35-40bps, ranging roughly 12-60bps over the last ~2.7 years of history pulled) — a genuine upgrade over relying on the regional Asia-Pacific EM proxy alone for China exposure.</li>
-          <li><strong>United Kingdom, Canada, Japan:</strong> marked <strong>UNAVAILABLE</strong>, not guessed or proxied silently. FRED&apos;s entire ICE BofA Indices release (all 192 series enumerated directly via its API, not just keyword search) was checked and contains zero GBP, CAD or JPY-denominated corporate bond index — US, Euro-area and various USD/EUR emerging-market cuts are the only currencies covered. The Bank of England&apos;s own Interactive Database was also checked directly: it publishes corporate bond <em>issuance</em> flow data (gross issues, repayments, net issues by sector) but no queryable yield or spread series. Each of these three rows instead points to that country&apos;s sovereign yield spread vs US Treasuries, already tracked on the Treasury tab — a related but genuinely different (sovereign, not corporate) signal, referenced rather than substituted in as if equivalent.</li>
+          <li><strong>United Kingdom, Canada, Japan:</strong> no free GBP, CAD or JPY-denominated corporate bond spread index exists. FRED&apos;s entire ICE BofA Indices release (all 192 series enumerated directly via its API, not just keyword search) was checked and contains zero non-USD/EUR corporate bond index. The Bank of England&apos;s own Interactive Database was also checked directly: it publishes corporate bond <em>issuance</em> flow data (gross issues, repayments, net issues by sector) but no queryable yield or spread series. Rather than leave these three UNAVAILABLE, each now shows the <strong>BIS credit-to-GDP gap</strong> instead — see below for what that is and why it was chosen over the alternatives.</li>
         </ul>
+        <p className="mb-2">
+          <strong>Credit-to-GDP gap for UK, Canada and Japan (new).</strong> The BIS (Bank for
+          International Settlements) publishes a free, no-key SDMX API for its Total Credit
+          statistics, including the credit-to-GDP <em>gap</em> — actual private-sector credit minus
+          its long-run HP-filter trend, as a share of GDP. This is the literal Basel III
+          countercyclical-capital-buffer indicator: the standard, official early-warning signal
+          central banks themselves use for a credit boom building up ahead of a future correction.
+          It was already used here for China (as &ldquo;China credit impulse&rdquo;); checking the
+          same API directly (not assumed from documentation) confirmed it also covers the UK,
+          Canada and Japan, with data current through 2025-Q4 for all three. As of that print: UK
+          −17.8, Canada −15.3 (both well below trend, consistent with post-2022 rate-hike
+          deleveraging), Japan +6.8 and <em>rising</em> (4.3 → 5.2 → 6.8 over the prior three
+          quarters) — a genuinely different, real signal: Japan is the one G7 economy in this table
+          currently showing a credit boom building, not a credit contraction.
+        </p>
+        <p className="mb-2">
+          Two alternative sources were suggested and checked before settling on BIS: a Bank of
+          England IADB series for &ldquo;total domestic credit growth&rdquo; (no single clean series
+          code for an aggregate figure was found in the database), and Statistics Canada&apos;s
+          National Balance Sheet Accounts table 38-10-0238-01 (real, and checked directly via
+          StatCan&apos;s own Web Data Service metadata — but it turned out to be a{" "}
+          <em>household</em>-sector-only credit summary table, not the combined household+corporate
+          credit market debt it had been described as, and even a correct table would still be a
+          raw, undetrended level rather than the properly risk-signed gap BIS already publishes).
+          BIS was used instead because it is verified accurate, already integrated in this codebase
+          for China with the same methodology, and — critically — is properly detrended: a raw
+          credit-growth or loan-outstanding figure is directionally ambiguous (growth can mean
+          either easing conditions or a bubble building) in a way the BIS gap is not.
+        </p>
         <p>
-          The composite Credit Markets engine now includes the China AAA corporate-government
-          spread as an additional weighted input alongside the existing US HY/IG, EM and Euro-area
-          HY inputs — it does not include a UK/Canada/Japan proxy, for the same reason those rows
-          are UNAVAILABLE in the table above rather than backfilled with a loosely related number.
+          Because the credit-to-GDP gap measures something structurally different from a
+          market-priced spread — a quantity-side credit-boom signal, quarterly, not a daily-priced
+          risk premium — it is tagged &ldquo;Credit-to-GDP Gap&rdquo; on the dashboard table rather
+          than shown as if it were the same kind of reading as the OAS-based rows. Read a high
+          reading there as &ldquo;credit is growing faster than its trend relative to GDP,&rdquo;
+          not as &ldquo;a spread has widened.&rdquo; The composite Credit Markets engine includes
+          all three (UK, Canada, Japan credit-to-GDP gaps) as additional weighted inputs alongside
+          the China AAA corporate-government spread and the existing US HY/IG, EM and Euro-area HY
+          inputs.
         </p>
       </section>
 

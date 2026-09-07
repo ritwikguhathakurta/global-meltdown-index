@@ -22,7 +22,7 @@ import {
   fetchBojCallRate,
 } from "../sources/govBondYields";
 import { fetchChinaYield10y, fetchChinaCorpAaaYield10y } from "../sources/chinaBondYield";
-import { fetchChinaCreditGap } from "../sources/bisCreditGap";
+import { fetchChinaCreditGap, fetchUkCreditGap, fetchCanadaCreditGap, fetchJapanCreditGap } from "../sources/bisCreditGap";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
 import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
 import { fetchCanadaInventoryToSalesRatio } from "../sources/statCan";
@@ -369,18 +369,30 @@ export async function ingestRbiYieldCurve(db: SupabaseClient, runDate: string): 
   }
 }
 
-export async function ingestChinaCreditGap(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
-  try {
-    const points = await fetchChinaCreditGap();
-    await upsertMetrics(db, points);
-    const status = points.length > 0 ? "ok" : "warning";
-    await logRun(db, runDate, "ingest_china_credit_gap", status, { points: points.length });
-    return { stage: "ingest_china_credit_gap", status, detail: { points: points.length } };
-  } catch (e) {
-    const detail = { error: (e as Error).message };
-    await logRun(db, runDate, "ingest_china_credit_gap", "failed", detail);
-    return { stage: "ingest_china_credit_gap", status: "failed", detail };
+export async function ingestBisCreditGaps(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const fetchers = [
+    { name: "China", fn: fetchChinaCreditGap },
+    { name: "UK", fn: fetchUkCreditGap },
+    { name: "Canada", fn: fetchCanadaCreditGap },
+    { name: "Japan", fn: fetchJapanCreditGap },
+  ];
+  let ok = 0;
+  let points = 0;
+  const errors: string[] = [];
+  for (const f of fetchers) {
+    try {
+      const pts = await f.fn();
+      await upsertMetrics(db, pts);
+      points += pts.length;
+      ok++;
+    } catch (e) {
+      errors.push(`${f.name}: ${(e as Error).message}`);
+    }
   }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: fetchers.length, points, errors };
+  await logRun(db, runDate, "ingest_bis_credit_gaps", status, detail);
+  return { stage: "ingest_bis_credit_gaps", status, detail };
 }
 
 export async function ingestChinaLgfvDebt(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
@@ -468,7 +480,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestCentralBankShortRates(db, runDate),
     ingestRbiLiquidity(db, runDate),
     ingestRbiYieldCurve(db, runDate),
-    ingestChinaCreditGap(db, runDate),
+    ingestBisCreditGaps(db, runDate),
     ingestChinaLgfvDebt(db, runDate),
     ingestGovCnStatistics(db, runDate),
     ingestStatCan(db, runDate),

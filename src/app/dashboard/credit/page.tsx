@@ -1,6 +1,6 @@
 import { getLatestEngine, getCountryCreditTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
-import type { CreditRegimeLabel } from "@/lib/engines/creditRegime";
+import type { CreditRegimeLabel, CreditBasisKind } from "@/lib/engines/creditRegime";
 
 const REGIME_COLORS: Record<CreditRegimeLabel, string> = {
   COMPRESSED: "#34c085",
@@ -24,6 +24,20 @@ function RegimePill({ regime }: { regime: CreditRegimeLabel }) {
   );
 }
 
+const BASIS_KIND_LABEL: Record<CreditBasisKind, string> = {
+  spread: "Market Spread",
+  credit_gap: "Credit-to-GDP Gap",
+  unavailable: "Unavailable",
+};
+
+function BasisKindTag({ kind }: { kind: CreditBasisKind }) {
+  return (
+    <span className="ml-2 inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-dim">
+      {BASIS_KIND_LABEL[kind]}
+    </span>
+  );
+}
+
 function fmt(v: number | null, unit: string): string {
   if (v === null) return "—";
   const rounded = Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(v === Math.trunc(v) ? 0 : 2);
@@ -36,9 +50,9 @@ export default async function CreditPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Credit Markets</h1>
       <p className="mb-6 max-w-2xl text-sm text-text-dim">
-        US HY/IG, EM and Euro-area high-yield OAS, plus a dedicated China AAA corporate-government
-        spread — see the methodology page for why UK, Canada and Japan have no free country-specific
-        corporate spread source.
+        US HY/IG, EM and Euro-area high-yield OAS, a dedicated China AAA corporate-government
+        spread, plus a BIS credit-to-GDP gap for UK/Canada/Japan where no free corporate spread
+        index exists — see the methodology page for the full sourcing detail.
       </p>
 
       <section className="mb-8">
@@ -50,12 +64,17 @@ export default async function CreditPage() {
           corporates (Germany, France, Italy) are priced as one EUR market, so those three rows
           share the same Euro-Area High-Yield OAS value, disclosed rather than presented as
           uniquely national. China gets its own dedicated AAA corporate-government spread from
-          ChinaBond. UK, Canada and Japan are marked UNAVAILABLE — no free GBP, CAD or
-          JPY-denominated corporate spread index was found (checked FRED&apos;s entire ICE BofA
-          Indices release and the Bank of England&apos;s own database directly); their sovereign
-          yield spread is tracked instead on the Treasury tab, a related but different signal.
-          Regime bands are the same 0-20/20-40/.../80-100 z-score scale as the composite engine
-          below.
+          ChinaBond. UK, Canada and Japan have no free corporate spread index (checked FRED&apos;s
+          entire ICE BofA Indices release and the Bank of England&apos;s own database directly), so
+          those three instead show the <strong>BIS credit-to-GDP gap</strong> — tagged &ldquo;Credit-to-GDP
+          Gap&rdquo; below to mark it as a genuinely different kind of signal: a structural,
+          quantity-side credit-boom early-warning (Basel III&apos;s own countercyclical-buffer
+          indicator), not a market-priced spread. A high reading there means credit has grown
+          faster than its long-run trend relative to GDP, not that a spread has widened. Regime
+          bands are the same 0-20/20-40/.../80-100 z-score scale as the composite engine below, but
+          read a &ldquo;Credit-to-GDP Gap&rdquo; row&apos;s regime as boom/bust positioning, not
+          spread stress. Each country&apos;s sovereign yield spread is tracked separately on the
+          Treasury tab.
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">
@@ -74,6 +93,7 @@ export default async function CreditPage() {
                   <td className="px-3 py-2">{r.country}</td>
                   <td className="px-3 py-2 text-text-dim" title={r.note ?? undefined}>
                     {r.basisLabel}
+                    <BasisKindTag kind={r.basisKind} />
                   </td>
                   <td className="gfew-mono px-3 py-2">{fmt(r.basisValue, r.basisUnit)}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{r.basisAsOf ?? "—"}</td>

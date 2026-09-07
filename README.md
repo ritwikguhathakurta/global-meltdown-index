@@ -248,10 +248,15 @@ Most engines were originally US-only; they were widened deliberately, not by def
   (includes, but isn't exclusive to, China). Also now a G7+China per-country table
   (`src/lib/engines/creditRegime.ts`) on the Credit tab: a dedicated China AAA
   corporate-government spread (ChinaBond, new), Germany/France/Italy sharing the Euro-area HY
-  OAS (disclosed as one shared EUR market, not per-nation), and UK/Canada/Japan marked
-  UNAVAILABLE — no free GBP/CAD/JPY corporate spread index was found after checking FRED's
-  full ICE BofA Indices release and the Bank of England's own database directly (see the
-  methodology page).
+  OAS (disclosed as one shared EUR market, not per-nation), and UK/Canada/Japan — which have no
+  free GBP/CAD/JPY corporate spread index (checked FRED's full ICE BofA Indices release and the
+  Bank of England's own database directly) — instead showing the BIS credit-to-GDP gap
+  (`src/lib/sources/bisCreditGap.ts`, the same Basel III countercyclical-buffer series already
+  used for China's credit impulse, verified to cover the full G7 too), tagged explicitly as a
+  different kind of signal (quantity-side credit-boom gap, not a market-priced spread) rather
+  than blended in as if equivalent — see the methodology page for why this was chosen over two
+  alternative national sources that were checked and found lacking (a BoE series with no clean
+  aggregate code, and a StatCan table that turned out to be household-only credit).
 - **Global Liquidity**: Fed, ECB (Germany/France/Italy) and BOJ balance sheets, plus the ECB
   deposit rate, the Chicago Fed NFCI, Bank of England reserve balances (UK), Bank of Canada total
   assets (Canada — both direct from those central banks' own APIs), and China's 3-month interbank
