@@ -2,6 +2,7 @@ import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { computeIndiaSeasonalNotes } from "@/lib/engines/indiaSeasonality";
 import { getCentralBankLiquidityTable as computeCentralBankLiquidityTable, type CentralBankLiquidityRow } from "@/lib/engines/liquidityRegime";
+import { getCountryCreditTable as computeCountryCreditTable, type CountryCreditRow } from "@/lib/engines/creditRegime";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -151,6 +152,17 @@ export async function getCentralBankLiquidityTable(): Promise<CentralBankLiquidi
   try {
     const db = await createServerSupabase();
     return await computeCentralBankLiquidityTable(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
+  }
+}
+
+export async function getCountryCreditTable(): Promise<CountryCreditRow[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeCountryCreditTable(db);
   } catch (e) {
     console.error((e as Error).message);
     return [];

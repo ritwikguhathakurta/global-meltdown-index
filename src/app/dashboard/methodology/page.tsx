@@ -391,6 +391,31 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="credit-spreads-by-country">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Credit Spreads by Country (G7 + China) — what&apos;s real, and the gaps disclosed
+        </h2>
+        <p className="mb-2">
+          The Credit tab now shows a per-country table alongside the composite Credit Markets
+          engine, the same &ldquo;disclosed basis, per-unit regime&rdquo; pattern used for Central
+          Bank Liquidity above. Corporate credit is not observable per-country the way sovereign
+          debt is, so each row shows the best real signal that actually exists for that country,
+          not a forced national breakdown:
+        </p>
+        <ul className="mb-2 list-inside list-disc space-y-1">
+          <li><strong>United States:</strong> US High-Yield OAS (ICE BofA, via FRED) — already tracked, genuinely US-specific.</li>
+          <li><strong>Germany, France, Italy:</strong> all three show the <em>same</em> Euro-Area High-Yield OAS value. This is not a data gap — eurozone corporate bonds are issued and spread-quoted in one EUR-currency market, not split by nation the way government debt is (there is no separate &ldquo;German corporate index&rdquo; distinct from the Euro-area one). Country-specific eurozone credit risk shows up on the <em>sovereign</em> side instead (the Treasury tab&apos;s Italy-Germany &ldquo;BTP-Bund&rdquo; and France-Germany &ldquo;OAT-Bund&rdquo; spreads), which is not duplicated here since it is a different signal.</li>
+          <li><strong>China:</strong> a new, dedicated <strong>AAA Corporate-Government Spread</strong> — ChinaBond (CCDC) publishes a full corporate-bond yield curve by credit rating alongside its government curve (already used for China&apos;s 10Y sovereign yield), found via the site&apos;s own curve-tree API. Both legs are the same publisher, same 10Y tenor, same day, so the derived spread is a clean, real, China-specific corporate signal (currently ~35-40bps, ranging roughly 12-60bps over the last ~2.7 years of history pulled) — a genuine upgrade over relying on the regional Asia-Pacific EM proxy alone for China exposure.</li>
+          <li><strong>United Kingdom, Canada, Japan:</strong> marked <strong>UNAVAILABLE</strong>, not guessed or proxied silently. FRED&apos;s entire ICE BofA Indices release (all 192 series enumerated directly via its API, not just keyword search) was checked and contains zero GBP, CAD or JPY-denominated corporate bond index — US, Euro-area and various USD/EUR emerging-market cuts are the only currencies covered. The Bank of England&apos;s own Interactive Database was also checked directly: it publishes corporate bond <em>issuance</em> flow data (gross issues, repayments, net issues by sector) but no queryable yield or spread series. Each of these three rows instead points to that country&apos;s sovereign yield spread vs US Treasuries, already tracked on the Treasury tab — a related but genuinely different (sovereign, not corporate) signal, referenced rather than substituted in as if equivalent.</li>
+        </ul>
+        <p>
+          The composite Credit Markets engine now includes the China AAA corporate-government
+          spread as an additional weighted input alongside the existing US HY/IG, EM and Euro-area
+          HY inputs — it does not include a UK/Canada/Japan proxy, for the same reason those rows
+          are UNAVAILABLE in the table above rather than backfilled with a loosely related number.
+        </p>
+      </section>
+
       <section className="mb-8" id="india-yield-curve-ccil">
         <h2 className="mb-2 text-base font-semibold text-text">
           India Yield Curve (new tab), and why CCIL is not used as a source

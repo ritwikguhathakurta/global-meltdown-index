@@ -245,7 +245,13 @@ Most engines were originally US-only; they were widened deliberately, not by def
   the FRED/OECD monthly proxy (`IRLTLT01xxM156N`, structurally lags 2-4 months) since no equally
   clean free daily alternative was found for those three.
 - **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
-  (includes, but isn't exclusive to, China).
+  (includes, but isn't exclusive to, China). Also now a G7+China per-country table
+  (`src/lib/engines/creditRegime.ts`) on the Credit tab: a dedicated China AAA
+  corporate-government spread (ChinaBond, new), Germany/France/Italy sharing the Euro-area HY
+  OAS (disclosed as one shared EUR market, not per-nation), and UK/Canada/Japan marked
+  UNAVAILABLE — no free GBP/CAD/JPY corporate spread index was found after checking FRED's
+  full ICE BofA Indices release and the Bank of England's own database directly (see the
+  methodology page).
 - **Global Liquidity**: Fed, ECB (Germany/France/Italy) and BOJ balance sheets, plus the ECB
   deposit rate, the Chicago Fed NFCI, Bank of England reserve balances (UK), Bank of Canada total
   assets (Canada — both direct from those central banks' own APIs), and China's 3-month interbank

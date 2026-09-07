@@ -21,14 +21,31 @@ import { fetchWorkbookSheet } from "./xlsWorkbook";
 const YC_DEF_ID = "2c9081e50a2f9606010a3068cae70001";
 const TARGET_TENOR_YEARS = 10;
 
-async function fetchYear(year: number): Promise<{ date: string; value: number }[]> {
-  const url = `https://yield.chinabond.com.cn/cbweb-mn/yc/downYearBzqx?year=${year}&&wrjxCBFlag=0&&zblx=txy&&ycDefId=${YC_DEF_ID}&&locale=zh_CN`;
+/**
+ * ChinaBond also publishes a full corporate-bond yield curve, broken out by
+ * credit rating (AAA down to CC) — same publisher, same daily cadence, same
+ * download mechanism, found via the site's own curve-tree API
+ * (/cbweb-mn/yc/queryTree, which returns every curve's name and internal
+ * id — this is how AAA_YC_DEF_ID below was found, the same "inspect the
+ * site's own data endpoint" method used for the government curve above).
+ * AAA is the standard reference grade for a corporate-vs-government spread
+ * in China's own market convention. Paired with the 10Y government yield
+ * above (same source, same tenor, same day), this gives a genuine, free,
+ * China-specific corporate credit spread — a real upgrade over the regional
+ * "Asia-Pacific EM Corporate OAS" proxy credit.ts otherwise relies on for
+ * China exposure, which is a broad multi-country regional index, not a
+ * China-only signal.
+ */
+const AAA_YC_DEF_ID = "2c9081e50a2f9606010a309f4af50111";
+
+async function fetchYearAtTenor(ycDefId: string, year: number, tenorYears: number): Promise<{ date: string; value: number }[]> {
+  const url = `https://yield.chinabond.com.cn/cbweb-mn/yc/downYearBzqx?year=${year}&&wrjxCBFlag=0&&zblx=txy&&ycDefId=${ycDefId}&&locale=zh_CN`;
   const rows = await fetchWorkbookSheet(url);
 
   const out: { date: string; value: number }[] = [];
   for (const row of rows.slice(1)) {
-    const [dateRaw, , tenorYears, yieldRaw] = row as [unknown, unknown, unknown, unknown];
-    if (Number(tenorYears) !== TARGET_TENOR_YEARS) continue;
+    const [dateRaw, , rowTenorYears, yieldRaw] = row as [unknown, unknown, unknown, unknown];
+    if (Number(rowTenorYears) !== tenorYears) continue;
     const m = String(dateRaw).match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
     if (!m) continue;
     const v = parseFloat(String(yieldRaw));
@@ -38,9 +55,11 @@ async function fetchYear(year: number): Promise<{ date: string; value: number }[
   return out;
 }
 
-export async function fetchChinaYield10y(): Promise<MetricPoint[]> {
+async function fetchChinaBondCurve(ycDefId: string, metricKey: string): Promise<MetricPoint[]> {
   const currentYear = new Date().getUTCFullYear();
-  const results = await Promise.allSettled([currentYear - 2, currentYear - 1, currentYear].map(fetchYear));
+  const results = await Promise.allSettled(
+    [currentYear - 2, currentYear - 1, currentYear].map((y) => fetchYearAtTenor(ycDefId, y, TARGET_TENOR_YEARS))
+  );
 
   const points: MetricPoint[] = [];
   const errors: string[] = [];
@@ -51,7 +70,7 @@ export async function fetchChinaYield10y(): Promise<MetricPoint[]> {
     }
     for (const row of r.value) {
       points.push({
-        metric_key: "yield.china_10y",
+        metric_key: metricKey,
         observed_at: row.date,
         value: row.value,
         unit: "%",
@@ -61,6 +80,15 @@ export async function fetchChinaYield10y(): Promise<MetricPoint[]> {
       });
     }
   }
-  if (points.length === 0) throw new Error(`ChinaBond 10Y: no data from any year (${errors.join("; ")})`);
+  if (points.length === 0) throw new Error(`ChinaBond ${metricKey}: no data from any year (${errors.join("; ")})`);
   return points;
+}
+
+export async function fetchChinaYield10y(): Promise<MetricPoint[]> {
+  return fetchChinaBondCurve(YC_DEF_ID, "yield.china_10y");
+}
+
+/** ChinaBond Corporate Bond Yield Curve (AAA), 10Y tenor — see AAA_YC_DEF_ID docs above. */
+export async function fetchChinaCorpAaaYield10y(): Promise<MetricPoint[]> {
+  return fetchChinaBondCurve(AAA_YC_DEF_ID, "credit.china_corp_aaa_10y");
 }

@@ -21,7 +21,7 @@ import {
   fetchEcbShortRate,
   fetchBojCallRate,
 } from "../sources/govBondYields";
-import { fetchChinaYield10y } from "../sources/chinaBondYield";
+import { fetchChinaYield10y, fetchChinaCorpAaaYield10y } from "../sources/chinaBondYield";
 import { fetchChinaCreditGap } from "../sources/bisCreditGap";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
 import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
@@ -236,6 +236,7 @@ export async function ingestGovBondYields(db: SupabaseClient, runDate: string): 
     { name: "UK (BoE)", fn: fetchUkYield10y },
     { name: "Canada (BoC)", fn: fetchCanadaYield10y },
     { name: "China (ChinaBond/CCDC)", fn: fetchChinaYield10y },
+    { name: "China Corporate AAA (ChinaBond/CCDC)", fn: fetchChinaCorpAaaYield10y },
   ];
   let ok = 0;
   let points = 0;
