@@ -99,7 +99,10 @@ export default function MethodologyPage() {
           Credit adds Euro-area
           high-yield spreads and an Asia-Pacific EM
           corporate spread (which includes but isn&apos;t exclusively China) alongside US HY/IG/EM; and
-          Global Liquidity now includes the ECB and BOJ balance sheets, not the Fed&apos;s alone. The
+          Global Liquidity now covers all of G7 + China — the ECB (Germany/France/Italy), BOJ, BoE and BoC
+          balance-sheet/reserve measures alongside the Fed, plus China&apos;s 3-month interbank rate as a
+          rate-side proxy (see &ldquo;Liquidity: G7 + China, and a separate India Liquidity engine&rdquo;
+          below, which also covers the new standalone India Liquidity tab). The
           standalone China engine itself adds the 10Y yield, debt/GDP ratio, 3-month interbank rate, real
           house-price index and Shanghai Composite on top of its existing exports/imports/CNY/CPI tracking —
           plus, as of this update, property sales, a credit-impulse proxy, PMI new orders, LGFV-inclusive
@@ -246,6 +249,48 @@ export default function MethodologyPage() {
           this project will not work around. Rather than force a stale or fabricated UK figure into the
           engine, this gap is disclosed in the engine&apos;s contradictory-evidence field and here, not
           silently dropped.
+        </p>
+      </section>
+
+      <section className="mb-8" id="liquidity-g7-china-india">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Liquidity: G7 + China, and a separate India Liquidity engine
+        </h2>
+        <p className="mb-2">
+          Global Liquidity previously covered the Fed, ECB and BOJ. It now adds the
+          <strong> UK</strong> (Bank of England reserve balances, series RPWB56A — BoE&apos;s own Weekly
+          Report database has no single &ldquo;total assets&rdquo; line, checked directly; reserve
+          balances, the liabilities side of the balance sheet, is the same underlying concept the Fed&apos;s
+          own reserve-balances series tracks, and arguably the more directly relevant one for gauging
+          ample-vs-scarce banking-system liquidity) and <strong>Canada</strong> (Bank of Canada&apos;s own
+          &ldquo;Total assets&rdquo; series, V36610, from its weekly balance sheet table via the Valet API).
+          Germany, France and Italy were already covered — there is no separate national central-bank
+          balance sheet distinct from the consolidated Eurosystem one, so the ECB figure already tracked
+          here is their liquidity input.
+        </p>
+        <p className="mb-2">
+          <strong>China</strong> is honestly a rate-side, not balance-sheet-side, proxy: no free, verified
+          PBOC total-assets or reserve-money series was found (checked pbc.gov.cn&apos;s own statistics
+          pages directly — its monthly English-language Financial Statistics Reports cover Total Social
+          Financing and RMB loans, not a balance-sheet total). China&apos;s 3-month interbank rate
+          (already tracked elsewhere in this project as a funding-stress proxy) is reused here instead,
+          playing the same role SOFR and the ECB deposit rate play for the US and Eurozone — a real signal,
+          just not the same *kind* of signal as the balance-sheet series used for the rest of G7.
+        </p>
+        <p>
+          <strong>India Liquidity is a new, separate tab</strong> — deliberately not folded into India
+          Market Regime, which is a bullish/bearish equity-direction call on a different 0-100 scale, not a
+          banking-system liquidity read. Both of its inputs come from the RBI&apos;s own daily &ldquo;Money
+          Market Operations as on &lt;date&gt;&rdquo; press release, which — unlike the RBI&apos;s PDF-only
+          &ldquo;Weekly Statistical Supplement&rdquo; release (whose PDF is served from
+          rbidocs.rbi.org.in, verified to sit behind an Imperva/TSPD bot-mitigation JS challenge that this
+          project will not solve) — has its actual numbers inline in the HTML page itself, published on
+          every business day: RBI&apos;s own headline &ldquo;net liquidity injected/absorbed&rdquo; figure
+          (India&apos;s direct analog to the Fed&apos;s RRP/reserve-operations signal — negative means RBI
+          is absorbing a banking-system surplus, positive means it is net injecting to cover a deficit),
+          and the Weighted Average Call Rate (WACR, India&apos;s overnight interbank rate, the direct
+          analog to SOFR/EFFR). USDINR, already tracked elsewhere in this project, is reused as a
+          coincident cross-check.
         </p>
       </section>
 

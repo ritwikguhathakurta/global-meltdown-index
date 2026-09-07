@@ -10,12 +10,13 @@ import { fetchGprSeries } from "../sources/gpr";
 import { fetchCryptoSnapshot } from "../sources/coingecko";
 import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount, fetchCloudStatusBackfill, MIN_BACKFILL_OBSERVATIONS } from "../sources/cloudStatus";
 import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
-import { fetchGermanyYield10y, fetchUkYield10y, fetchCanadaYield10y } from "../sources/govBondYields";
+import { fetchGermanyYield10y, fetchUkYield10y, fetchCanadaYield10y, fetchUkReserveBalances, fetchCanadaCentralBankAssets } from "../sources/govBondYields";
 import { fetchChinaYield10y } from "../sources/chinaBondYield";
 import { fetchChinaCreditGap } from "../sources/bisCreditGap";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
 import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
 import { fetchCanadaInventoryToSalesRatio } from "../sources/statCan";
+import { fetchIndiaLiquiditySeries } from "../sources/rbiLiquidity";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -244,6 +245,44 @@ export async function ingestGovBondYields(db: SupabaseClient, runDate: string): 
   return { stage: "ingest_gov_bond_yields", status, detail };
 }
 
+export async function ingestGovLiquidity(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const fetchers = [
+    { name: "UK (BoE reserve balances)", fn: fetchUkReserveBalances },
+    { name: "Canada (BoC total assets)", fn: fetchCanadaCentralBankAssets },
+  ];
+  let ok = 0;
+  let points = 0;
+  const errors: string[] = [];
+  for (const f of fetchers) {
+    try {
+      const pts = await f.fn();
+      await upsertMetrics(db, pts);
+      points += pts.length;
+      ok++;
+    } catch (e) {
+      errors.push(`${f.name}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: fetchers.length, points, errors };
+  await logRun(db, runDate, "ingest_gov_liquidity", status, detail);
+  return { stage: "ingest_gov_liquidity", status, detail };
+}
+
+export async function ingestRbiLiquidity(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchIndiaLiquiditySeries();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    await logRun(db, runDate, "ingest_rbi_liquidity", status, { points: points.length });
+    return { stage: "ingest_rbi_liquidity", status, detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_rbi_liquidity", "failed", detail);
+    return { stage: "ingest_rbi_liquidity", status: "failed", detail };
+  }
+}
+
 export async function ingestChinaCreditGap(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchChinaCreditGap();
@@ -339,6 +378,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestCloudStatus(db, runDate),
     ingestSecEdgar(db, runDate),
     ingestGovBondYields(db, runDate),
+    ingestGovLiquidity(db, runDate),
+    ingestRbiLiquidity(db, runDate),
     ingestChinaCreditGap(db, runDate),
     ingestChinaLgfvDebt(db, runDate),
     ingestGovCnStatistics(db, runDate),

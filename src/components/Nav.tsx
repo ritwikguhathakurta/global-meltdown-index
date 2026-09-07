@@ -27,6 +27,7 @@ const LINKS = [
   { href: "/dashboard/ai-debt-maturity", label: "AI Debt Maturity" },
   { href: "/dashboard/equities", label: "Equities" },
   { href: "/dashboard/india", label: "India" },
+  { href: "/dashboard/india-liquidity", label: "India Liquidity" },
   { href: "/dashboard/central-banks", label: "Central Banks" },
   { href: "/dashboard/methodology", label: "Methodology" },
   { href: "/dashboard/sources", label: "Sources" },

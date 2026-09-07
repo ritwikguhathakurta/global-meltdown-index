@@ -16,6 +16,7 @@ import { runCyberEngine } from "./cyber";
 import { runTradePolicyEngine } from "./tradePolicy";
 import { runSupplyChainsEngine } from "./supplyChains";
 import { runChinaEngine } from "./china";
+import { runIndiaLiquidityEngine } from "./indiaLiquidity";
 import { runMarketConcentrationEngine } from "./marketConcentration";
 import { runPrivateCreditEngine } from "./privateCredit";
 import { runAiFinancialSustainabilityEngine } from "./aiFinancialSustainability";
@@ -46,9 +47,14 @@ export const HORIZONS: Horizon[] = ["short", "medium", "long"];
  * undisclosed relationships as fact", and no free source publishes the
  * equity-investment/purchase-commitment/SPV web it asks for, so building it
  * would mean guessing at exactly the kind of relationship the spec warns
- * against inferring. China and India are explicitly partial. None are
- * stubbed with fake scores — see each engine file's docstring for exactly
- * what free data does and doesn't cover.
+ * against inferring. China is explicitly partial (one indicator — developer
+ * defaults — still genuinely unavailable free). India Liquidity is a new
+ * addition beyond the original V3 §4 list, requested separately from India
+ * Market Regime (indiaRegime.ts, a bullish/bearish equity-regime call on a
+ * different scale, run outside this registry — see compute.ts) since
+ * banking-system liquidity is a distinct concept from market direction.
+ * None are stubbed with fake scores — see each engine file's docstring for
+ * exactly what free data does and doesn't cover.
  */
 export const ENGINE_REGISTRY = [
   { key: "global_liquidity", run: runGlobalLiquidityEngine, gfmiWeight: 1.1 },
@@ -67,6 +73,7 @@ export const ENGINE_REGISTRY = [
   { key: "trade_economic_policy", run: runTradePolicyEngine, gfmiWeight: 0.5 },
   { key: "supply_chains", run: runSupplyChainsEngine, gfmiWeight: 0.6 },
   { key: "china", run: runChinaEngine, gfmiWeight: 0.6 },
+  { key: "india_liquidity", run: runIndiaLiquidityEngine, gfmiWeight: 0.4 },
   { key: "market_concentration", run: runMarketConcentrationEngine, gfmiWeight: 0.5 },
   { key: "private_credit", run: runPrivateCreditEngine, gfmiWeight: 0.6 },
   { key: "ai_financial_sustainability", run: runAiFinancialSustainabilityEngine, gfmiWeight: 0.8 },

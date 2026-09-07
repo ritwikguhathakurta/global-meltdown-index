@@ -11,12 +11,13 @@ Core question the platform answers: *what is changing now that could matter late
 - **Next.js 16 / TypeScript / Tailwind v4** app, deployable to Vercel.
 - **Supabase** for Postgres (data + auth). Email/password sign-up with a 90-day free trial
   auto-granted on signup; role-based access (`user` / `admin`) enforced server-side in `src/proxy.ts`.
-- **22 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
+- **23 risk engines**, fed entirely by free/official data, each producing short/medium/long-term
   scores with leading/coincident/lagging indicator breakdowns, triggers, transmission mechanism,
   confirmation/invalidation conditions, and a "what has not yet happened" section. Most cover the
   **G7 (US, Canada, UK, Germany, France, Italy, Japan) plus China**, not just the US — see
   [Country coverage](#country-coverage-g7--china) below:
-  - Global Dollar Liquidity, Credit Markets, Equity Fragility, Yen Carry Stress
+  - Global Liquidity (Fed + ECB/Germany-France-Italy + BOJ + BoE + BoC + a China rate proxy),
+    Credit Markets, Equity Fragility, Yen Carry Stress
   - Treasury & Sovereign Debt (US plus the rest of the G7 + a China funding-rate proxy — fulfills
     both US Treasury/Sovereign and Global Sovereign Debt in one engine)
   - Banking, Property/CRE, Emerging-Market Debt, Energy, Geopolitical,
@@ -25,6 +26,8 @@ Core question the platform answers: *what is changing now that could matter late
   - AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI Debt Maturity Wall — built on
     real SEC EDGAR XBRL filings for 8 large-cap AI-capex-relevant companies (see
     [AI engines](#ai-engines-real-sec-edgar-data-not-a-mockup) below)
+  - **India Liquidity** (new, standalone — RBI's own daily net-liquidity and overnight-rate data),
+    separate from India Market Regime (a bullish/bearish equity-direction call on a different scale)
   - Plus **partial** China and India Market Regime engines (each page lists exactly which spec
     indicators are `UNAVAILABLE` — see limitations below)
 - **GFMI composite** (Global Financial Meltdown Index): weighted engine average + nonlinear
@@ -82,7 +85,9 @@ Those need data sources or infrastructure this phase doesn't have yet:
   number to G7+China" section for the full detail.
 - **India Market Regime** is a partial implementation: FII/DII flows, PMI new orders, bank credit
   growth and GST collections have no free daily source yet, so the regime read is currently a
-  cross-asset shock-sensitivity proxy only.
+  cross-asset shock-sensitivity proxy only. (Banking-system liquidity itself is now covered by the
+  separate **India Liquidity** engine/tab — RBI's own daily net-liquidity and WACR data — which is
+  not affected by this gap.)
 - **Central-Bank Policy composite** is not a standalone engine yet — it needs the hawkish/dovish
   NLP classifier below.
 - **Central-bank hawkishness/dovishness NLP scoring**, forward-guidance change detection, and the
@@ -226,10 +231,22 @@ Most engines were originally US-only; they were widened deliberately, not by def
   clean free daily alternative was found for those three.
 - **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
   (includes, but isn't exclusive to, China).
-- **Global Liquidity**: Fed, ECB and BOJ balance sheets, plus the ECB deposit rate and the Chicago
-  Fed NFCI.
-- **China**: exports/imports/CNY/CPI plus (added alongside the above) the 3-month interbank rate,
-  real house prices, and the Shanghai Composite.
+- **Global Liquidity**: Fed, ECB (Germany/France/Italy) and BOJ balance sheets, plus the ECB
+  deposit rate, the Chicago Fed NFCI, Bank of England reserve balances (UK), Bank of Canada total
+  assets (Canada — both direct from those central banks' own APIs), and China's 3-month interbank
+  rate as a rate-side proxy (no free, verified PBOC balance-sheet/reserve-money series was found —
+  see the methodology page).
+- **Supply Chains**: the NY Fed's global GSCPI (which publishes no country breakdown itself) plus
+  country-level proxies for US/Germany/France/Italy (OECD order books), Japan (OECD finished-goods
+  stocks), Canada (StatCan inventory-to-sales ratio) and China (NBS PMI delivery-time subindex) — the
+  UK is the one economy still genuinely uncovered (see the methodology page).
+- **China**: exports/imports/CNY/CPI plus the 3-month interbank rate, real house prices, the
+  Shanghai Composite, the 10Y yield, debt/GDP, property sales, a credit-impulse proxy, PMI new
+  orders, LGFV-inclusive augmented debt, and a developer-financing proxy — every V3-spec indicator
+  except individual developer defaults (see the methodology page for sourcing detail on each).
+- **India Liquidity** (new, standalone tab): RBI's own daily net-liquidity (LAF) figure and the
+  Weighted Average Call Rate, plus USDINR — separate from India Market Regime, which is a
+  bullish/bearish equity-direction call on a different scale, not a liquidity read.
 - **Banking**: adds ECB/UK policy rates as European funding-cost context — no free source publishes
   bank-level NPL/delinquency data outside the US for any G7 country.
 - One engine stays intentionally single-country regardless of data availability: **Yen Carry Stress**

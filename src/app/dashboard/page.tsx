@@ -4,7 +4,7 @@ import { RiskBadge, DirectionArrow } from "@/components/RegimeBadge";
 import { InlineDisclaimer } from "@/components/Disclaimer";
 
 const ENGINE_META: Record<string, { label: string; href: string }> = {
-  global_liquidity: { label: "Global Dollar Liquidity", href: "/dashboard/liquidity" },
+  global_liquidity: { label: "Global Liquidity (G7 + China)", href: "/dashboard/liquidity" },
   credit: { label: "Credit Markets", href: "/dashboard/credit" },
   equity_fragility: { label: "Equity Fragility", href: "/dashboard/equities" },
   us_treasury_sovereign: { label: "Treasury & Sovereign (G7 + China)", href: "/dashboard/treasury" },
@@ -20,6 +20,7 @@ const ENGINE_META: Record<string, { label: string; href: string }> = {
   trade_economic_policy: { label: "Trade / Economic Policy", href: "/dashboard/trade-policy" },
   supply_chains: { label: "Supply Chains", href: "/dashboard/supply-chains" },
   china: { label: "China", href: "/dashboard/china" },
+  india_liquidity: { label: "India Liquidity", href: "/dashboard/india-liquidity" },
   market_concentration: { label: "Market Concentration", href: "/dashboard/market-concentration" },
   private_credit: { label: "Private Credit", href: "/dashboard/private-credit" },
   ai_financial_sustainability: { label: "AI Financial Sustainability", href: "/dashboard/ai-financial-sustainability" },

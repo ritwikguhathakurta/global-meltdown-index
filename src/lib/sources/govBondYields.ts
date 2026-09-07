@@ -17,6 +17,11 @@ import type { MetricPoint } from "../metrics/store";
  * these are official permanent archives (not a status feed that trims old
  * items), so unlike cloudStatus.ts there's no risk of a later refetch
  * silently overwriting a correct historical value with a truncated one.
+ *
+ * Also holds the UK and Canada inputs for the Global Liquidity engine
+ * (reserve balances and central-bank total assets respectively) — grouped
+ * here rather than in a separate file since they reuse the same BoE/BoC
+ * connections and date-parsing helpers as the yield fetchers above.
  */
 
 const commonHeaders = { "User-Agent": "GlobalMeltdownIndex-ingest/1.0" };
@@ -109,6 +114,74 @@ export async function fetchUkYield10y(): Promise<MetricPoint[]> {
       source_key: "boe",
       source_tier: 1,
       frequency: "daily",
+    });
+  }
+  return points;
+}
+
+/**
+ * Bank of England IADB series RPWB56A — weekly amounts outstanding of
+ * central bank sterling reserve balance liabilities (£mm). Used as the UK's
+ * Global Liquidity input in place of a single "total assets" figure: BoE's
+ * own Weekly Report has no one clean total-assets series in this database
+ * (checked directly — it's broken into many specific instrument lines with
+ * no aggregate "Total" row), but reserve balances — the liabilities side,
+ * i.e. how much banks hold on deposit at the BoE — is itself the standard
+ * measure of the size of BoE's liquidity provision to the banking system
+ * (the same concept the Fed's own "reserve balances" series tracks, and
+ * arguably more directly relevant to gauging ample-vs-scarce reserves than
+ * a raw total-assets number would be).
+ */
+export async function fetchUkReserveBalances(): Promise<MetricPoint[]> {
+  const url =
+    "https://www.bankofengland.co.uk/boeapps/iadb/fromshowcolumns.asp?csv.x=yes&SeriesCodes=RPWB56A&UsingCodes=Y&Datefrom=01/Jan/2000&Dateto=31/Dec/2030&CSVF=TT";
+  const res = await fetch(url, { headers: commonHeaders, next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`Bank of England reserve balances: HTTP ${res.status}`);
+  const csv = await res.text();
+
+  const points: MetricPoint[] = [];
+  for (const line of csv.split("\n")) {
+    const [dateRaw, valRaw] = line.split(",").map((s) => s.trim());
+    if (!dateRaw || !valRaw) continue;
+    const isoDate = parseBoeDate(dateRaw);
+    if (!isoDate) continue;
+    const v = parseFloat(valRaw);
+    if (Number.isNaN(v)) continue;
+    points.push({
+      metric_key: "liquidity.uk_boe_reserves",
+      observed_at: isoDate,
+      value: v,
+      unit: "GBP mm",
+      source_key: "boe",
+      source_tier: 1,
+      frequency: "weekly",
+    });
+  }
+  return points;
+}
+
+/** Bank of Canada Valet API, series V36610 — "Total assets" from the weekly balance sheet table. */
+export async function fetchCanadaCentralBankAssets(): Promise<MetricPoint[]> {
+  const url = "https://www.bankofcanada.ca/valet/observations/V36610/json?start_date=2000-01-01";
+  const res = await fetch(url, { headers: commonHeaders, next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`Bank of Canada total assets: HTTP ${res.status}`);
+  const json = (await res.json()) as { observations: { d: string; V36610?: { v: string } }[] };
+
+  const points: MetricPoint[] = [];
+  for (const row of json.observations) {
+    const d = row.d;
+    const cell = row.V36610;
+    if (!d || !cell?.v) continue;
+    const v = parseFloat(cell.v);
+    if (Number.isNaN(v)) continue;
+    points.push({
+      metric_key: "liquidity.canada_boc_assets",
+      observed_at: d,
+      value: v,
+      unit: "CAD mm",
+      source_key: "boc",
+      source_tier: 1,
+      frequency: "weekly",
     });
   }
   return points;
