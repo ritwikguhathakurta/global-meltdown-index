@@ -242,18 +242,20 @@ export default async function DashboardPage() {
                   href={ENGINE_META[e.engine_key]?.href ?? "#"}
                   title={`${label} — score ${e.score ?? "N/A"}, ${e.regime}, ${Math.round((e.confidence ?? 0) * 100)}% confidence`}
                   aria-label={`${label}: score ${e.score ?? "not available"}, ${e.regime}${isTopRisk ? `, top systemic risk rank ${rank + 1}` : ""}`}
-                  className={`absolute flex flex-col justify-start gap-1 overflow-hidden rounded-md p-2 transition-transform hover:z-20 hover:scale-[1.04] ${isTopRisk ? "gfew-flash" : ""}`}
+                  className={`absolute rounded-md transition-transform hover:z-20 hover:scale-[1.04] ${isTopRisk ? "gfew-flash" : ""}`}
                   style={
                     {
                       left: `calc(${(cell.x / TREEMAP_W) * 100}% + 2px)`,
                       top: `calc(${(cell.y / TREEMAP_H) * 100}% + 2px)`,
                       width: `calc(${(cell.w / TREEMAP_W) * 100}% - 4px)`,
                       height: `calc(${(cell.h / TREEMAP_H) * 100}% - 4px)`,
-                      background: bg,
                       "--gfew-pulse-color": fg,
                     } as React.CSSProperties
                   }
                 >
+                  {/* Rank badge sits on the Link itself (no overflow-hidden here) so its
+                      negative-offset corner position never gets clipped by the tile's own
+                      rounded/overflow-hidden content layer below. */}
                   {isTopRisk && (
                     <span
                       className="absolute -left-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
@@ -263,32 +265,37 @@ export default async function DashboardPage() {
                       {rank + 1}
                     </span>
                   )}
-                  {(showFull || showMedium) && (
-                    <>
-                      <span className="text-xs font-medium leading-tight" style={{ color: fg }}>
-                        {label}
-                      </span>
-                      <div className="flex items-center justify-between">
-                        <span className="gfew-mono text-2xl font-bold" style={{ color: fg }}>
+                  <div
+                    className="flex h-full w-full flex-col justify-start gap-1 overflow-hidden rounded-md p-2"
+                    style={{ background: bg }}
+                  >
+                    {(showFull || showMedium) && (
+                      <>
+                        <span className="text-xs font-medium leading-tight" style={{ color: fg }}>
+                          {label}
+                        </span>
+                        <div className="flex items-center justify-between">
+                          <span className="gfew-mono text-2xl font-bold" style={{ color: fg }}>
+                            {e.score ?? "—"}
+                          </span>
+                          <DirectionArrow direction={e.direction} />
+                        </div>
+                        {showFull && (
+                          <span className="text-[10px] uppercase tracking-wide" style={{ color: fg, opacity: 0.85 }}>
+                            {e.regime}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {showCompact && (
+                      <div className="flex h-full items-center justify-between">
+                        <span className="gfew-mono text-sm font-bold" style={{ color: fg }}>
                           {e.score ?? "—"}
                         </span>
                         <DirectionArrow direction={e.direction} />
                       </div>
-                      {showFull && (
-                        <span className="text-[10px] uppercase tracking-wide" style={{ color: fg, opacity: 0.85 }}>
-                          {e.regime}
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {showCompact && (
-                    <div className="flex h-full items-center justify-between">
-                      <span className="gfew-mono text-sm font-bold" style={{ color: fg }}>
-                        {e.score ?? "—"}
-                      </span>
-                      <DirectionArrow direction={e.direction} />
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </Link>
               );
             })}
