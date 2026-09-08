@@ -286,7 +286,9 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
   const cdsKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.sovereign_cds_10y`);
   const corpFxKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.corporate_fx_debt_usd`);
   const gdpKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.gdp_current_usd`);
-  const latest = await fetchLatestForKeys(db, [...structuralKeys, ...cdsKeys, ...corpFxKeys, ...gdpKeys]);
+  const gniKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.gni_current_usd`);
+  const qedsExtDebtKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.external_debt_stock_usd`);
+  const latest = await fetchLatestForKeys(db, [...structuralKeys, ...cdsKeys, ...corpFxKeys, ...gdpKeys, ...gniKeys, ...qedsExtDebtKeys]);
 
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - lookbackDaysFor("annual"));
@@ -321,6 +323,22 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
       if (corp && gdp && gdp.v > 0) m.set(c.key, { value: (corp.v / gdp.v) * 100, asOf: corp.t });
     }
     rawValueByIndicator.set("corporate_fx_debt_to_gdp", m);
+  }
+
+  // Gap-filler: World Bank WDI's own external_debt_to_gni ratio has no data
+  // at all for Czech Republic or Hungary (checked directly — both are
+  // outside WDI's International Debt Statistics reporting scope). Where
+  // that's the case, fall back to World Bank's separate QEDS product (raw
+  // external debt stock) divided by World Bank's own GNI level — never
+  // overrides a genuine WDI-sourced value for any country that has one.
+  {
+    const m = rawValueByIndicator.get("external_debt_to_gni")!;
+    for (const c of EM_DEBT_COUNTRIES) {
+      if (m.has(c.key)) continue;
+      const stock = latest.get(`emdebt.${c.key}.external_debt_stock_usd`);
+      const gni = latest.get(`emdebt.${c.key}.gni_current_usd`);
+      if (stock && gni && gni.v > 0) m.set(c.key, { value: (stock.v / gni.v) * 100, asOf: stock.t });
+    }
   }
 
   {

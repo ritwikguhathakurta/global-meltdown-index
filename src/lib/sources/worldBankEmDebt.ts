@@ -57,9 +57,11 @@ export const WB_EM_DEBT_INDICATORS: WbIndicatorDef[] = [
   { code: "FI.RES.TOTL.MO", metricSuffix: "reserves_months_imports", unit: "months" },
   { code: "BN.CAB.XOKA.GD.ZS", metricSuffix: "current_account_to_gdp", unit: "% of GDP" },
   { code: "GC.NLD.TOTL.GD.ZS", metricSuffix: "fiscal_balance_to_gdp", unit: "% of GDP" },
-  // Not itself a risk ratio — fetched only as the denominator for the BIS
-  // corporate-FX-debt-to-GDP ratio computed in emDebtRegime.ts.
+  // Not itself a risk ratio — fetched only as a denominator for computed
+  // ratios in emDebtRegime.ts (GDP for BIS corporate-FX-debt/GDP; GNI for
+  // the QEDS external-debt/GNI gap-filler below).
   { code: "NY.GDP.MKTP.CD", metricSuffix: "gdp_current_usd", unit: "USD" },
+  { code: "NY.GNP.MKTP.CD", metricSuffix: "gni_current_usd", unit: "USD" },
 ];
 
 const ISO3_LIST = EM_DEBT_COUNTRIES.map((c) => c.iso3).join(";");
