@@ -34,6 +34,8 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   ecb_sdw: 1,
   boj_stats: 1,
   mof_japan: 1,
+  world_bank: 1,
+  damodaran_nyu: 2,
 };
 
 export async function buildIndicator(

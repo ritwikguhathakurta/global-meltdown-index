@@ -498,50 +498,72 @@ export default function MethodologyPage() {
 
       <section className="mb-8" id="em-debt-by-country">
         <h2 className="mb-2 text-base font-semibold text-text">
-          Emerging-Market Debt — extended to all prominent EM currencies
+          Emerging-Market Debt — rebuilt as a structural + market + contagion engine
         </h2>
         <p className="mb-2">
-          The EM Debt tab originally tracked only three high-beta currencies (BRL, ZAR, MXN)
-          alongside the broad ICE BofA EM Corporate Plus OAS and the Fed&apos;s EM Dollar Index. It
-          now shows a per-country table across the full set of <strong>MSCI Emerging Markets
-          constituents that the ECB itself publishes a daily reference rate for</strong>: Brazil,
-          Mexico, South Africa, Turkey, India, Indonesia, China, the Philippines, Poland, Hungary,
-          the Czech Republic, Thailand, Malaysia and South Korea — 14 countries, verified directly
-          against Frankfurter&apos;s (the ECB reference-rate mirror already used elsewhere in this
-          project) own currency list rather than assumed.
+          The EM Debt tab was rebuilt against a detailed institutional specification (&ldquo;EM
+          Debt Systemic Risk Engine,&rdquo; 76 sections) whose core complaint was correct: an
+          exchange-rate-only reading is insufficient, since FX is one transmission channel among
+          many, not a proxy for debt stress itself. Every one of the spec&apos;s ~20 requested
+          sub-engines (sovereign solvency, rollover risk, FX reserve adequacy, sovereign CDS,
+          capital flows, foreign bond ownership, sovereign-bank nexus, corporate external debt,
+          auctions, contagion, backtesting, an AI agent, a world map) was checked individually
+          against what free, verified data actually supports before writing any code. What follows
+          is the honest result: real structural and market data now drives the score, and every
+          component the spec asked for that has no free source is disclosed here, not silently
+          dropped or faked.
         </p>
         <p className="mb-2">
-          <strong>Basis: USD exchange rate, not a sovereign bond spread.</strong> JPMorgan&apos;s
-          EMBI (Emerging Markets Bond Index) is the standard benchmark for EM sovereign
-          dollar-bond spreads, but it is a paid, proprietary index — no free per-country equivalent
-          was found, the same gap that led the Credit tab to use the BIS credit-to-GDP gap for
-          UK/Canada/Japan instead of a corporate spread. The USD exchange rate is used here instead,
-          not as a fallback of convenience but because it is the actual transmission channel this
-          engine&apos;s own trigger describes: a weaker local currency directly raises the
-          local-currency cost of servicing dollar-denominated debt, and makes rolling that debt at
-          maturity more expensive. Regime bands are the same 0-20/20-40/40-60/60-80/80-100 z-score
-          scale and label set (Ample Access → Normal → Tightening → Funding Stress → Sudden Stop) as
-          the composite engine shown below it.
+          <strong>What is built, and from where:</strong>
+        </p>
+        <ul className="mb-2 list-inside list-disc space-y-1">
+          <li><strong>Structural vulnerability</strong> — World Bank Open Data API (free, no key, verified live): government debt/GDP, external debt/GNI, external debt service/exports, short-term external debt/reserves, reserve adequacy (months of imports), current account/GDP, real GDP growth, and fiscal balance/GDP. Annual data, cross-sectionally z-scored against the 14-country EM peer set at each observation — the spec&apos;s own instruction (&ldquo;do not use universal debt/GDP thresholds… use peer groups&rdquo;), and the only sensible basis anyway, since an annual series never accumulates the ~20 points a time-series z-score needs. Coverage genuinely varies: World Bank&apos;s International Debt Statistics excludes several upper-middle/high-income economies in the tracked set (e.g. South Korea, the Czech Republic, Poland, Hungary have no external-debt-stock series), so those indicators show as missing for those countries rather than estimated — each row&apos;s &ldquo;coverage&rdquo; percentage discloses this directly. A genuine, verified example: Turkey&apos;s short-term external debt exceeded 100% of total reserves in the 2024 observation — short-term FX obligations larger than the reserves available to meet them, a real rollover-risk red flag, not a synthetic one.</li>
+          <li><strong>Sovereign CDS</strong> — no free live feed exists for actual credit-default-swap pricing (ICE/Markit-licensed, checked directly). Aswath Damodaran (NYU Stern) publishes a free, no-login annual workbook with a real &ldquo;10-year CDS Spreads&rdquo; sheet — actual observed market levels where a market maker quotes one (his own separate ratings-derived synthetic spread column is deliberately not used, since it adds no information beyond the credit rating itself). This is disclosed as a single point-in-time annual snapshot, not a daily feed — there is no &ldquo;CDS acceleration&rdquo; signal here because there is nothing to accelerate from one observation. Argentina and a few others show no CDS at all in this dataset (no market quotes one), left unavailable rather than backfilled.</li>
+          <li><strong>Market/FX</strong> — the existing 14-currency composite (see the &ldquo;prominent EM currencies&rdquo; work below) blended with the CDS reading above. Own-history time-series z-score, unchanged mechanism from before.</li>
+          <li><strong>Contagion breadth</strong> — the fraction of the 14 tracked economies currently at Funding-Stress-or-worse (vulnerability score ≥ 60), scaled so the spec&apos;s own stated calibration (&ldquo;40%+ stressed = CRITICAL&rdquo;) maps to a 100 score. Not weighted by GDP, creditor exposure or trade linkages (no free data supports that weighting) — a plain breadth count, disclosed as such.</li>
+          <li><strong>Latent risk / market-led-warning flags</strong> — genuinely computed per country: &ldquo;latent&rdquo; means structural score ≥ 55 while market score stays below 40 (fundamentals deteriorating before the market notices — the spec&apos;s highest-priority feature); &ldquo;market-led&rdquo; is the reverse (market pricing running materially ahead of fundamentals). Both read directly from the same real data above, not asserted.</li>
+        </ul>
+        <p className="mb-2">
+          <strong>Blending (spec §31, adaptive weighting):</strong> the final score blends structural,
+          market and contagion buckets with weights that shift by contagion breadth itself — the one
+          real cross-country signal available — rather than an invented regime detector: roughly
+          50/30/20 (structural/market/contagion) when breadth is low, moving toward 25/40/35 as more
+          of the tracked set deteriorates simultaneously. FX/OAS alone is now at most 40% of the
+          final score, directly answering the spec&apos;s core objection.
         </p>
         <p className="mb-2">
-          <strong>What is not included, and why.</strong> Taiwan, Chile, Colombia, Peru, Saudi
-          Arabia, the UAE, Qatar and Kuwait are also prominent EM debt issuers (several are MSCI EM
-          constituents themselves), but the ECB does not publish reference rates for
-          TWD/CLP/COP/PEN/SAR/AED/QAR/KWD — checked directly against Frankfurter&apos;s currency
-          list, not assumed — so no free daily source was reused for them here. This is disclosed
-          on the dashboard rather than silently omitted; a future pass could add a second FX source
-          for this remaining group if one is found that meets the same free/no-key/verified bar as
-          every other source in this project.
+          <strong>What is not built, and why — disclosed, not dropped:</strong>
+        </p>
+        <ul className="mb-2 list-inside list-disc space-y-1">
+          <li><strong>Foreign ownership of local bonds / foreign-investor exit pressure.</strong> The IMF&apos;s Portfolio Investment Positions dataset (formerly CPIS) is real and free, but is annual/semi-annual (too slow to catch the month-to-month shifts this signal needs) and has known reporting gaps among major non-Western EM creditors — using it would systematically understate exactly the countries most exposed to those creditors, the opposite of an early warning.</li>
+          <li><strong>Capital flows (bond/equity/ETF/fund flows).</strong> EPFR and IIF, the standard sources, are paid with no free tier found.</li>
+          <li><strong>Sovereign-bank nexus, corporate external debt by currency/hedge status, auction-level stress (bid-to-cover, tail).</strong> No free per-country source found for any of the three; auction data in particular would need ~14 separate, heterogeneous national debt-office integrations.</li>
+          <li><strong>Backtesting against historical EM crises, a world-map/maturity-wall UI, an AI chat agent, a daily report.</strong> The backtesting the spec describes needs the unavailable market/flow data above as historical input; the UI and AI-agent asks are large net-new product features (this app has no chat agent or scheduled-report infrastructure at all today) rather than data-sourcing gaps, and were out of scope for this pass.</li>
+        </ul>
+        <p>
+          The per-country table on the dashboard shows every structural indicator, the CDS reading,
+          the FX reading, and both derived scores per country — so a single blended headline number
+          never hides which specific country, and which specific factor, is actually driving it.
+        </p>
+      </section>
+
+      <section className="mb-8" id="em-debt-fx-coverage">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Emerging-Market Debt — the underlying FX coverage (prominent EM currencies)
+        </h2>
+        <p className="mb-2">
+          The market/FX side above draws on all 14 <strong>MSCI Emerging Markets constituents that
+          the ECB itself publishes a daily reference rate for</strong>: Brazil, Mexico, South
+          Africa, Turkey, India, Indonesia, China, the Philippines, Poland, Hungary, the Czech
+          Republic, Thailand, Malaysia and South Korea — verified directly against
+          Frankfurter&apos;s (the ECB reference-rate mirror already used elsewhere in this project)
+          own currency list rather than assumed.
         </p>
         <p>
-          The composite Emerging-Market Debt engine folds all 11 newly-added currencies in as
-          additional weighted inputs (0.3 each — deliberately modest, so the basket as a whole
-          moves the score without any single new country outweighing the two broad EM-wide inputs,
-          EM OAS at 1.0 and the EM Dollar Index at 0.9, which stay the largest individual weights).
-          The per-country table exists precisely because a single blended score can mask which
-          specific country is actually under stress at a given moment — e.g. a Turkey-specific
-          currency crisis reads clearly in that one row even when averaged into a composite score
-          that isn&apos;t moving much.
+          Taiwan, Chile, Colombia, Peru, Saudi Arabia, the UAE, Qatar and Kuwait are also prominent
+          EM debt issuers (several are MSCI EM constituents themselves), but the ECB does not
+          publish reference rates for TWD/CLP/COP/PEN/SAR/AED/QAR/KWD — checked directly, not
+          assumed — so no free daily FX source was reused for them here.
         </p>
       </section>
 

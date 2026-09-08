@@ -29,6 +29,8 @@ import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PA
 import { fetchCanadaInventoryToSalesRatio } from "../sources/statCan";
 import { fetchIndiaLiquiditySeries, fetchIndiaLiquidityBackfill } from "../sources/rbiLiquidity";
 import { fetchIndiaYieldCurveSeries } from "../sources/rbiYieldCurve";
+import { fetchWorldBankEmDebtIndicators } from "../sources/worldBankEmDebt";
+import { fetchSovereignRiskPremium } from "../sources/sovereignRiskPremium";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -397,6 +399,32 @@ export async function ingestBisCreditGaps(db: SupabaseClient, runDate: string): 
   return { stage: "ingest_bis_credit_gaps", status, detail };
 }
 
+export async function ingestEmDebtStructural(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchWorldBankEmDebtIndicators();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_em_debt_structural", "ok", { points: points.length });
+    return { stage: "ingest_em_debt_structural", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_em_debt_structural", "failed", detail);
+    return { stage: "ingest_em_debt_structural", status: "failed", detail };
+  }
+}
+
+export async function ingestEmDebtSovereignCds(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchSovereignRiskPremium();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_em_debt_sovereign_cds", "ok", { points: points.length });
+    return { stage: "ingest_em_debt_sovereign_cds", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_em_debt_sovereign_cds", "failed", detail);
+    return { stage: "ingest_em_debt_sovereign_cds", status: "failed", detail };
+  }
+}
+
 export async function ingestChinaLgfvDebt(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = fetchChinaLgfvDebt();
@@ -486,6 +514,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestChinaLgfvDebt(db, runDate),
     ingestGovCnStatistics(db, runDate),
     ingestStatCan(db, runDate),
+    ingestEmDebtStructural(db, runDate),
+    ingestEmDebtSovereignCds(db, runDate),
   ]);
   return { runDate, results };
 }

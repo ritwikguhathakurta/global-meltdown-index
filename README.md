@@ -285,17 +285,25 @@ Most engines were originally US-only; they were widened deliberately, not by def
   Shanghai Composite, the 10Y yield, debt/GDP, property sales, a credit-impulse proxy, PMI new
   orders, LGFV-inclusive augmented debt, and a developer-financing proxy — every V3-spec indicator
   except individual developer defaults (see the methodology page for sourcing detail on each).
-- **Emerging-Market Debt**: widened from a 3-currency basket (BRL/ZAR/MXN) to all 14 MSCI
-  Emerging Markets constituents the ECB publishes a daily reference rate for — adds Turkey, India,
-  Indonesia, China, the Philippines, Poland, Hungary, the Czech Republic, Thailand, Malaysia and
-  South Korea (verified against Frankfurter's own currency list, not assumed). No free per-country
-  EM sovereign dollar-bond spread exists (JPMorgan's EMBI is paid/proprietary), so each country's
-  USD exchange rate is used as the stress proxy instead — the actual transmission channel this
-  engine's trigger describes — shown on a per-country table (`src/lib/engines/emDebtRegime.ts`) on
-  the EM Debt tab alongside the broad EM OAS/Dollar Index composite, which now folds in all 11
-  newly-added currencies as modest (0.3 each) additional weighted inputs. Taiwan, Chile, Colombia,
-  Peru, Saudi Arabia, the UAE, Qatar and Kuwait are prominent EM debt issuers too but have no ECB
-  reference rate and thus no free daily source found yet — disclosed, not silently dropped.
+- **Emerging-Market Debt**: rebuilt as a structural + market + contagion engine against a detailed
+  institutional spec whose core objection was correct — FX alone isn't a debt-stress proxy.
+  Structural vulnerability now comes from the World Bank Open Data API (debt/GDP, external
+  debt/GNI, external debt service/exports, short-term external debt/reserves, reserve adequacy,
+  current account/GDP, GDP growth, fiscal balance/GDP), cross-sectionally z-scored against the
+  14-country EM peer set (annual data, so peer comparison rather than a time-series z-score, which
+  an annual series never has enough points for). Sovereign CDS comes from Damodaran/NYU Stern's
+  free annual snapshot where a market actually quotes one (no free live CDS feed exists —
+  ICE/Markit-licensed) — disclosed as a point-in-time snapshot, not a daily feed, so no "CDS
+  acceleration" signal is claimed. FX stays as the market/time-series side (all 14 MSCI Emerging
+  Markets constituents the ECB publishes a daily reference rate for — Brazil, Mexico, South Africa,
+  Turkey, India, Indonesia, China, the Philippines, Poland, Hungary, the Czech Republic, Thailand,
+  Malaysia, South Korea), now blended with the CDS reading. A contagion-breadth measure (fraction
+  of tracked EMs at Funding-Stress-or-worse) and genuinely computed latent-risk / market-led-warning
+  flags per country round out the model; see `src/lib/engines/emDebtRegime.ts` and the methodology
+  page for the full per-component breakdown, including what the spec asked for that has no free
+  source and was deliberately not built rather than faked: foreign bond ownership, capital flows,
+  sovereign-bank nexus, corporate FX debt by hedge status, auction data, backtesting, a world map,
+  and an AI chat agent.
 - **India Liquidity** (new, standalone tab): RBI's own daily net-liquidity (LAF) figure and the
   Weighted Average Call Rate, plus USDINR — separate from India Market Regime, which is a
   bullish/bearish equity-direction call on a different scale, not a liquidity read. Also surfaces a
