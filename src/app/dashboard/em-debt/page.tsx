@@ -78,11 +78,11 @@ export default async function EmDebtPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Emerging-Market Debt</h1>
       <p className="mb-6 max-w-3xl text-sm text-text-dim">
-        A structural sovereign-vulnerability score (World Bank debt, external funding, reserve and
-        fiscal data) blended with market pricing (currency stress and sovereign CDS where quoted)
-        and a contagion-breadth measure across 14 tracked emerging markets — replacing the earlier
-        FX-only approach. See the methodology page for the full breakdown of what is and is not
-        included, and why.
+        A structural sovereign-vulnerability score (World Bank debt/external-funding/reserve/fiscal
+        data, BIS corporate FX debt, and IMF foreign-holdings flow) blended with market pricing
+        (currency stress and sovereign CDS where quoted) and a contagion-breadth measure across 14
+        tracked emerging markets — replacing the earlier FX-only approach. See the methodology page
+        for the full breakdown of what is and is not included, and why.
       </p>
 
       <section className="gfew-panel mb-8 p-4">
@@ -212,12 +212,17 @@ export default async function EmDebtPage() {
         <p className="mb-3 max-w-3xl text-xs text-text-dim">
           Structural = World Bank debt/GDP, external debt/GNI, external debt service/exports,
           short-term external debt/reserves, reserve adequacy, current account/GDP, real GDP
-          growth and fiscal balance/GDP, cross-sectionally z-scored against the 14-country EM peer
-          set (annual data). Market = this engine&apos;s own FX time-series z-score blended with a
-          sovereign CDS reading (Damodaran/NYU Stern annual snapshot, where a market actually
-          quotes one). &ldquo;Coverage&rdquo; is the fraction of the 8 structural indicators with
-          real data for that country — several upper-middle-income EMs sit outside the World
-          Bank&apos;s International Debt Statistics scope, and CDS is not quoted for every country.
+          growth and fiscal balance/GDP; plus corporate FX debt/GDP (BIS International Debt
+          Securities — non-financial-corporate foreign-currency bonds outstanding) and the
+          year-over-year change in foreign holdings of local debt securities (IMF Portfolio
+          Investment Positions, summed across ~65-75 voluntary reporting economies) — 10
+          indicators total, cross-sectionally z-scored against the 14-country EM peer set. Market
+          = this engine&apos;s own FX time-series z-score blended with a sovereign CDS reading
+          (Damodaran/NYU Stern annual snapshot, where a market actually quotes one).
+          &ldquo;Coverage&rdquo; is the fraction of the 10 structural indicators with real data
+          for that country — several upper-middle-income EMs sit outside the World Bank&apos;s
+          International Debt Statistics scope, CDS is not quoted for every country, and BIS/PIP
+          coverage also varies by country.
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">
@@ -233,6 +238,8 @@ export default async function EmDebtPage() {
                 <th className="px-3 py-2 font-medium">ST Debt/Reserves</th>
                 <th className="px-3 py-2 font-medium">Reserves (mo)</th>
                 <th className="px-3 py-2 font-medium">Curr. Acct/GDP</th>
+                <th className="px-3 py-2 font-medium">Corp FX Debt/GDP</th>
+                <th className="px-3 py-2 font-medium">Foreign Hold. YoY</th>
                 <th className="px-3 py-2 font-medium">Sov. CDS</th>
                 <th className="px-3 py-2 font-medium">FX</th>
                 <th className="px-3 py-2 font-medium">Coverage</th>
@@ -284,6 +291,14 @@ export default async function EmDebtPage() {
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.short_term_debt_to_reserves?.value ?? null, "%")}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.reserves_months_imports?.value ?? null, "mo")}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.current_account_to_gdp?.value ?? null, "%")}</td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.structural.corporate_fx_debt_to_gdp?.score ?? null) }}>
+                    {fmt(r.structural.corporate_fx_debt_to_gdp?.value ?? null, "%")}
+                  </td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.structural.foreign_holdings_yoy_pct?.score ?? null) }}>
+                    {r.structural.foreign_holdings_yoy_pct?.value != null
+                      ? `${r.structural.foreign_holdings_yoy_pct.value > 0 ? "+" : ""}${r.structural.foreign_holdings_yoy_pct.value.toFixed(1)}%`
+                      : "—"}
+                  </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{r.sovereignCds.value !== null ? `${Math.round(r.sovereignCds.value)} bps` : "—"}</td>
                   <td className="px-3 py-2 text-text-dim">
                     <div className="gfew-mono">{fmt(r.fx.value, "", 2)}</div>
@@ -294,7 +309,7 @@ export default async function EmDebtPage() {
               ))}
               {countryTable.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-3 py-6 text-center text-text-dim">
+                  <td colSpan={15} className="px-3 py-6 text-center text-text-dim">
                     No data yet — trigger a pipeline run from /admin.
                   </td>
                 </tr>

@@ -14,32 +14,45 @@ import { EM_DEBT_COUNTRIES } from "../sources/worldBankEmDebt";
  * genuinely free-data-backed subset; everything else is disclosed as deferred
  * rather than faked — see the methodology page for the full breakdown.
  *
- * STRUCTURAL side (World Bank Open Data API — free, no key, verified live):
- * government debt/GDP, external debt/GNI, external debt service/exports,
- * short-term external debt/reserves (a real rollover-risk proxy — e.g. Turkey's
- * own 2024 figure exceeds 100%, meaning short-term FX obligations exceed total
- * reserves), reserve adequacy (months of imports), current account/GDP, real GDP
- * growth, and fiscal balance/GDP (real but with genuine per-country gaps in WDI —
- * left UNAVAILABLE where missing, never estimated). These are annual, cross-
- * sectionally z-scored against the tracked EM peer set at each observation
- * (spec's own instruction: "do not use universal debt/GDP thresholds... use peer
- * groups"), not against each country's own history (an annual series never
- * accumulates the ~20 points a time-series z-score needs).
+ * STRUCTURAL side (10 cross-sectionally z-scored indicators, annual/quarterly,
+ * scored against the tracked EM peer set at each observation — the spec's own
+ * instruction: "do not use universal debt/GDP thresholds... use peer groups";
+ * also the only sensible basis anyway, since these series never accumulate the
+ * ~20 points a time-series z-score needs):
+ *  - World Bank Open Data API (free, no key): government debt/GDP, external
+ *    debt/GNI, external debt service/exports, short-term external debt/
+ *    reserves (a real rollover-risk proxy — e.g. Turkey's own 2024 figure
+ *    exceeds 100%, short-term FX obligations exceeding total reserves),
+ *    reserve adequacy (months of imports), current account/GDP, real GDP
+ *    growth, fiscal balance/GDP (genuine per-country WDI gaps — left
+ *    UNAVAILABLE where missing, never estimated).
+ *  - BIS International Debt Securities (free, no key, verified live):
+ *    corporate FX debt/GDP — non-financial-corporate foreign-currency
+ *    international bond issuance outstanding, divided by World Bank GDP.
+ *    A partial (bond-market-only) proxy for total corporate FX exposure,
+ *    disclosed as such — not FX bank loans or domestic FX issuance.
+ *  - IMF Portfolio Investment Positions / PIP, formerly CPIS (free, no key,
+ *    verified live): year-over-year change in aggregate foreign holdings of
+ *    local debt securities, summed across whichever of ~65-75 voluntary
+ *    reporting economies actually submitted data for the target country.
+ *    Using the YoY change rather than the level makes this far more robust
+ *    to a persistently-incomplete reporter set (the same gap in both years
+ *    being compared) than the previously-assumed-unusable raw level.
  *
- * MARKET side: this engine's own FX time-series z-score (unchanged mechanism
- * from before, own 252-day history) blended with a sovereign CDS reading from
- * Damodaran/NYU Stern's free annual snapshot (see sovereignRiskPremium.ts) —
- * disclosed there as a single point-in-time value, not a live feed, so no
- * "CDS acceleration" signal is computed (there is nothing to accelerate from
- * one snapshot).
+ * MARKET side: this engine's own FX time-series z-score (own 252-day
+ * history) blended with a sovereign CDS reading from Damodaran/NYU Stern's
+ * free annual snapshot (see sovereignRiskPremium.ts) — disclosed there as a
+ * single point-in-time value, not a live feed, so no "CDS acceleration"
+ * signal is computed (there is nothing to accelerate from one snapshot).
  *
- * NOT built — no free/reliable source found, disclosed rather than faked:
- * foreign ownership of local bonds (IMF CPIS/PIP exists but is annual with
- * known reporting gaps among major non-Western EM creditors), capital-flow
- * data (EPFR/IIF, paid), sovereign-bank nexus, corporate external debt by
- * hedge status, auction-level stress, a world map / maturity-wall UI, an AI
- * chat agent, and backtesting against historical crises (would need the
- * unavailable market/flow data as historical input).
+ * STILL NOT built — checked, no free/reliable source found, disclosed
+ * rather than faked: capital-flow data beyond the PIP proxy above (EPFR/IIF
+ * fund flows are paid), a true domestic sovereign-bank nexus (IMF FSI's
+ * "sectoral distribution of investments: central government" indicator was
+ * checked live and returns no populated series for any of the 14 tracked
+ * countries), auction-level stress (would need ~14 separate national
+ * debt-office integrations), a world map / maturity-wall UI, an AI chat
+ * agent, and backtesting against historical crises.
  */
 
 export type EmDebtRegimeLabel = "AMPLE_ACCESS" | "NORMAL" | "TIGHTENING" | "FUNDING_STRESS" | "SUDDEN_STOP" | "INSUFFICIENT_DATA";
@@ -178,6 +191,18 @@ export const STRUCTURAL_INDICATORS: StructuralIndicatorDef[] = [
   { suffix: "fiscal_balance_to_gdp", label: "Fiscal Balance / GDP", unit: "%", direction: -1, weight: 0.9 },
 ];
 
+/** Computed (not directly fetched) structural indicators — see the file-level
+ * comment for what each is derived from. Kept separate from STRUCTURAL_INDICATORS
+ * only because their raw values require combining two metric keys or a
+ * multi-year lookback rather than a single `latest.get(suffix)` read; they are
+ * scored, weighted and blended into structuralScore identically. */
+export const COMPUTED_STRUCTURAL_INDICATORS: StructuralIndicatorDef[] = [
+  { suffix: "corporate_fx_debt_to_gdp", label: "Corporate FX Debt (Int'l Bonds) / GDP", unit: "%", direction: 1, weight: 0.8 },
+  { suffix: "foreign_holdings_yoy_pct", label: "Foreign Holdings of Debt Securities, YoY", unit: "% change", direction: -1, weight: 0.7 },
+];
+
+const ALL_STRUCTURAL_INDICATORS: StructuralIndicatorDef[] = [...STRUCTURAL_INDICATORS, ...COMPUTED_STRUCTURAL_INDICATORS];
+
 const FX_METRIC_KEY: Record<string, string> = {
   brazil: "fx.usdbrl", mexico: "fx.usdmxn", south_africa: "fx.usdzar", turkey: "fx.usdtry",
   india: "fx.usdinr", indonesia: "fx.usdidr", china: "fx.usdcny", philippines: "fx.usdphp",
@@ -207,7 +232,7 @@ export type CountryEmDebtRow = {
   latentRisk: boolean;
   /** Market pricing deteriorating faster than structural fundamentals — the spec's "market is already warning" case. */
   marketLedWarning: boolean;
-  /** Fraction of the 8 structural indicators with real data for this country (WDI coverage varies — some upper-middle-income EMs are outside World Bank IDS's scope). */
+  /** Fraction of the 10 structural indicators with real data for this country (WDI/BIS/IMF PIP coverage all vary — some upper-middle-income EMs are outside World Bank IDS's scope, some countries have thin BIS international-bond issuance, some have few PIP reporters). */
   dataCompleteness: number;
   /** 1-7 crisis stage (spec's staging framework), derived from vulnerabilityScore + the two flags above. Null only when vulnerabilityScore itself is null. */
   crisisStage: number | null;
@@ -240,6 +265,18 @@ function crossSectionalZ(values: Map<string, number>): Map<string, number> {
   return z;
 }
 
+/** Latest two annual points' % change — used for the foreign-holdings YoY
+ * signal, which needs real multi-year history (fetchLatestForKeys only
+ * returns one point per key), not a cross-sectional snapshot. */
+function latestYoyPct(points: Point[]): { value: number; asOf: string } | null {
+  if (points.length < 2) return null;
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const latest = sorted[sorted.length - 1];
+  const prior = sorted[sorted.length - 2];
+  if (prior.v === 0) return null;
+  return { value: ((latest.v - prior.v) / Math.abs(prior.v)) * 100, asOf: latest.t };
+}
+
 export async function getCountryEmDebtTable(db: SupabaseClient): Promise<CountryEmDebtRow[]> {
   const fxSeriesByCountry = await Promise.all(
     EM_DEBT_COUNTRIES.map((c) => loadFxSeries(db, FX_METRIC_KEY[c.key]))
@@ -247,15 +284,58 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
 
   const structuralKeys = EM_DEBT_COUNTRIES.flatMap((c) => STRUCTURAL_INDICATORS.map((ind) => `emdebt.${c.key}.${ind.suffix}`));
   const cdsKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.sovereign_cds_10y`);
-  const latest = await fetchLatestForKeys(db, [...structuralKeys, ...cdsKeys]);
+  const corpFxKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.corporate_fx_debt_usd`);
+  const gdpKeys = EM_DEBT_COUNTRIES.map((c) => `emdebt.${c.key}.gdp_current_usd`);
+  const latest = await fetchLatestForKeys(db, [...structuralKeys, ...cdsKeys, ...corpFxKeys, ...gdpKeys]);
 
-  const zByIndicator = new Map<string, Map<string, number>>();
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - lookbackDaysFor("annual"));
+  const foreignHoldingsSeriesByCountry = new Map(
+    await Promise.all(
+      EM_DEBT_COUNTRIES.map(
+        async (c) => [c.key, await fetchSeries(db, `emdebt.${c.key}.foreign_holdings_debt_usd`, since.toISOString())] as const
+      )
+    )
+  );
+
+  // Raw value per indicator per country, unified across the 8 directly-fetched
+  // World Bank indicators and the 2 computed ones (corporate FX debt/GDP,
+  // foreign-holdings YoY) so the rest of this function can score all 10 the
+  // same way instead of special-casing the computed ones.
+  const rawValueByIndicator = new Map<string, Map<string, { value: number; asOf: string }>>();
+
   for (const ind of STRUCTURAL_INDICATORS) {
-    const values = new Map<string, number>();
+    const m = new Map<string, { value: number; asOf: string }>();
     for (const c of EM_DEBT_COUNTRIES) {
       const row = latest.get(`emdebt.${c.key}.${ind.suffix}`);
-      if (row) values.set(c.key, row.v);
+      if (row) m.set(c.key, { value: row.v, asOf: row.t });
     }
+    rawValueByIndicator.set(ind.suffix, m);
+  }
+
+  {
+    const m = new Map<string, { value: number; asOf: string }>();
+    for (const c of EM_DEBT_COUNTRIES) {
+      const corp = latest.get(`emdebt.${c.key}.corporate_fx_debt_usd`);
+      const gdp = latest.get(`emdebt.${c.key}.gdp_current_usd`);
+      if (corp && gdp && gdp.v > 0) m.set(c.key, { value: (corp.v / gdp.v) * 100, asOf: corp.t });
+    }
+    rawValueByIndicator.set("corporate_fx_debt_to_gdp", m);
+  }
+
+  {
+    const m = new Map<string, { value: number; asOf: string }>();
+    for (const c of EM_DEBT_COUNTRIES) {
+      const yoy = latestYoyPct(foreignHoldingsSeriesByCountry.get(c.key) ?? []);
+      if (yoy) m.set(c.key, yoy);
+    }
+    rawValueByIndicator.set("foreign_holdings_yoy_pct", m);
+  }
+
+  const zByIndicator = new Map<string, Map<string, number>>();
+  for (const ind of ALL_STRUCTURAL_INDICATORS) {
+    const values = new Map<string, number>();
+    for (const [key, row] of rawValueByIndicator.get(ind.suffix) ?? []) values.set(key, row.value);
     zByIndicator.set(ind.suffix, crossSectionalZ(values));
   }
 
@@ -276,11 +356,11 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
     let structuralWeightSum = 0;
     let structuralScoreSum = 0;
     let structuralAvailable = 0;
-    for (const ind of STRUCTURAL_INDICATORS) {
-      const row = latest.get(`emdebt.${c.key}.${ind.suffix}`);
+    for (const ind of ALL_STRUCTURAL_INDICATORS) {
+      const row = rawValueByIndicator.get(ind.suffix)?.get(c.key) ?? null;
       const z = row ? zByIndicator.get(ind.suffix)?.get(c.key) ?? null : null;
       const score = z !== null && z !== undefined ? zToRiskScore(z, ind.direction) : null;
-      structural[ind.suffix] = { value: row?.v ?? null, asOf: row?.t ?? null, score };
+      structural[ind.suffix] = { value: row?.value ?? null, asOf: row?.asOf ?? null, score };
       if (score !== null) {
         structuralScoreSum += score * ind.weight;
         structuralWeightSum += ind.weight;
@@ -305,7 +385,7 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
         ? Math.round(vulnerabilityParts.reduce((a, b) => a + b.score * b.weight, 0) / vulnerabilityWeightSum)
         : null;
 
-    const dataCompleteness = Math.round((structuralAvailable / STRUCTURAL_INDICATORS.length) * 100) / 100;
+    const dataCompleteness = Math.round((structuralAvailable / ALL_STRUCTURAL_INDICATORS.length) * 100) / 100;
     const latentRisk = structuralScore !== null && marketScore !== null && structuralScore >= 55 && marketScore < 40;
     const marketLedWarning = structuralScore !== null && marketScore !== null && marketScore >= 55 && marketScore - structuralScore >= 20;
     const stageDef = crisisStageFor(vulnerabilityScore, latentRisk, marketLedWarning);

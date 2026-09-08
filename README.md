@@ -298,12 +298,25 @@ Most engines were originally US-only; they were widened deliberately, not by def
   Markets constituents the ECB publishes a daily reference rate for — Brazil, Mexico, South Africa,
   Turkey, India, Indonesia, China, the Philippines, Poland, Hungary, the Czech Republic, Thailand,
   Malaysia, South Korea), now blended with the CDS reading. A contagion-breadth measure (fraction
-  of tracked EMs at Funding-Stress-or-worse) and genuinely computed latent-risk / market-led-warning
-  flags per country round out the model; see `src/lib/engines/emDebtRegime.ts` and the methodology
-  page for the full per-component breakdown, including what the spec asked for that has no free
-  source and was deliberately not built rather than faked: foreign bond ownership, capital flows,
-  sovereign-bank nexus, corporate FX debt by hedge status, auction data, backtesting, a world map,
-  and an AI chat agent.
+  of tracked EMs at Funding-Stress-or-worse), genuinely computed latent-risk / market-led-warning
+  flags, and a 7-stage crisis-staging model (the spec's own Stage 1 "Stable" -> Stage 7 "Acute
+  Crisis" framework, built as a finer split of the same 0-100 score rather than an invented
+  detector — Stage 7 is disclosed as a score band, not a confirmed default, since no free source
+  can observe an actual default event) round out the model. A follow-up institutional spec
+  ("Emerging Debt Engine") supplied a documented free-source hierarchy (IMF SDMX API, BIS
+  bulk/API, World Bank QEDS) and asked that previously-declined components be re-checked against
+  it — that pass added two more real structural indicators: **corporate FX debt/GDP** (BIS
+  International Debt Securities — non-financial-corporate foreign-currency bonds outstanding,
+  verified live for all 14 countries) and **year-over-year foreign-holdings change** (IMF Portfolio
+  Investment Positions, formerly CPIS — summed across 64-75 voluntary reporting economies per
+  country; using the YoY delta rather than the raw level makes this robust to the persistently
+  incomplete reporter set that caused the original "no free source" call on foreign ownership to
+  be too hasty). See `src/lib/engines/emDebtRegime.ts` and the methodology page for the full
+  per-component breakdown, including what's still not built and why: full capital-flow
+  reconstruction (EPFR/IIF are paid), a true domestic sovereign-bank nexus (re-checked via IMF FSI
+  live — no populated series for any tracked country), auction-level stress (would need ~14
+  national debt-office integrations), backtesting, a world map, an AI chat agent, and the broader
+  Python/DuckDB data-lake rearchitecture the follow-up spec envisioned.
 - **India Liquidity** (new, standalone tab): RBI's own daily net-liquidity (LAF) figure and the
   Weighted Average Call Rate, plus USDINR — separate from India Market Regime, which is a
   bullish/bearish equity-direction call on a different scale, not a liquidity read. Also surfaces a

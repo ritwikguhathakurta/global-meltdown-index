@@ -31,6 +31,8 @@ import { fetchIndiaLiquiditySeries, fetchIndiaLiquidityBackfill } from "../sourc
 import { fetchIndiaYieldCurveSeries } from "../sources/rbiYieldCurve";
 import { fetchWorldBankEmDebtIndicators } from "../sources/worldBankEmDebt";
 import { fetchSovereignRiskPremium } from "../sources/sovereignRiskPremium";
+import { fetchImfForeignHoldings } from "../sources/imfForeignHoldings";
+import { fetchBisCorporateFxDebt } from "../sources/bisCorporateFxDebt";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -425,6 +427,32 @@ export async function ingestEmDebtSovereignCds(db: SupabaseClient, runDate: stri
   }
 }
 
+export async function ingestEmDebtForeignHoldings(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchImfForeignHoldings();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_em_debt_foreign_holdings", "ok", { points: points.length });
+    return { stage: "ingest_em_debt_foreign_holdings", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_em_debt_foreign_holdings", "failed", detail);
+    return { stage: "ingest_em_debt_foreign_holdings", status: "failed", detail };
+  }
+}
+
+export async function ingestEmDebtCorporateFx(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchBisCorporateFxDebt();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_em_debt_corporate_fx", "ok", { points: points.length });
+    return { stage: "ingest_em_debt_corporate_fx", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_em_debt_corporate_fx", "failed", detail);
+    return { stage: "ingest_em_debt_corporate_fx", status: "failed", detail };
+  }
+}
+
 export async function ingestChinaLgfvDebt(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = fetchChinaLgfvDebt();
@@ -516,6 +544,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestStatCan(db, runDate),
     ingestEmDebtStructural(db, runDate),
     ingestEmDebtSovereignCds(db, runDate),
+    ingestEmDebtForeignHoldings(db, runDate),
+    ingestEmDebtCorporateFx(db, runDate),
   ]);
   return { runDate, results };
 }
