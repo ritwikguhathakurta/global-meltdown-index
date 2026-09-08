@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getAllEnginesLatest, getLatestGfmi } from "@/lib/api/engineData";
-import { RiskBadge, DirectionArrow, gfmiColor, RISK_LEVEL_LEGEND } from "@/components/RegimeBadge";
+import { DirectionArrow, gfmiColor, RISK_LEVEL_LEGEND } from "@/components/RegimeBadge";
 import { InlineDisclaimer } from "@/components/Disclaimer";
 import { squarifyTreemap } from "@/lib/treemap";
 
@@ -63,6 +63,7 @@ export default async function DashboardPage() {
   const ranked = [...engines].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   const gfmi = gfmiRows?.[0] ?? null;
   const previousGfmi = gfmiRows?.[1] ?? null;
+  const gfmiHeroColor = gfmiColor(gfmi?.score ?? null);
 
   const rowByKey = new Map(ranked.map((e) => [e.engine_key, e]));
   const rankByKey = new Map(ranked.map((e, i) => [e.engine_key, i]));
@@ -79,31 +80,51 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-semibold">Global Financial Risk</h1>
 
-      <section className="mb-8 grid gap-4 sm:grid-cols-[220px_1fr]">
-        <div className="gfew-panel flex flex-col items-center justify-center gap-2 p-6">
-          <span className="text-xs uppercase tracking-wide text-text-dim">GFMI</span>
-          <RiskBadge score={gfmi?.score ?? null} />
-          <span className="text-center text-xs text-text-dim">{gfmi?.regime ?? "NO DATA"}</span>
-          {previousGfmi && (
-            <span className="text-[11px] text-text-dim">
-              Previous: {previousGfmi.score} ({previousGfmi.regime}) — Δ{" "}
-              {gfmi?.score !== null && gfmi?.score !== undefined && previousGfmi.score !== null
-                ? gfmi.score - previousGfmi.score
-                : "—"}
-            </span>
+      <section className="mb-8">
+        <div className="gfew-panel relative overflow-hidden px-6 py-12 text-center sm:py-16">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+            style={{ background: gfmiHeroColor.fg, opacity: 0.16 }}
+          />
+          <span className="relative text-xs font-semibold uppercase tracking-[0.3em] text-text-dim">
+            GFMI
+          </span>
+          <div
+            className="gfew-mono relative mt-2 font-bold tabular-nums"
+            style={{ fontSize: "clamp(4rem, 13vw, 8rem)", lineHeight: 1, color: gfmiHeroColor.fg }}
+          >
+            {gfmi?.score ?? "—"}
+          </div>
+          <div
+            className="relative mt-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold uppercase tracking-wide sm:text-base"
+            style={{ background: `${gfmiHeroColor.fg}22`, color: gfmiHeroColor.fg }}
+          >
+            {gfmi?.regime?.replace(/_/g, " ") ?? "NO DATA"}
+          </div>
+
+          {(previousGfmi || gfmi?.override_triggered) && (
+            <div className="relative mt-5 flex flex-col items-center justify-center gap-2 text-xs text-text-dim sm:flex-row sm:gap-6">
+              {previousGfmi && (
+                <span>
+                  Previous: {previousGfmi.score} ({previousGfmi.regime}) — Δ{" "}
+                  {gfmi?.score !== null && gfmi?.score !== undefined && previousGfmi.score !== null
+                    ? gfmi.score - previousGfmi.score
+                    : "—"}
+                </span>
+              )}
+              {gfmi?.override_triggered && (
+                <span className="rounded bg-[#3d1414] px-2 py-1 text-[#e05a4d]">
+                  Override: {gfmi.override_triggered}
+                </span>
+              )}
+            </div>
           )}
-          {gfmi?.override_triggered && (
-            <span className="rounded bg-[#3d1414] px-2 py-1 text-[11px] text-[#e05a4d]">
-              Override: {gfmi.override_triggered}
-            </span>
-          )}
-        </div>
-        <div className="gfew-panel p-4">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-dim">GFMI Composition</h2>
-          <p className="text-sm text-text-dim">
+
+          <p className="relative mx-auto mt-5 max-w-xl text-xs text-text-dim">
             Combines {Object.keys(gfmi?.components ?? {}).length} risk engine(s) with a nonlinear
-            multi-shock amplifier ({gfmi?.amplifier_applied ?? "—"}×) applied when multiple engines are
-            simultaneously elevated. Not a simple average — see{" "}
+            multi-shock amplifier ({gfmi?.amplifier_applied ?? "—"}×) applied when multiple engines
+            are simultaneously elevated. Not a simple average — see{" "}
             <Link href="/dashboard/methodology" className="text-accent hover:underline">Methodology</Link>.
           </p>
         </div>
