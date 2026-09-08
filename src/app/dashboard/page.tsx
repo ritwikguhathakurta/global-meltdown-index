@@ -104,29 +104,32 @@ export default async function DashboardPage() {
           </div>
 
           {(previousGfmi || gfmi?.override_triggered) && (
-            <div className="relative mt-5 flex flex-col items-center justify-center gap-2 text-xs text-text-dim sm:flex-row sm:gap-6">
-              {previousGfmi && (
-                <span>
-                  Previous: {previousGfmi.score} ({previousGfmi.regime}) — Δ{" "}
-                  {gfmi?.score !== null && gfmi?.score !== undefined && previousGfmi.score !== null
+            <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-8">
+              {previousGfmi && (() => {
+                const delta =
+                  gfmi?.score !== null && gfmi?.score !== undefined && previousGfmi.score !== null
                     ? gfmi.score - previousGfmi.score
-                    : "—"}
-                </span>
-              )}
+                    : null;
+                const deltaColor = delta === null || delta === 0 ? "#8b96a8" : delta > 0 ? "#e05a4d" : "#34c085";
+                const deltaSign = delta !== null && delta > 0 ? "+" : "";
+                return (
+                  <span className="text-sm text-text-dim sm:text-base">
+                    Previous:{" "}
+                    <span className="gfew-mono font-semibold text-text">{previousGfmi.score}</span>{" "}
+                    <span className="text-text-dim">({previousGfmi.regime.replace(/_/g, " ")})</span>{" "}
+                    — <span className="font-semibold" style={{ color: deltaColor }}>
+                      Δ {delta !== null ? `${deltaSign}${delta}` : "—"}
+                    </span>
+                  </span>
+                );
+              })()}
               {gfmi?.override_triggered && (
-                <span className="rounded bg-[#3d1414] px-2 py-1 text-[#e05a4d]">
+                <span className="rounded bg-[#3d1414] px-3 py-1.5 text-sm font-semibold text-[#e05a4d] sm:text-base">
                   Override: {gfmi.override_triggered}
                 </span>
               )}
             </div>
           )}
-
-          <p className="relative mx-auto mt-5 max-w-xl text-xs text-text-dim">
-            Combines {Object.keys(gfmi?.components ?? {}).length} risk engine(s) with a nonlinear
-            multi-shock amplifier ({gfmi?.amplifier_applied ?? "—"}×) applied when multiple engines
-            are simultaneously elevated. Not a simple average — see{" "}
-            <Link href="/dashboard/methodology" className="text-accent hover:underline">Methodology</Link>.
-          </p>
         </div>
       </section>
 
@@ -230,6 +233,10 @@ export default async function DashboardPage() {
             })}
           </div>
         )}
+        <p className="mt-2 text-right text-xs text-text-dim">
+          Not a simple average — see{" "}
+          <Link href="/dashboard/methodology" className="text-accent hover:underline">Methodology</Link>.
+        </p>
       </section>
 
       <section className="mb-6 grid gap-4 sm:grid-cols-3">
