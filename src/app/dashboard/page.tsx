@@ -2,6 +2,26 @@ import Link from "next/link";
 import { getAllEnginesLatest, getLatestGfmi } from "@/lib/api/engineData";
 import { RiskBadge, DirectionArrow, gfmiColor, RISK_LEVEL_LEGEND } from "@/components/RegimeBadge";
 import { InlineDisclaimer } from "@/components/Disclaimer";
+import { squarifyTreemap } from "@/lib/treemap";
+
+// Nominal layout canvas the treemap is computed against, then expressed as
+// CSS percentages — this is what "one big box, tiles sized by score" needs:
+// a real 2D squarified treemap (Bruls/Huizing/van Wijk), not a uniform grid.
+// Chosen wide (~2.3:1) to suit a ~24-tile mosaic under a full-width dashboard.
+const TREEMAP_W = 1200;
+const TREEMAP_H = 520;
+// A null score (INSUFFICIENT_DATA) can't be sized by risk — it gets the
+// smallest possible footprint instead of being hidden, so missing data is
+// still visible as "small and gray," never silently dropped from the map.
+const NULL_SCORE_TREEMAP_VALUE = 3;
+// Below these nominal pixel thresholds a tile's text would clip or overflow
+// (the anti-pattern this guards against) — so smaller tiles progressively
+// drop the regime line, then the label, then fall back to color + a
+// tooltip/aria-label only. Each tier is content that's guaranteed to fit
+// fully or not render at all — never a partially clipped line.
+const FULL_LABEL_MIN = { w: 110, h: 92 };
+const MEDIUM_LABEL_MIN = { w: 90, h: 60 };
+const COMPACT_LABEL_MIN = { w: 55, h: 36 };
 
 const ENGINE_META: Record<string, { label: string; href: string }> = {
   global_liquidity: { label: "Global Liquidity (G7 + China)", href: "/dashboard/liquidity" },
@@ -43,6 +63,17 @@ export default async function DashboardPage() {
   const ranked = [...engines].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   const gfmi = gfmiRows?.[0] ?? null;
   const previousGfmi = gfmiRows?.[1] ?? null;
+
+  const rowByKey = new Map(ranked.map((e) => [e.engine_key, e]));
+  const rankByKey = new Map(ranked.map((e, i) => [e.engine_key, i]));
+  const treemapLayout = squarifyTreemap(
+    ranked.map((e) => ({
+      key: e.engine_key,
+      value: e.score === null ? NULL_SCORE_TREEMAP_VALUE : Math.max(e.score, 2),
+    })),
+    TREEMAP_W,
+    TREEMAP_H
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -96,52 +127,88 @@ export default async function DashboardPage() {
           </div>
         </div>
         <p className="mb-3 max-w-2xl text-xs text-text-dim">
-          Every tile is one risk engine, colored by its current 0-100 score — darker red means
-          higher risk. The 3 highest-scoring engines pulse so the biggest systemic risks stand out
-          immediately; click any tile for the full detail.
+          One box, sized <em>and</em> colored by score — the biggest tiles are the biggest
+          systemic risks, darker red means higher risk, and the 3 highest-scoring engines pulse
+          so they stand out immediately even at a glance. Click any tile for the full detail.
         </p>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {ranked.map((e, i) => {
-            const { bg, fg } = gfmiColor(e.score);
-            const isTopRisk = i < 3 && e.score !== null;
-            return (
-              <Link
-                key={e.engine_key}
-                href={ENGINE_META[e.engine_key]?.href ?? "#"}
-                title={`${ENGINE_META[e.engine_key]?.label ?? e.engine_key} — score ${e.score ?? "N/A"}, ${e.regime}, ${Math.round((e.confidence ?? 0) * 100)}% confidence`}
-                className={`relative flex min-h-[104px] flex-col justify-between rounded-lg p-3 transition-transform hover:z-10 hover:scale-[1.03] ${isTopRisk ? "gfew-flash" : ""}`}
-                style={{ background: bg, "--gfew-pulse-color": fg } as React.CSSProperties}
-              >
-                {isTopRisk && (
-                  <span
-                    className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
-                    style={{ background: fg, color: bg }}
-                    aria-label={`Top systemic risk, rank ${i + 1}`}
-                  >
-                    {i + 1}
-                  </span>
-                )}
-                <span className="text-xs font-medium leading-tight" style={{ color: fg }}>
-                  {ENGINE_META[e.engine_key]?.label ?? e.engine_key}
-                </span>
-                <div className="flex items-end justify-between">
-                  <span className="gfew-mono text-2xl font-bold" style={{ color: fg }}>
-                    {e.score ?? "—"}
-                  </span>
-                  <DirectionArrow direction={e.direction} />
-                </div>
-                <span className="text-[10px] uppercase tracking-wide" style={{ color: fg, opacity: 0.85 }}>
-                  {e.regime}
-                </span>
-              </Link>
-            );
-          })}
-          {ranked.length === 0 && (
-            <div className="col-span-full rounded border border-border px-3 py-6 text-center text-text-dim">
-              No engine data yet — trigger a pipeline run from /admin.
-            </div>
-          )}
-        </div>
+        {ranked.length === 0 ? (
+          <div className="gfew-panel rounded border border-border px-3 py-6 text-center text-text-dim">
+            No engine data yet — trigger a pipeline run from /admin.
+          </div>
+        ) : (
+          <div
+            className="gfew-panel relative w-full overflow-visible p-1"
+            style={{ aspectRatio: `${TREEMAP_W} / ${TREEMAP_H}` }}
+          >
+            {treemapLayout.map((cell) => {
+              const e = rowByKey.get(cell.key);
+              if (!e) return null;
+              const rank = rankByKey.get(cell.key) ?? Infinity;
+              const isTopRisk = rank < 3 && e.score !== null;
+              const { bg, fg } = gfmiColor(e.score);
+              const showFull = cell.w >= FULL_LABEL_MIN.w && cell.h >= FULL_LABEL_MIN.h;
+              const showMedium = !showFull && cell.w >= MEDIUM_LABEL_MIN.w && cell.h >= MEDIUM_LABEL_MIN.h;
+              const showCompact = !showFull && !showMedium && cell.w >= COMPACT_LABEL_MIN.w && cell.h >= COMPACT_LABEL_MIN.h;
+              const label = ENGINE_META[e.engine_key]?.label ?? e.engine_key;
+
+              return (
+                <Link
+                  key={cell.key}
+                  href={ENGINE_META[e.engine_key]?.href ?? "#"}
+                  title={`${label} — score ${e.score ?? "N/A"}, ${e.regime}, ${Math.round((e.confidence ?? 0) * 100)}% confidence`}
+                  aria-label={`${label}: score ${e.score ?? "not available"}, ${e.regime}${isTopRisk ? `, top systemic risk rank ${rank + 1}` : ""}`}
+                  className={`absolute flex flex-col justify-start gap-1 overflow-hidden rounded-md p-2 transition-transform hover:z-20 hover:scale-[1.04] ${isTopRisk ? "gfew-flash" : ""}`}
+                  style={
+                    {
+                      left: `calc(${(cell.x / TREEMAP_W) * 100}% + 2px)`,
+                      top: `calc(${(cell.y / TREEMAP_H) * 100}% + 2px)`,
+                      width: `calc(${(cell.w / TREEMAP_W) * 100}% - 4px)`,
+                      height: `calc(${(cell.h / TREEMAP_H) * 100}% - 4px)`,
+                      background: bg,
+                      "--gfew-pulse-color": fg,
+                    } as React.CSSProperties
+                  }
+                >
+                  {isTopRisk && (
+                    <span
+                      className="absolute -left-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                      style={{ background: fg, color: bg }}
+                      aria-hidden="true"
+                    >
+                      {rank + 1}
+                    </span>
+                  )}
+                  {(showFull || showMedium) && (
+                    <>
+                      <span className="text-xs font-medium leading-tight" style={{ color: fg }}>
+                        {label}
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="gfew-mono text-2xl font-bold" style={{ color: fg }}>
+                          {e.score ?? "—"}
+                        </span>
+                        <DirectionArrow direction={e.direction} />
+                      </div>
+                      {showFull && (
+                        <span className="text-[10px] uppercase tracking-wide" style={{ color: fg, opacity: 0.85 }}>
+                          {e.regime}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {showCompact && (
+                    <div className="flex h-full items-center justify-between">
+                      <span className="gfew-mono text-sm font-bold" style={{ color: fg }}>
+                        {e.score ?? "—"}
+                      </span>
+                      <DirectionArrow direction={e.direction} />
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="mb-6 grid gap-4 sm:grid-cols-3">
