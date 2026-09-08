@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon, IndicatorRef } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { getCountryEmDebtTable } from "./emDebtRegime";
+import { getCountryEmDebtTable, crisisStageFor } from "./emDebtRegime";
 
 /**
  * Emerging-Market Debt Systemic Risk — rebuilt from a 76-section institutional
@@ -154,6 +154,18 @@ export async function runEmergingMarketDebtEngine(ctx: EngineContext, horizon: H
   const blendedConfidence = Math.min(marketResult.confidence, 0.5 + 0.5 * structuralCoverage);
   const blendedDataCompleteness = Math.round(((marketResult.dataCompleteness + structuralCoverage) / 2) * 100) / 100;
 
+  const overallStage = crisisStageFor(blendedScore, false, false);
+  const worstCountry = [...countryTable]
+    .filter((r) => r.crisisStage !== null)
+    .sort((a, b) => (b.crisisStage ?? 0) - (a.crisisStage ?? 0))[0];
+  const stageNote = overallStage
+    ? `Composite crisis stage: ${overallStage.label} (score-band only — see methodology for why Stage 7 is not a detected default).${
+        worstCountry && worstCountry.crisisStage !== null && worstCountry.crisisStage > overallStage.stage
+          ? ` Worst individual country: ${worstCountry.country} at ${worstCountry.crisisStageLabel} (Stage ${worstCountry.crisisStage}).`
+          : ""
+      }`
+    : "Composite crisis stage: insufficient data.";
+
   return {
     ...marketResult,
     score: blendedScore,
@@ -163,6 +175,7 @@ export async function runEmergingMarketDebtEngine(ctx: EngineContext, horizon: H
     leadingIndicators: [...marketResult.leadingIndicators, ...topCountryDrivers],
     contradictoryEvidence: [
       `Blended score = structural ${Math.round(weights.structural * 100)}% (avg ${avgStructuralScore ?? "N/A"}) + market ${Math.round(weights.market * 100)}% (FX/OAS composite blended with avg sovereign CDS = ${marketBucketScore ?? "N/A"}) + contagion breadth ${Math.round(weights.contagion * 100)}% (${(breadth * 100).toFixed(0)}% of tracked EMs at Funding-Stress-or-worse). No free per-country EM sovereign dollar-bond spread (JPMorgan's EMBI) exists — FX and a Damodaran/NYU Stern annual CDS snapshot are used as the market-priced proxies instead; see emDebtRegime.ts and the dashboard's per-country table for the full breakdown.`,
+      stageNote,
     ],
     methodologyVersion: "v0.3-freedata-structural-cds-contagion",
   };

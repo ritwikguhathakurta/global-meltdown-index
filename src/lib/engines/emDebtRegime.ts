@@ -53,6 +53,111 @@ function labelFromScore(score: number | null): EmDebtRegimeLabel {
   return "SUDDEN_STOP";
 }
 
+/**
+ * 7-stage crisis staging (spec's own "Stage 1: Early Warning" -> "Stage 7:
+ * Default/Restructuring" framework), built on top of the same 0-100
+ * vulnerability score rather than as a separately-detected regime — there is
+ * no free data source that observes an actual default/restructuring event,
+ * so Stage 7 is disclosed honestly as "the top of what this model can
+ * measure," not a confirmed default. Stages 2 and 4 are also promoted (never
+ * demoted) by the two flags this engine already computes for real
+ * (latentRisk, marketLedWarning), so a country whose structural fundamentals
+ * are deteriorating ahead of the market is never shown at Stage 1, and one
+ * whose market pricing is already running ahead of fundamentals is never
+ * shown below Stage 4 — the same logic used for those flags elsewhere in
+ * this file, just mapped onto the finer 7-band scale the spec asked for.
+ */
+export type CrisisStageKey =
+  | "STABLE"
+  | "EARLY_WARNING"
+  | "ELEVATED_VULNERABILITY"
+  | "MARKET_REPRICING"
+  | "FUNDING_STRESS"
+  | "SUDDEN_STOP"
+  | "ACUTE_CRISIS";
+
+export type CrisisStageDef = {
+  stage: number; // 1-7
+  key: CrisisStageKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+};
+
+export const CRISIS_STAGES: CrisisStageDef[] = [
+  {
+    stage: 1,
+    key: "STABLE",
+    label: "Stage 1 — Stable",
+    shortLabel: "Stable",
+    description: "Ample market access; structural fundamentals and market pricing are both calm.",
+  },
+  {
+    stage: 2,
+    key: "EARLY_WARNING",
+    label: "Stage 2 — Early Warning",
+    shortLabel: "Early Warning",
+    description: "Structural fundamentals deteriorating while market pricing (FX, sovereign CDS) has not reacted yet — genuinely computed latent risk, not asserted.",
+  },
+  {
+    stage: 3,
+    key: "ELEVATED_VULNERABILITY",
+    label: "Stage 3 — Elevated Vulnerability",
+    shortLabel: "Elevated Vulnerability",
+    description: "Structural and market readings are both moderately elevated together.",
+  },
+  {
+    stage: 4,
+    key: "MARKET_REPRICING",
+    label: "Stage 4 — Market Repricing",
+    shortLabel: "Market Repricing",
+    description: "Market pricing (currency, sovereign CDS) moving materially faster than structural fundamentals — the market has already started pricing in stress.",
+  },
+  {
+    stage: 5,
+    key: "FUNDING_STRESS",
+    label: "Stage 5 — Funding Stress",
+    shortLabel: "Funding Stress",
+    description: "Blended vulnerability score has crossed into the range where rollover and funding conditions are genuinely tightening.",
+  },
+  {
+    stage: 6,
+    key: "SUDDEN_STOP",
+    label: "Stage 6 — Sudden Stop",
+    shortLabel: "Sudden Stop",
+    description: "Severe, broad-based deterioration across structural and market readings together, consistent with a capital-flight episode.",
+  },
+  {
+    stage: 7,
+    key: "ACUTE_CRISIS",
+    label: "Stage 7 — Acute Crisis",
+    shortLabel: "Acute Crisis",
+    description: "The top of the observed stress range on this engine's 0-100 scale. This is a score band, not a confirmed default or restructuring event — no free data source can observe an actual default, so treat this as 'as severe as this model can measure,' not as proof of default.",
+  },
+];
+
+function stageNumberFromScore(score: number): number {
+  if (score < 15) return 1;
+  if (score < 30) return 2;
+  if (score < 45) return 3;
+  if (score < 60) return 4;
+  if (score < 75) return 5;
+  if (score < 90) return 6;
+  return 7;
+}
+
+export function crisisStageFor(
+  vulnerabilityScore: number | null,
+  latentRisk: boolean,
+  marketLedWarning: boolean
+): CrisisStageDef | null {
+  if (vulnerabilityScore === null) return null;
+  let stage = stageNumberFromScore(vulnerabilityScore);
+  if (latentRisk) stage = Math.max(stage, 2);
+  if (marketLedWarning) stage = Math.max(stage, 4);
+  return CRISIS_STAGES[stage - 1];
+}
+
 export type StructuralIndicatorDef = {
   suffix: string;
   label: string;
@@ -104,6 +209,9 @@ export type CountryEmDebtRow = {
   marketLedWarning: boolean;
   /** Fraction of the 8 structural indicators with real data for this country (WDI coverage varies — some upper-middle-income EMs are outside World Bank IDS's scope). */
   dataCompleteness: number;
+  /** 1-7 crisis stage (spec's staging framework), derived from vulnerabilityScore + the two flags above. Null only when vulnerabilityScore itself is null. */
+  crisisStage: number | null;
+  crisisStageLabel: string;
 };
 
 async function loadFxSeries(db: SupabaseClient, metricKey: string): Promise<Point[]> {
@@ -200,6 +308,7 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
     const dataCompleteness = Math.round((structuralAvailable / STRUCTURAL_INDICATORS.length) * 100) / 100;
     const latentRisk = structuralScore !== null && marketScore !== null && structuralScore >= 55 && marketScore < 40;
     const marketLedWarning = structuralScore !== null && marketScore !== null && marketScore >= 55 && marketScore - structuralScore >= 20;
+    const stageDef = crisisStageFor(vulnerabilityScore, latentRisk, marketLedWarning);
 
     return {
       country: c.name,
@@ -213,6 +322,8 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
       latentRisk,
       marketLedWarning,
       dataCompleteness,
+      crisisStage: stageDef?.stage ?? null,
+      crisisStageLabel: stageDef?.shortLabel ?? "—",
     };
   });
 }

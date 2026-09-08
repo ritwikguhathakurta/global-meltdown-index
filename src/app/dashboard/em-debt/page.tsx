@@ -1,6 +1,8 @@
 import { getLatestEngine, getCountryEmDebtTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
+import { CRISIS_STAGES, crisisStageFor } from "@/lib/engines/emDebtRegime";
 import type { EmDebtRegimeLabel, CountryEmDebtRow } from "@/lib/engines/emDebtRegime";
+import { gfmiColor } from "@/components/RegimeBadge";
 
 const REGIME_COLORS: Record<EmDebtRegimeLabel, string> = {
   AMPLE_ACCESS: "#34c085",
@@ -41,6 +43,16 @@ function fmtScore(v: number | null): string {
   return v === null ? "—" : String(v);
 }
 
+// Representative score inside each of the 7 crisis-stage bands, so stage
+// color reuses gfmiColor's own thresholds instead of a second hand-picked
+// palette that could drift out of sync with the rest of the app.
+const STAGE_SAMPLE_SCORE = [10, 25, 40, 55, 70, 85, 95];
+
+function stageColor(stage: number | null): { bg: string; fg: string } {
+  if (stage === null || stage < 1 || stage > 7) return { bg: "#1a1f28", fg: "#8b96a8" };
+  return gfmiColor(STAGE_SAMPLE_SCORE[stage - 1]);
+}
+
 export default async function EmDebtPage() {
   const [rows, countryTable] = await Promise.all([getLatestEngine("emerging_market_debt"), getCountryEmDebtTable()]);
 
@@ -49,6 +61,10 @@ export default async function EmDebtPage() {
   const hiddenRisks = countryTable.filter((r) => r.latentRisk);
   const marketLed = countryTable.filter((r) => r.marketLedWarning);
   const stressedCount = countryTable.filter((r) => (r.vulnerabilityScore ?? 0) >= 60).length;
+
+  const compositeRow = rows.find((r) => r.horizon === "short") ?? rows[0] ?? null;
+  const overallStage = compositeRow ? crisisStageFor(compositeRow.score, false, false) : null;
+  const worstCountry = [...countryTable].filter((r) => r.crisisStage !== null).sort((a, b) => (b.crisisStage ?? 0) - (a.crisisStage ?? 0))[0] ?? null;
 
   function why(r: CountryEmDebtRow): string {
     const s = r.structuralScore ?? 0;
@@ -68,6 +84,61 @@ export default async function EmDebtPage() {
         FX-only approach. See the methodology page for the full breakdown of what is and is not
         included, and why.
       </p>
+
+      <section className="gfew-panel mb-8 p-4">
+        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-dim">
+          Crisis Stage
+        </h3>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          A 7-stage progression built on the same 0-100 vulnerability score used everywhere else on
+          this page — not a separately-detected regime. Stage 7 marks the top of what this model can
+          measure; it is a score band, not a confirmed default or restructuring event, since no free
+          data source can observe an actual default.
+        </p>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {CRISIS_STAGES.map((s) => {
+            const active = overallStage?.stage === s.stage;
+            const { bg, fg } = stageColor(s.stage);
+            return (
+              <div
+                key={s.stage}
+                className="min-w-[110px] flex-1 rounded px-2 py-2 text-center"
+                style={{
+                  background: active ? bg : "#1a1f28",
+                  color: active ? fg : "#5a6472",
+                  outline: active ? `2px solid ${fg}` : "none",
+                  outlineOffset: "-2px",
+                }}
+                title={s.description}
+              >
+                <div className="gfew-mono text-[10px] font-semibold uppercase tracking-wide">
+                  Stage {s.stage}
+                </div>
+                <div className="text-[11px] font-medium">{s.shortLabel}</div>
+              </div>
+            );
+          })}
+        </div>
+        {overallStage ? (
+          <p className="text-sm">
+            Composite engine reading:{" "}
+            <span className="font-semibold" style={{ color: stageColor(overallStage.stage).fg }}>
+              {overallStage.label}
+            </span>
+            {worstCountry && worstCountry.crisisStage !== null && overallStage && worstCountry.crisisStage > overallStage.stage && (
+              <span className="text-text-dim">
+                {" "}
+                — worst individual country is {worstCountry.country} at{" "}
+                <span style={{ color: stageColor(worstCountry.crisisStage).fg }}>
+                  Stage {worstCountry.crisisStage} ({worstCountry.crisisStageLabel})
+                </span>
+              </span>
+            )}
+          </p>
+        ) : (
+          <p className="text-sm text-text-dim">Insufficient data for a composite reading yet.</p>
+        )}
+      </section>
 
       <section className="mb-8 grid gap-4 sm:grid-cols-3">
         <div className="gfew-panel p-4">
@@ -154,6 +225,7 @@ export default async function EmDebtPage() {
               <tr>
                 <th className="px-3 py-2 font-medium">Country</th>
                 <th className="px-3 py-2 font-medium">Vulnerability</th>
+                <th className="px-3 py-2 font-medium">Crisis Stage</th>
                 <th className="px-3 py-2 font-medium">Structural</th>
                 <th className="px-3 py-2 font-medium">Market</th>
                 <th className="px-3 py-2 font-medium">Debt/GDP</th>
@@ -188,6 +260,19 @@ export default async function EmDebtPage() {
                     </div>
                     <RegimePill regime={r.regime} />
                   </td>
+                  <td className="px-3 py-2">
+                    {r.crisisStage !== null ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold"
+                        style={{ background: `${stageColor(r.crisisStage).fg}22`, color: stageColor(r.crisisStage).fg }}
+                        title={CRISIS_STAGES[r.crisisStage - 1]?.description}
+                      >
+                        {r.crisisStage} · {r.crisisStageLabel}
+                      </span>
+                    ) : (
+                      <span className="text-text-dim">—</span>
+                    )}
+                  </td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.structuralScore) }}>
                     {fmtScore(r.structuralScore)}
                   </td>
@@ -209,7 +294,7 @@ export default async function EmDebtPage() {
               ))}
               {countryTable.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-3 py-6 text-center text-text-dim">
+                  <td colSpan={13} className="px-3 py-6 text-center text-text-dim">
                     No data yet — trigger a pipeline run from /admin.
                   </td>
                 </tr>
