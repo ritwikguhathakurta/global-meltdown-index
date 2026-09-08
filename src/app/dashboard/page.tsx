@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getAllEnginesLatest, getLatestGfmi } from "@/lib/api/engineData";
-import { RiskBadge, DirectionArrow } from "@/components/RegimeBadge";
+import { RiskBadge, DirectionArrow, gfmiColor, RISK_LEVEL_LEGEND } from "@/components/RegimeBadge";
 import { InlineDisclaimer } from "@/components/Disclaimer";
 
 const ENGINE_META: Record<string, { label: string; href: string }> = {
@@ -79,45 +79,68 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-dim">Top Global Risks</h2>
-        <div className="overflow-x-auto rounded border border-border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-panel-raised text-text-dim">
-              <tr>
-                <th className="px-3 py-2 font-medium">Engine</th>
-                <th className="px-3 py-2 font-medium">Score</th>
-                <th className="px-3 py-2 font-medium">Direction</th>
-                <th className="px-3 py-2 font-medium">Regime</th>
-                <th className="px-3 py-2 font-medium">Confidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ranked.map((e) => (
-                <tr key={e.engine_key} className="border-t border-border hover:bg-panel-raised">
-                  <td className="px-3 py-2">
-                    <Link href={ENGINE_META[e.engine_key]?.href ?? "#"} className="hover:text-accent">
-                      {ENGINE_META[e.engine_key]?.label ?? e.engine_key}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">
-                    <RiskBadge score={e.score} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <DirectionArrow direction={e.direction} />
-                  </td>
-                  <td className="px-3 py-2 text-text-dim">{e.regime}</td>
-                  <td className="px-3 py-2 text-text-dim">{Math.round((e.confidence ?? 0) * 100)}%</td>
-                </tr>
-              ))}
-              {ranked.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-text-dim">
-                    No engine data yet — trigger a pipeline run from /admin.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-text-dim">
+            Top Global Risks — Heatmap
+          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            {RISK_LEVEL_LEGEND.map((l) => {
+              const { fg } = gfmiColor(l.sampleScore);
+              return (
+                <span key={l.label} className="flex items-center gap-1.5 text-[11px] text-text-dim">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: fg }} />
+                  {l.label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+        <p className="mb-3 max-w-2xl text-xs text-text-dim">
+          Every tile is one risk engine, colored by its current 0-100 score — darker red means
+          higher risk. The 3 highest-scoring engines pulse so the biggest systemic risks stand out
+          immediately; click any tile for the full detail.
+        </p>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {ranked.map((e, i) => {
+            const { bg, fg } = gfmiColor(e.score);
+            const isTopRisk = i < 3 && e.score !== null;
+            return (
+              <Link
+                key={e.engine_key}
+                href={ENGINE_META[e.engine_key]?.href ?? "#"}
+                title={`${ENGINE_META[e.engine_key]?.label ?? e.engine_key} — score ${e.score ?? "N/A"}, ${e.regime}, ${Math.round((e.confidence ?? 0) * 100)}% confidence`}
+                className={`relative flex min-h-[104px] flex-col justify-between rounded-lg p-3 transition-transform hover:z-10 hover:scale-[1.03] ${isTopRisk ? "gfew-flash" : ""}`}
+                style={{ background: bg, "--gfew-pulse-color": fg } as React.CSSProperties}
+              >
+                {isTopRisk && (
+                  <span
+                    className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                    style={{ background: fg, color: bg }}
+                    aria-label={`Top systemic risk, rank ${i + 1}`}
+                  >
+                    {i + 1}
+                  </span>
+                )}
+                <span className="text-xs font-medium leading-tight" style={{ color: fg }}>
+                  {ENGINE_META[e.engine_key]?.label ?? e.engine_key}
+                </span>
+                <div className="flex items-end justify-between">
+                  <span className="gfew-mono text-2xl font-bold" style={{ color: fg }}>
+                    {e.score ?? "—"}
+                  </span>
+                  <DirectionArrow direction={e.direction} />
+                </div>
+                <span className="text-[10px] uppercase tracking-wide" style={{ color: fg, opacity: 0.85 }}>
+                  {e.regime}
+                </span>
+              </Link>
+            );
+          })}
+          {ranked.length === 0 && (
+            <div className="col-span-full rounded border border-border px-3 py-6 text-center text-text-dim">
+              No engine data yet — trigger a pipeline run from /admin.
+            </div>
+          )}
         </div>
       </section>
 

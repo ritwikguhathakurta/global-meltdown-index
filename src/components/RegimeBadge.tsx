@@ -29,6 +29,18 @@ export function RiskBadge({ score, label }: { score: number | null; label?: stri
   );
 }
 
+/** Score-band legend shared by the heatmap and any other score-driven UI —
+ * derived from gfmiColor's own thresholds so it can never drift out of sync
+ * with the actual tile colors. */
+export const RISK_LEVEL_LEGEND: { label: string; sampleScore: number }[] = [
+  { label: "Low", sampleScore: 10 },
+  { label: "Moderate", sampleScore: 35 },
+  { label: "Elevated", sampleScore: 50 },
+  { label: "High", sampleScore: 65 },
+  { label: "Severe", sampleScore: 80 },
+  { label: "Extreme", sampleScore: 95 },
+];
+
 export function DirectionArrow({ direction }: { direction: string }) {
   const map: Record<string, { symbol: string; color: string }> = {
     improving: { symbol: "↓", color: "#34c085" },

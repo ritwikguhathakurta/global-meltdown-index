@@ -48,3 +48,22 @@ body {
   background: var(--gfew-accent);
   color: #061018;
 }
+
+/* Global Risk heatmap — top-3 tiles pulse to draw the eye without strobing:
+   ~1.6s ease-in-out cycle stays well under the WCAG 3-flashes/second seizure
+   threshold. Disabled entirely under prefers-reduced-motion. */
+@keyframes gfew-heat-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--gfew-pulse-color, transparent); }
+  50% { box-shadow: 0 0 0 6px var(--gfew-pulse-color, transparent); }
+}
+
+.gfew-flash {
+  animation: gfew-heat-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gfew-flash {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--gfew-pulse-color, transparent);
+  }
+}
