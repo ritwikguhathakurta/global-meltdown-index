@@ -87,9 +87,9 @@ export default async function DashboardPage() {
             className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
             style={{ background: gfmiHeroColor.fg, opacity: 0.16 }}
           />
-          <span className="relative text-xs font-semibold uppercase tracking-[0.3em] text-text-dim">
-            GFMI
-          </span>
+          <div className="relative text-xl font-bold tracking-wide text-accent sm:text-3xl">
+            Global Financial Meltdown Index <span className="text-text-dim">(GFMI)</span>
+          </div>
           <div
             className="gfew-mono relative mt-2 font-bold tabular-nums"
             style={{ fontSize: "clamp(4rem, 13vw, 8rem)", lineHeight: 1, color: gfmiHeroColor.fg }}
