@@ -24,6 +24,11 @@ async function resolveSourceId(db: SupabaseClient, key: string): Promise<number 
 
 export async function upsertMetrics(db: SupabaseClient, points: MetricPoint[]) {
   if (points.length === 0) return { inserted: 0 };
+  // Stamped on every call, including one that re-confirms an already-stored value —
+  // this is what freshness is computed from (see indicator.ts): "when did we last
+  // successfully check this source and find this was the newest data it had", not
+  // "when was this row first inserted" (that's the separate ingested_at column).
+  const lastVerifiedAt = new Date().toISOString();
   const rows = [];
   for (const p of points) {
     const sourceId = await resolveSourceId(db, p.source_key);
@@ -36,6 +41,7 @@ export async function upsertMetrics(db: SupabaseClient, points: MetricPoint[]) {
       source_tier: p.source_tier,
       frequency: p.frequency ?? "daily",
       raw: p.raw ?? null,
+      last_verified_at: lastVerifiedAt,
     });
   }
   const { error, count } = await db
@@ -63,14 +69,16 @@ export async function fetchSeries(
 export async function fetchLatest(
   db: SupabaseClient,
   metricKey: string
-): Promise<{ t: string; v: number } | null> {
+): Promise<{ t: string; v: number; lastVerifiedAt: string } | null> {
   const { data, error } = await db
     .from("metric_series")
-    .select("observed_at, value")
+    .select("observed_at, value, last_verified_at")
     .eq("metric_key", metricKey)
     .order("observed_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(`fetchLatest(${metricKey}): ${error.message}`);
-  return data ? { t: data.observed_at as string, v: data.value as number } : null;
+  return data
+    ? { t: data.observed_at as string, v: data.value as number, lastVerifiedAt: data.last_verified_at as string }
+    : null;
 }

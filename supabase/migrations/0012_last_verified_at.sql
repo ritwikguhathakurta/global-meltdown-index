@@ -1,0 +1,27 @@
+-- ============================================================================
+-- Freshness (LIVE/RECENT/STALE) was computed from a metric's own observed_at
+-- (the reference period the data describes — e.g. "2024-01-01" for a
+-- calendar-year-2023 debt/GDP figure), not from when that figure actually
+-- became available. That systematically over-penalizes any source with real
+-- publication lag baked into how it dates its own data: a quarterly debt
+-- ratio published ~90 days after quarter-end looks "stale" the moment its
+-- own reference date passes the quarterly threshold, even on the very day
+-- it's first published. Annual national-accounts statistics (debt/GDP for
+-- every non-US G7+China economy here) compound this further with a genuine
+-- 1-2 year finalization lag baked into the reference-period date itself.
+--
+-- last_verified_at is stamped by every successful upsertMetrics() call
+-- (src/lib/metrics/store.ts), including one that re-confirms an unchanged
+-- value — it means "the last time our pipeline successfully checked this
+-- source and this was the newest data it had", not "when this row was
+-- first inserted" (that's the existing, different-semantics ingested_at
+-- column, untouched by this migration). Freshness is now computed from
+-- this instead (see src/lib/engines/indicator.ts), so a genuinely old-
+-- vintage figure that we keep successfully re-verifying every pipeline run
+-- reads as current (we know it's still the latest), while a source that
+-- actually goes quiet or a fetcher that starts failing will correctly
+-- start showing STALE as last_verified_at stops advancing — the real
+-- signal freshness is supposed to carry.
+-- ============================================================================
+
+alter table metric_series add column if not exists last_verified_at timestamptz not null default now();

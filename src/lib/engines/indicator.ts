@@ -51,7 +51,13 @@ export async function buildIndicator(
     fetchSeries(db, key, since.toISOString()),
   ]);
 
-  const status = freshnessFor(latestPoint?.t ?? null, frequency);
+  // Freshness is computed from when the pipeline last successfully verified this
+  // is the newest data the source has (lastVerifiedAt), not from the data's own
+  // reference-period date (t) — see the last_verified_at migration/store.ts for
+  // why: a monthly or annual figure with real publication lag baked into its own
+  // dating would otherwise always read as more stale than it actually is. asOf
+  // below still shows the true reference-period date for display.
+  const status = freshnessFor(latestPoint?.lastVerifiedAt ?? latestPoint?.t ?? null, frequency);
   const sourceKey = guessSourceKey(key);
 
   return {
