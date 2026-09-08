@@ -700,7 +700,11 @@ export default function MethodologyPage() {
           more dangerous than any single elevated reading in isolation. A crisis-override rule additionally
           forces the label to GLOBAL_DELEVERAGING_REGIME when GFMI &gt; 75 with VIX &gt; 35 and the credit
           engine &gt; 70, or SYSTEMIC_CRISIS_REGIME when GFMI &gt; 90 — the exact rule that fired is always
-          shown alongside the score.
+          shown alongside the score. The same 15/30/45/60/75/90 band thresholds that produce this regime
+          label are also shown on the main dashboard as a 7-stage stepper (Low Systemic Risk → Watch →
+          Vulnerability Building → High Systemic Risk → Crisis Developing → Major Deleveraging → Systemic
+          Crisis), the same presentation used for the EM Debt engine&apos;s per-country crisis stages — it
+          is not a second, independently-computed model, just a named view over the one composite score.
         </p>
       </section>
 

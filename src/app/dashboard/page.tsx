@@ -3,6 +3,7 @@ import { getAllEnginesLatest, getLatestGfmi } from "@/lib/api/engineData";
 import { DirectionArrow, gfmiColor, RISK_LEVEL_LEGEND } from "@/components/RegimeBadge";
 import { InlineDisclaimer } from "@/components/Disclaimer";
 import { squarifyTreemap } from "@/lib/treemap";
+import { GFMI_STAGES, gfmiStageForScore } from "@/lib/engines/gfmi";
 
 // Nominal layout canvas the treemap is computed against, then expressed as
 // CSS percentages — this is what "one big box, tiles sized by score" needs:
@@ -22,6 +23,16 @@ const NULL_SCORE_TREEMAP_VALUE = 3;
 const FULL_LABEL_MIN = { w: 110, h: 92 };
 const MEDIUM_LABEL_MIN = { w: 90, h: 60 };
 const COMPACT_LABEL_MIN = { w: 55, h: 36 };
+
+// Representative score inside each of the 7 crisis-stage bands, so stage
+// color reuses gfmiColor's own thresholds instead of a second hand-picked
+// palette that could drift out of sync with the rest of the app.
+const STAGE_SAMPLE_SCORE = [10, 25, 40, 55, 70, 85, 95];
+
+function stageColor(stage: number | null): { bg: string; fg: string } {
+  if (stage === null || stage < 1 || stage > 7) return { bg: "#1a1f28", fg: "#8b96a8" };
+  return gfmiColor(STAGE_SAMPLE_SCORE[stage - 1]);
+}
 
 const ENGINE_META: Record<string, { label: string; href: string }> = {
   global_liquidity: { label: "Global Liquidity (G7 + China)", href: "/dashboard/liquidity" },
@@ -64,6 +75,7 @@ export default async function DashboardPage() {
   const gfmi = gfmiRows?.[0] ?? null;
   const previousGfmi = gfmiRows?.[1] ?? null;
   const gfmiHeroColor = gfmiColor(gfmi?.score ?? null);
+  const currentStage = gfmiStageForScore(gfmi?.score ?? null);
 
   const rowByKey = new Map(ranked.map((e) => [e.engine_key, e]));
   const rankByKey = new Map(ranked.map((e, i) => [e.engine_key, i]));
@@ -131,6 +143,55 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+      </section>
+
+      <section className="gfew-panel mb-8 p-4">
+        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-dim">
+          Crisis Stage
+        </h3>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          A 7-stage progression over the same 0-100 composite score above — not a separately
+          detected regime. Stage 7 marks the top of what this composite can measure; it is a score
+          band reflecting how broadly and severely the tracked engines are reading right now, not a
+          declared historical crisis.
+        </p>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {GFMI_STAGES.map((s) => {
+            const active = currentStage?.stage === s.stage;
+            const { bg, fg } = stageColor(s.stage);
+            return (
+              <div
+                key={s.stage}
+                className="min-w-[110px] flex-1 rounded px-2 py-2 text-center"
+                style={{
+                  background: active ? bg : "#1a1f28",
+                  color: active ? fg : "#5a6472",
+                  outline: active ? `2px solid ${fg}` : "none",
+                  outlineOffset: "-2px",
+                }}
+                title={s.description}
+              >
+                <div className="gfew-mono text-[10px] font-semibold uppercase tracking-wide">
+                  Stage {s.stage}
+                </div>
+                <div className="text-[11px] font-medium">{s.shortLabel}</div>
+              </div>
+            );
+          })}
+        </div>
+        {currentStage ? (
+          <p className="text-sm">
+            Composite reading:{" "}
+            <span className="font-semibold" style={{ color: gfmiColor(gfmi?.score ?? null).fg }}>
+              {currentStage.label}
+            </span>
+            {gfmi?.override_triggered && (
+              <span className="text-text-dim"> — override active: {gfmi.override_triggered}</span>
+            )}
+          </p>
+        ) : (
+          <p className="text-sm text-text-dim">Insufficient data for a composite reading yet.</p>
+        )}
       </section>
 
       <section className="mb-8">

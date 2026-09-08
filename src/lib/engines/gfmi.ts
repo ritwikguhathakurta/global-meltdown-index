@@ -31,6 +31,90 @@ function regimeForScore(score: number): string {
   return "SYSTEMIC_CRISIS";
 }
 
+/**
+ * 7-stage named progression over the exact same 0-100 composite score and
+ * band thresholds as REGIME_BANDS above (15/30/45/60/75/90) — same numbers
+ * this file already used, just given stage numbers, short labels, and a
+ * description so the dashboard can show a stepper instead of a bare regime
+ * string. Mirrors the per-country crisis-stage model in emDebtRegime.ts.
+ */
+export type GfmiStageKey =
+  | "LOW_SYSTEMIC_RISK"
+  | "WATCH"
+  | "VULNERABILITY_BUILDING"
+  | "HIGH_SYSTEMIC_RISK"
+  | "CRISIS_DEVELOPING"
+  | "MAJOR_DELEVERAGING"
+  | "SYSTEMIC_CRISIS";
+
+export type GfmiStageDef = {
+  stage: number; // 1-7
+  key: GfmiStageKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+};
+
+export const GFMI_STAGES: GfmiStageDef[] = [
+  {
+    stage: 1,
+    key: "LOW_SYSTEMIC_RISK",
+    label: "Stage 1 — Low Systemic Risk",
+    shortLabel: "Low Risk",
+    description: "Tracked engines are broadly calm; no material multi-shock amplification is being applied.",
+  },
+  {
+    stage: 2,
+    key: "WATCH",
+    label: "Stage 2 — Watch",
+    shortLabel: "Watch",
+    description: "Some deterioration is showing up across tracked engines, but it is not yet broad-based.",
+  },
+  {
+    stage: 3,
+    key: "VULNERABILITY_BUILDING",
+    label: "Stage 3 — Vulnerability Building",
+    shortLabel: "Vulnerability Building",
+    description: "Structural vulnerabilities are building across more than one engine at once.",
+  },
+  {
+    stage: 4,
+    key: "HIGH_SYSTEMIC_RISK",
+    label: "Stage 4 — High Systemic Risk",
+    shortLabel: "High Risk",
+    description: "Multiple independent risk dimensions are elevated together — the point where the composite's multi-shock amplifier typically starts to engage, since correlated stress across independent engines is empirically more dangerous than any one elevated reading.",
+  },
+  {
+    stage: 5,
+    key: "CRISIS_DEVELOPING",
+    label: "Stage 5 — Crisis Developing",
+    shortLabel: "Crisis Developing",
+    description: "Broad, correlated deterioration across engines; the amplifier is meaningfully lifting the composite above the plain weighted average of its parts.",
+  },
+  {
+    stage: 6,
+    key: "MAJOR_DELEVERAGING",
+    label: "Stage 6 — Major Deleveraging",
+    shortLabel: "Major Deleveraging",
+    description: "Severe, correlated stress across tracked engines, consistent with a broad deleveraging episode — this is also the band where the GLOBAL_DELEVERAGING_REGIME override (VIX + credit stress both extreme) can trigger.",
+  },
+  {
+    stage: 7,
+    key: "SYSTEMIC_CRISIS",
+    label: "Stage 7 — Systemic Crisis",
+    shortLabel: "Systemic Crisis",
+    description: "The top of the observed range on this composite's 0-100 scale. This is a score band, not a declared historical crisis — it reflects how broadly and severely the tracked free-data engines are reading right now, nothing more.",
+  },
+];
+
+export function gfmiStageForScore(score: number | null): GfmiStageDef | null {
+  if (score === null) return null;
+  for (let i = 0; i < REGIME_BANDS.length; i++) {
+    if (score < REGIME_BANDS[i][0]) return GFMI_STAGES[i];
+  }
+  return GFMI_STAGES[GFMI_STAGES.length - 1];
+}
+
 export function computeGfmi(inputs: GfmiInput[], vix: number | null, creditStress: number | null) {
   const usable = inputs.filter((i) => i.score !== null);
   if (usable.length === 0) {
