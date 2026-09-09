@@ -36,6 +36,7 @@ import { fetchBisCorporateFxDebt } from "../sources/bisCorporateFxDebt";
 import { fetchImfFiscalGapFillers } from "../sources/imfFiscalGaps";
 import { fetchQedsExternalDebtGapFillers } from "../sources/qedsExternalDebt";
 import { fetchG7FiscalData } from "../sources/g7Fiscal";
+import { fetchUsTreasuryLiveData } from "../sources/usTreasuryDebt";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -495,6 +496,19 @@ export async function ingestG7FiscalData(db: SupabaseClient, runDate: string): P
   }
 }
 
+export async function ingestUsTreasuryLiveData(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchUsTreasuryLiveData();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_us_treasury_live", "ok", { points: points.length });
+    return { stage: "ingest_us_treasury_live", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_us_treasury_live", "failed", detail);
+    return { stage: "ingest_us_treasury_live", status: "failed", detail };
+  }
+}
+
 export async function ingestChinaLgfvDebt(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = fetchChinaLgfvDebt();
@@ -591,6 +605,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     ingestEmDebtFiscalGaps(db, runDate),
     ingestEmDebtQedsGaps(db, runDate),
     ingestG7FiscalData(db, runDate),
+    ingestUsTreasuryLiveData(db, runDate),
   ]);
   return { runDate, results };
 }

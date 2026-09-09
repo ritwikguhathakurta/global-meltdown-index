@@ -63,6 +63,14 @@ export default async function G7DebtPage() {
   const { stressedCount, totalWithData } = g7Breadth(countryTable);
 
   const treasuryComposite = treasuryRows.find((r) => r.horizon === "short") ?? treasuryRows[0] ?? null;
+  const usDetail = countryTable.find((r) => r.country === "United States")?.usDetail ?? null;
+
+  function fmtUsd(v: number | null): string {
+    if (v === null) return "—";
+    if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
+    if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+    return `$${v.toLocaleString()}`;
+  }
 
   function why(r: CountryG7DebtRow): string {
     const s = r.structuralScore ?? 0;
@@ -206,6 +214,59 @@ export default async function G7DebtPage() {
           )}
         </div>
       </section>
+
+      {usDetail && (
+        <section className="gfew-panel mb-8 p-4">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-dim">
+            US Treasury Live Detail
+          </h3>
+          <p className="mb-3 max-w-3xl text-xs text-text-dim">
+            Live, free, official US Treasury-market data not yet folded into the structural/market
+            scores above (it exists only for the US, and the auction series needs ~20 real auctions
+            of history — roughly 20 months, since each tenor is auctioned monthly — before a
+            proper time-series signal can be computed) — shown here as genuine context, not
+            fabricated. Debt-to-the-penny and Fed SOMA holdings from Treasury Fiscal Data and the
+            New York Fed directly; auction results from Treasury Fiscal Data&apos;s own
+            auctions_query dataset.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-text-dim">Total Public Debt</div>
+              <div className="gfew-mono text-lg font-semibold">{fmtUsd(usDetail.debtTotalUsd)}</div>
+              <div className="text-[10px] text-text-dim">
+                Held by public {fmtUsd(usDetail.debtHeldByPublicUsd)} · Intragov {fmtUsd(usDetail.debtIntragovernmentalUsd)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-text-dim">Fed (SOMA) Treasury Holdings</div>
+              <div className="gfew-mono text-lg font-semibold">{fmtUsd(usDetail.fedTreasuryHoldingsUsd)}</div>
+              <div className="text-[10px] text-text-dim">
+                {usDetail.fedHoldingsSharePct !== null ? `${usDetail.fedHoldingsSharePct.toFixed(1)}% of total public debt` : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-text-dim">Latest 10Y Note Auction</div>
+              <div className="gfew-mono text-lg font-semibold">
+                {usDetail.auction10yBidToCover !== null ? `${usDetail.auction10yBidToCover.toFixed(2)}x cover` : "—"}
+              </div>
+              <div className="text-[10px] text-text-dim">
+                {usDetail.auction10yHighYield !== null ? `${usDetail.auction10yHighYield.toFixed(3)}% high yield` : ""}
+                {usDetail.auction10yIndirectPct !== null ? ` · ${usDetail.auction10yIndirectPct.toFixed(0)}% indirect bidders` : ""}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-text-dim">Latest 30Y Bond Auction</div>
+              <div className="gfew-mono text-lg font-semibold">
+                {usDetail.auction30yBidToCover !== null ? `${usDetail.auction30yBidToCover.toFixed(2)}x cover` : "—"}
+              </div>
+              <div className="text-[10px] text-text-dim">
+                {usDetail.auction30yHighYield !== null ? `${usDetail.auction30yHighYield.toFixed(3)}% high yield` : ""}
+                {usDetail.auction30yIndirectPct !== null ? ` · ${usDetail.auction30yIndirectPct.toFixed(0)}% indirect bidders` : ""}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <p className="mb-4 text-sm text-text-dim">
         <span className="font-medium text-text">{stressedCount} of {totalWithData}</span> tracked

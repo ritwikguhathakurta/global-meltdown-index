@@ -234,17 +234,33 @@ export default function MethodologyPage() {
           spec&apos;s own requirement that the US and Japan carry more weight than smaller G7 economies),
           not a flat seven-way average.
         </p>
+        <p className="mb-2">
+          <strong>US Treasury Live Detail</strong> (a separate panel on the G7 Debt page, US-only): debt
+          held by the public / intragovernmental / total, straight from Treasury&apos;s own
+          &ldquo;Debt to the Penny&rdquo; dataset, updated daily; the New York Fed&apos;s own SOMA
+          holdings of Treasury notes/bonds/bills/TIPS/FRNs (deliberately excluding MBS/agency debt),
+          divided by total public debt for a genuine Fed-holdings-share reading; and the most recently
+          completed 10-Year Note and 30-Year Bond auction results (bid-to-cover ratio, indirect-bidder
+          share, high yield) from Treasury&apos;s own auctions_query dataset. All three verified live,
+          all free, no key. This is shown as context, not yet folded into the structural/market scores —
+          it exists for only one of the seven countries, and the auction series specifically needs
+          roughly 20 real auctions&apos; worth of history (each tenor auctions monthly, so ~20 months)
+          before a proper time-series z-score baseline exists; it will start contributing an actual
+          signal as that history accumulates rather than being backfilled or estimated.
+        </p>
         <p>
-          <strong>Explicitly not built</strong>, checked and disclosed rather than faked: interest-burden
-          acceleration, gross financing requirement, maturity-wall buckets, auction-level stress and
-          investor-base/central-bank-holdings tracking (no single free, uniformly-available-for-all-seven
-          source for per-country interest expense, auction results or bond ownership was verified live —
-          US Treasury Fiscal Data and Japan&apos;s MOF both publish auction results, but building seven
-          different national auction parsers is a real, large effort not attempted this pass); a PCA/
-          factor-model decomposition; an interactive sovereign-contagion network graph; historical
-          backtesting against 1992-2024 crisis episodes with lead-time analysis; and a daily G7 debt report
-          with an AI Q&amp;A layer. None of these show fabricated values — the three scores that are built
-          are real, and the rest simply isn&apos;t on the page yet.
+          <strong>Explicitly not built</strong>, checked and disclosed rather than faked: the same
+          interest-burden-acceleration, gross-financing-requirement and maturity-wall calculations for
+          any country; auction-level stress and investor-base/central-bank-holdings tracking for the
+          other six G7 economies (Japan&apos;s MOF publishes auction results, but not at a stable,
+          guessable endpoint the way its yield curve is — checked directly, the obvious calendar/results
+          URLs 404; the UK DMO&apos;s XML report API exists but its report-code scheme wasn&apos;t
+          identified within reasonable effort; Germany, France, Italy and Canada have no equivalently
+          open auction-result API verified live); a PCA/factor-model decomposition; an interactive
+          sovereign-contagion network graph; historical backtesting against 1992-2024 crisis episodes
+          with lead-time analysis; and a daily G7 debt report with an AI Q&amp;A layer. None of these
+          show fabricated values — every score and figure that is built is real, and the rest simply
+          isn&apos;t on the page yet.
         </p>
       </section>
 

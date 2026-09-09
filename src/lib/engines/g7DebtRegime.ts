@@ -195,6 +195,36 @@ const YIELD_FREQ: Record<string, "daily" | "monthly"> = {
 
 export type G7IndicatorReading = { value: number | null; asOf: string | null; score: number | null };
 
+/**
+ * US-only live detail (debt-to-the-penny composition, Fed SOMA Treasury
+ * holdings, 10Y/30Y auction results — see usTreasuryDebt.ts). Deliberately
+ * NOT folded into structuralScore/marketScore above: it exists for only one
+ * of the seven countries, so blending it in would silently give the US a
+ * different-shaped score than its six peers, and the auction bid-to-cover
+ * series needs ~20 real auctions of history (roughly 20 months, since each
+ * tenor is auctioned monthly) before zScore() can even compute a baseline —
+ * shown here as genuine live context that will start contributing a
+ * proper time-series signal as that history accumulates, not faked in the
+ * meantime.
+ */
+export type UsTreasuryDetail = {
+  debtHeldByPublicUsd: number | null;
+  debtIntragovernmentalUsd: number | null;
+  debtTotalUsd: number | null;
+  debtAsOf: string | null;
+  fedTreasuryHoldingsUsd: number | null;
+  fedHoldingsSharePct: number | null;
+  fedHoldingsAsOf: string | null;
+  auction10yBidToCover: number | null;
+  auction10yIndirectPct: number | null;
+  auction10yHighYield: number | null;
+  auction10yAsOf: string | null;
+  auction30yBidToCover: number | null;
+  auction30yIndirectPct: number | null;
+  auction30yHighYield: number | null;
+  auction30yAsOf: string | null;
+};
+
 export type CountryG7DebtRow = {
   country: string;
   currency: string;
@@ -215,6 +245,8 @@ export type CountryG7DebtRow = {
   dataCompleteness: number;
   crisisStage: number | null;
   crisisStageLabel: string;
+  /** Only populated for the US row — see UsTreasuryDetail. */
+  usDetail: UsTreasuryDetail | null;
 };
 
 /** Cross-sectional z-score across G7 peers — mirrors emDebtRegime.ts's own
@@ -252,12 +284,48 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
   const italySpread = diffSeriesByMonth(yieldSeriesByCountry.get("italy") ?? [], germanySeries);
   const spreadByCountry: Record<string, Point[]> = { france: franceSpread, italy: italySpread };
 
+  const US_DETAIL_KEYS = [
+    "g7.us.debt_held_by_public_usd",
+    "g7.us.debt_intragovernmental_usd",
+    "g7.us.debt_total_usd",
+    "g7.us.fed_treasury_holdings_usd",
+    "g7.us.auction_10y_bid_to_cover",
+    "g7.us.auction_10y_indirect_pct",
+    "g7.us.auction_10y_high_yield",
+    "g7.us.auction_30y_bid_to_cover",
+    "g7.us.auction_30y_indirect_pct",
+    "g7.us.auction_30y_high_yield",
+  ];
   const latestKeys = [
     ...G7_COUNTRIES.map((c) => DEBT_KEY[c.key]),
     ...G7_COUNTRIES.map((c) => `g7.${c.key}.fiscal_balance_to_gdp`),
     ...G7_COUNTRIES.map((c) => `g7.${c.key}.gdp_current_usd`),
+    ...US_DETAIL_KEYS,
   ];
   const latest = await fetchLatestForKeys(db, latestKeys);
+
+  const usDetail: UsTreasuryDetail | null = (() => {
+    const debtTotal = latest.get("g7.us.debt_total_usd");
+    const fedHoldings = latest.get("g7.us.fed_treasury_holdings_usd");
+    const fedSharePct = debtTotal && fedHoldings && debtTotal.v > 0 ? (fedHoldings.v / debtTotal.v) * 100 : null;
+    return {
+      debtHeldByPublicUsd: latest.get("g7.us.debt_held_by_public_usd")?.v ?? null,
+      debtIntragovernmentalUsd: latest.get("g7.us.debt_intragovernmental_usd")?.v ?? null,
+      debtTotalUsd: debtTotal?.v ?? null,
+      debtAsOf: debtTotal?.t ?? null,
+      fedTreasuryHoldingsUsd: fedHoldings?.v ?? null,
+      fedHoldingsSharePct: fedSharePct,
+      fedHoldingsAsOf: fedHoldings?.t ?? null,
+      auction10yBidToCover: latest.get("g7.us.auction_10y_bid_to_cover")?.v ?? null,
+      auction10yIndirectPct: latest.get("g7.us.auction_10y_indirect_pct")?.v ?? null,
+      auction10yHighYield: latest.get("g7.us.auction_10y_high_yield")?.v ?? null,
+      auction10yAsOf: latest.get("g7.us.auction_10y_bid_to_cover")?.t ?? null,
+      auction30yBidToCover: latest.get("g7.us.auction_30y_bid_to_cover")?.v ?? null,
+      auction30yIndirectPct: latest.get("g7.us.auction_30y_indirect_pct")?.v ?? null,
+      auction30yHighYield: latest.get("g7.us.auction_30y_high_yield")?.v ?? null,
+      auction30yAsOf: latest.get("g7.us.auction_30y_bid_to_cover")?.t ?? null,
+    };
+  })();
 
   const debtValues = new Map<string, number>();
   const fiscalValues = new Map<string, number>();
@@ -359,6 +427,7 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
       dataCompleteness,
       crisisStage: stageDef?.stage ?? null,
       crisisStageLabel: stageDef?.shortLabel ?? "—",
+      usDetail: c.key === "us" ? usDetail : null,
     };
   });
 }
