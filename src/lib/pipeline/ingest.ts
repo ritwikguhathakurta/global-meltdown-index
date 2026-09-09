@@ -38,6 +38,7 @@ import { fetchQedsExternalDebtGapFillers } from "../sources/qedsExternalDebt";
 import { fetchG7FiscalData } from "../sources/g7Fiscal";
 import { fetchUsTreasuryLiveData } from "../sources/usTreasuryDebt";
 import { fetchChinaOfficialReserveAssets } from "../sources/chinaFxReserves";
+import { fetchBankFinancialSoundnessData } from "../sources/bankFinancialSoundness";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -630,6 +631,19 @@ export async function ingestStatCan(db: SupabaseClient, runDate: string): Promis
   }
 }
 
+export async function ingestBankFinancialSoundness(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchBankFinancialSoundnessData();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_bank_financial_soundness", "ok", { points: points.length });
+    return { stage: "ingest_bank_financial_soundness", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_bank_financial_soundness", "failed", detail);
+    return { stage: "ingest_bank_financial_soundness", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -665,6 +679,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_g7_fiscal_data", ingestG7FiscalData(db, runDate)),
     withTimeout("ingest_us_treasury_live", ingestUsTreasuryLiveData(db, runDate)),
     withTimeout("ingest_china_fx_reserves", ingestChinaFxReserves(db, runDate)),
+    withTimeout("ingest_bank_financial_soundness", ingestBankFinancialSoundness(db, runDate)),
   ]);
   return { runDate, results };
 }

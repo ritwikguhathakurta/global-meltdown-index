@@ -1,12 +1,263 @@
-import { getLatestEngine } from "@/lib/api/engineData";
+import { getLatestEngine, getBankingSystemicRiskTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
+import { BANKING_STAGES } from "@/lib/engines/bankingSystemicRisk";
+import { gfmiColor } from "@/components/RegimeBadge";
+
+function fmt(v: number | null, unit: string, decimals = 2): string {
+  if (v === null) return "—";
+  return `${v.toFixed(decimals)}${unit ? " " + unit : ""}`;
+}
+
+function scoreColor(score: number | null): string {
+  if (score === null) return "#5a6472";
+  if (score < 20) return "#34c085";
+  if (score < 40) return "#3fa9f5";
+  if (score < 60) return "#e0b93d";
+  if (score < 80) return "#e0793d";
+  return "#e05a4d";
+}
+
+const STAGE_SAMPLE_SCORE = [10, 25, 40, 55, 70, 85, 95];
+
+function stageColor(stage: number | null): { bg: string; fg: string } {
+  if (stage === null || stage < 1 || stage > 7) return { bg: "#1a1f28", fg: "#8b96a8" };
+  return gfmiColor(STAGE_SAMPLE_SCORE[stage - 1]);
+}
 
 export default async function BankingPage() {
-  const rows = await getLatestEngine("banking");
+  const [bankingRows, { rows, composite }] = await Promise.all([
+    getLatestEngine("banking"),
+    getBankingSystemicRiskTable(),
+  ]);
+
+  const ranked = [...rows].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+  const topRisks = ranked.filter((r) => r.compositeScore !== null).slice(0, 6);
+  const hiddenRisks = rows.filter((r) => r.hiddenRisk);
+  const marketWarnings = rows.filter((r) => r.marketLedWarning);
+
+  const bankingComposite = bankingRows.find((r) => r.horizon === "short") ?? bankingRows[0] ?? null;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Banking</h1>
-      <EngineDetail title="Banking" rows={rows} />
+      <h1 className="mb-2 text-2xl font-semibold">Global Banking Systemic Risk</h1>
+      <p className="mb-6 max-w-3xl text-sm text-text-dim">
+        Country-level capital, credit, funding, liquidity and bank-equity-market tracking across nine
+        banking systems (the G7 plus China and India). This is a new analytical layer — it does not add
+        a second vote to GFMI; the existing GFMI-weighted &ldquo;Banking&rdquo; engine below (US
+        delinquency/charge-off/CRE data plus Euro-area/UK funding-cost context) is unchanged. See the
+        methodology page for exactly what free data each layer covers and what bank-level detail (CET1,
+        LCR, NSFR, deposit concentration, interbank network) is genuinely unavailable rather than faked.
+      </p>
+
+      {bankingComposite && (
+        <section className="gfew-panel mb-6 p-4">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-dim">
+            Banking Stress — US Asset Quality + Euro-Area/UK Funding Cost (feeds GFMI)
+          </h3>
+          <div className="flex items-baseline gap-3">
+            <span className="gfew-mono text-3xl font-bold" style={{ color: scoreColor(bankingComposite.score) }}>
+              {bankingComposite.score ?? "—"}
+            </span>
+            <span className="text-sm uppercase tracking-wide text-text-dim">{bankingComposite.regime}</span>
+          </div>
+        </section>
+      )}
+
+      <section className="gfew-panel mb-8 p-4">
+        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-dim">
+          Crisis Stage (equal-weighted across all nine tracked banking systems)
+        </h3>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          Stages 1-6 come from each country&apos;s own Structural (capital/credit/funding/liquidity) +
+          Market (bank-equity) + Contagion (cross-country breadth) blend. Stage 7 requires a large share
+          of ALL nine countries to already be at Stage 6+ simultaneously — never assigned to a single
+          country in isolation.
+        </p>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {BANKING_STAGES.map((s) => {
+            const active = composite.stage?.stage === s.stage;
+            const { bg, fg } = stageColor(s.stage);
+            return (
+              <div
+                key={s.stage}
+                className="min-w-[110px] flex-1 rounded px-2 py-2 text-center"
+                style={{
+                  background: active ? bg : "#1a1f28",
+                  color: active ? fg : "#5a6472",
+                  outline: active ? `2px solid ${fg}` : "none",
+                  outlineOffset: "-2px",
+                }}
+                title={s.description}
+              >
+                <div className="gfew-mono text-[10px] font-semibold uppercase tracking-wide">Stage {s.stage}</div>
+                <div className="text-[11px] font-medium">{s.shortLabel}</div>
+              </div>
+            );
+          })}
+        </div>
+        {composite.stage ? (
+          <p className="text-sm">
+            Composite reading:{" "}
+            <span className="gfew-mono font-semibold" style={{ color: scoreColor(composite.score) }}>
+              {composite.score}
+            </span>{" "}
+            <span className="font-semibold" style={{ color: stageColor(composite.stage.stage).fg }}>
+              {composite.stage.label}
+            </span>
+          </p>
+        ) : (
+          <p className="text-sm text-text-dim">Insufficient data for a composite reading yet.</p>
+        )}
+      </section>
+
+      <section className="mb-8 grid gap-4 sm:grid-cols-3">
+        <div className="gfew-panel p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-dim">
+            Where Banking Risk Is Building
+          </h3>
+          {topRisks.length === 0 && <p className="text-sm text-text-dim">No data yet.</p>}
+          <ol className="space-y-2">
+            {topRisks.map((r, i) => (
+              <li key={r.country} className="text-sm">
+                <span className="gfew-mono mr-2 text-text-dim">{i + 1}.</span>
+                <span className="font-medium">{r.country}</span>{" "}
+                <span className="gfew-mono" style={{ color: scoreColor(r.compositeScore) }}>
+                  {r.compositeScore}
+                </span>
+                <div className="ml-5 text-xs text-text-dim">Stage {r.stage} · {r.stageLabel}</div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="gfew-panel p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-dim">
+            Hidden Banking Risk (structural rising, market still calm)
+          </h3>
+          {hiddenRisks.length === 0 ? (
+            <p className="text-sm text-text-dim">None currently detected across the tracked universe.</p>
+          ) : (
+            <ul className="space-y-1">
+              {hiddenRisks.map((r) => (
+                <li key={r.country} className="text-sm">
+                  <span className="font-medium">{r.country}</span>{" "}
+                  <span className="text-xs text-text-dim">
+                    (structural {r.structuralScore}, market {r.marketScore})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="gfew-panel p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-dim">
+            Market Warning (market deteriorating ahead of fundamentals)
+          </h3>
+          {marketWarnings.length === 0 ? (
+            <p className="text-sm text-text-dim">None currently detected across the tracked universe.</p>
+          ) : (
+            <ul className="space-y-1">
+              {marketWarnings.map((r) => (
+                <li key={r.country} className="text-sm">
+                  <span className="font-medium">{r.country}</span>{" "}
+                  <span className="text-xs text-text-dim">
+                    (market {r.marketScore}, structural {r.structuralScore})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">
+          Banking Systemic Risk — Country Table
+        </h2>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          Capital = World Bank bank capital/assets ratio (a leverage ratio, not risk-weighted CET1),
+          cross-sectional. Credit = World Bank NPL ratio, blended with US delinquency/charge-off/CRE data
+          for the US and the BIS credit-to-GDP gap for UK/Canada/Japan. Funding = each country&apos;s own
+          policy/interbank rate. Liquidity = each country&apos;s own central-bank balance-sheet/reserves
+          series. Market = a bank-sector equity index or representative bank (see methodology for exactly
+          which, per country). Structural = Capital 35% + Credit 30% + Funding 15% + Liquidity 20%.
+          Composite = Structural 40% + Market 35% + Contagion 25%.
+        </p>
+        <div className="overflow-x-auto rounded border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-panel-raised text-text-dim">
+              <tr>
+                <th className="px-3 py-2 font-medium">Country</th>
+                <th className="px-3 py-2 font-medium">Capital</th>
+                <th className="px-3 py-2 font-medium">NPL Ratio</th>
+                <th className="px-3 py-2 font-medium">Funding Rate</th>
+                <th className="px-3 py-2 font-medium">Liquidity</th>
+                <th className="px-3 py-2 font-medium">Market</th>
+                <th className="px-3 py-2 font-medium">Structural</th>
+                <th className="px-3 py-2 font-medium">Contagion</th>
+                <th className="px-3 py-2 font-medium">Composite</th>
+                <th className="px-3 py-2 font-medium">Stage</th>
+                <th className="px-3 py-2 font-medium">Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map((r) => (
+                <tr key={r.country} className="border-t border-border align-top">
+                  <td className="px-3 py-2 font-medium">{r.country}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.capitalRatio.value, "%", 1)}
+                    <div className="text-[10px]">{r.capitalRatio.asOf?.slice(0, 4) ?? "—"}</div>
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.nplRatio.value, "%", 1)}
+                    <div className="text-[10px]">{r.nplRatio.asOf?.slice(0, 4) ?? "—"}</div>
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.fundingRate.value, "%")}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {r.liquidityReading.score !== null ? (
+                      <span style={{ color: scoreColor(r.liquidityScore) }}>{r.liquidityScore}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.marketScore) }}>
+                    {r.marketScore ?? "—"}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.structuralScore) }}>
+                    {r.structuralScore ?? "—"}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{r.contagionScore ?? "—"}</td>
+                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.compositeScore) }}>
+                    {r.compositeScore ?? "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    {r.stage !== null ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold"
+                        style={{ background: `${stageColor(r.stage).fg}22`, color: stageColor(r.stage).fg }}
+                        title={BANKING_STAGES[r.stage - 1]?.description}
+                      >
+                        {r.stage} · {r.stageLabel}
+                      </span>
+                    ) : (
+                      <span className="text-text-dim">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-text-dim">{Math.round(r.dataCompleteness * 100)}%</td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={11} className="px-3 py-6 text-center text-text-dim">
+                    No data yet — trigger a pipeline run from /admin.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <EngineDetail title="Banking Stress — US Asset Quality + Euro-Area/UK Funding Cost (feeds GFMI)" rows={bankingRows} />
     </div>
   );
 }

@@ -48,6 +48,10 @@ export default function MethodologyPage() {
           GFMI-weighted &ldquo;yen_carry&rdquo; engine, which was itself broadened to the same 4
           funding currencies rather than being replaced or double-counted — see{" "}
           <a href="#global-carry-trade" className="text-accent hover:underline">Global Carry Trade</a>{" "}
+          below. A country-level Global Banking Systemic Risk page (capital/credit/funding/liquidity/
+          market tracking across nine banking systems) similarly sits alongside the GFMI-weighted
+          &ldquo;banking&rdquo; engine, which is unchanged — see{" "}
+          <a href="#global-banking-systemic-risk" className="text-accent hover:underline">Global Banking Systemic Risk</a>{" "}
           below.
           None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
           Two further engines beyond the original 24-engine spec were added on request — India Liquidity and
@@ -139,11 +143,16 @@ export default function MethodologyPage() {
           Carry Trade Stress (formerly &ldquo;Yen Carry Stress&rdquo;) was JPY-specific by definition
           until broadened to also track CHF, EUR and USD as funding currencies — see{" "}
           <a href="#global-carry-trade" className="text-accent hover:underline">Global Carry Trade</a>{" "}
-          below. Banking and Private Credit remain partly single-country-anchored because no free
-          source publishes bank-level NPL/delinquency data for the UK, Eurozone, Canada or Japan, or a
-          non-US publicly-traded direct-lending vehicle comparable to US BDCs — those engines add
+          below. The GFMI-weighted Banking engine itself remains single-country-anchored (US
+          delinquency/charge-off/CRE data plus Euro-area/UK funding-cost context) because no free source
+          publishes bank-level NPL/delinquency data for the UK, Eurozone, Canada or Japan — it adds
           whatever real G7 context does exist (policy rates) rather than fabricating data that
-          doesn&apos;t exist for free.
+          doesn&apos;t exist for free. A separate Global Banking Systemic Risk page now covers
+          capital/credit/funding/liquidity/market conditions across nine countries using cross-country
+          proxies instead (World Bank ratios, bank-sector equity indices) — see{" "}
+          <a href="#global-banking-systemic-risk" className="text-accent hover:underline">Global Banking Systemic Risk</a>{" "}
+          below. Private Credit remains single-country-anchored: no free source publishes a
+          non-US publicly-traded direct-lending vehicle comparable to US BDCs.
         </p>
       </section>
 
@@ -370,6 +379,99 @@ export default function MethodologyPage() {
           against 1997-2026 carry episodes with lead-time analysis, a daily report and AI Q&amp;A
           layer, and a user-facing P&amp;L scenario simulator. None of these show fabricated values —
           every score and figure that is built is real, and the rest simply isn&apos;t on the page yet.
+        </p>
+      </section>
+
+      <section className="mb-8" id="global-banking-systemic-risk">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Global Banking Systemic Risk — a country-level layer, built against a 200-section spec
+        </h2>
+        <p className="mb-2">
+          A separate institutional spec (&ldquo;Global Banking Systemic Risk Engine&rdquo;) asked for a
+          bank_master universe of individual G-SIBs/D-SIBs with CET1/LCR/NSFR/Stage-2/CRE/derivatives
+          tracking, an interbank contagion network, a 10-scenario stress-test library with deposit-
+          outflow and wholesale-funding ladders, historical backtesting to the 1990s Japanese banking
+          crisis, a daily report and an AI Q&amp;A layer. Checked component by component the same way
+          as Carry Trade and G7/EM Debt: no free source publishes structured, machine-readable
+          bank-by-bank regulatory filings across countries, so the entire bank-level layer is disclosed
+          below as deferred. What free, verified data genuinely supports at the country level across
+          nine banking systems is built at{" "}
+          <a href="/dashboard/banking" className="text-accent hover:underline">/dashboard/banking</a>.
+          This is a new analytical layer alongside the existing GFMI-weighted &ldquo;banking&rdquo;
+          engine (unchanged — still its own six US/Euro-area/UK inputs) rather than a replacement or a
+          second vote in the composite.
+        </p>
+        <p className="mb-2">
+          <strong>Universe</strong>: the seven G7 economies plus China and India — nine of the
+          spec&apos;s 21-country minimum. Eurozone as its own standalone aggregate, Australia, South
+          Korea, Singapore, Hong Kong, Brazil, Mexico, Indonesia, South Africa, Turkiye, Saudi Arabia
+          and UAE are not covered — checked, no equally free/current bank-soundness source verified
+          this pass, disclosed as deferred rather than estimated.
+        </p>
+        <p className="mb-2">
+          <strong>Capital</strong> is the World Bank&apos;s &ldquo;Bank capital to assets ratio&rdquo; —
+          a leverage ratio (equity/total assets), not a risk-weighted CET1 ratio (no free source
+          publishes cross-country risk-weighted regulatory capital — checked), cross-sectionally
+          z-scored against the other eight countries. Verified live: fresh 2024-2025 values for six of
+          the nine; Japan (2022) and China (2021) are genuinely several years stale and shown with their
+          true as-of year rather than relabeled current. <strong>Credit</strong> is the World Bank&apos;s
+          bank NPL-to-gross-loans ratio (fresh for eight of nine; Japan again stale at 2022),
+          cross-sectionally z-scored, blended for the US with the existing Banking engine&apos;s own
+          delinquency/charge-off/CRE-delinquency series and for the UK/Canada/Japan with the BIS
+          credit-to-GDP gap already tracked on the Credit tab.
+        </p>
+        <p className="mb-2">
+          <strong>Funding</strong> reuses each country&apos;s own short-term policy/interbank rate — the
+          exact same series already wired in for Carry Trade — rather than fetching anything new.
+          <strong> Liquidity</strong> reuses each country&apos;s own central-bank balance-sheet/reserves
+          series already flowing from the Liquidity engine (Fed reserve balances, BoE reserves, ECB
+          balance sheet, BoJ balance sheet, BoC assets, China reserves-ex-gold, India&apos;s RBI net
+          liquidity injection). A dedicated cross-country &ldquo;bank liquid reserves to assets&rdquo;
+          ratio (World Bank FD.RES.LIQU.AS.ZS) was checked and rejected as the primary liquidity input:
+          verified live to have zero observations at all for six of the nine countries (UK, Germany,
+          France, Italy, Canada, China), leaving only US/Japan/India covered — too sparse to build a
+          domain on. <strong>Market</strong> uses a bank-sector equity index or ETF per country/region
+          (US KBW Bank Index, a European bank-sector ETF for Germany/France/Italy, a TOPIX Banks ETF for
+          Japan, a Canadian bank ETF, the Nifty Bank Index for India) — and, where no broad index was
+          found to still be live on Yahoo Finance despite initially resolving (the FTSE 350 Banks index
+          and the EURO STOXX Banks index both returned zero recent daily bars when actually checked), a
+          single large representative bank instead: Barclays for the UK, ICBC for China — disclosed as
+          single-bank proxies, not broad indices.
+        </p>
+        <p className="mb-2">
+          <strong>Structural Vulnerability</strong> = Capital 35% + Credit 30% + Funding 15% + Liquidity
+          20% — a free-data-scoped mapping of the spec&apos;s own Capital 40/Credit 25/Funding 20/
+          Balance-Sheet 15 framing (IRRBB/duration-gap data needs bank-level disclosures this pass
+          doesn&apos;t have, so it isn&apos;t a separate domain here). <strong>Contagion</strong> is a
+          breadth reading — the fraction of the OTHER eight countries whose preliminary
+          Structural+Market blend is already elevated — the same simplification already used for G7
+          Debt&apos;s own funding/contagion score, not yet a bilateral cross-border-exposure-weighted
+          network (needs BIS International Banking Statistics bilateral claims data, a real future
+          addition). <strong>Composite</strong> = Structural 40% + Market 35% + Contagion 25%, the
+          spec&apos;s own §90 base weighting applied verbatim.
+        </p>
+        <p className="mb-2">
+          <strong>Crisis Stage</strong> compresses the spec&apos;s eight named stages (§92) into this
+          app&apos;s standard 7-stage convention — the spec&apos;s separate &ldquo;Capital Stress&rdquo;
+          stage is folded into &ldquo;Banking Crisis&rdquo; since there is no bank-level
+          capital-depletion waterfall to distinguish the two meaningfully. Hidden Banking Risk
+          (structural elevated, market still calm) and Market Warning (market deteriorating well ahead
+          of structural) are genuinely computed flags that promote a country&apos;s stage floor, the
+          same pattern already used for G7 Debt. Stage 7 (Systemic Contagion) is reserved for the
+          cross-country composite only, when a large share of ALL nine countries are simultaneously at
+          Stage 6+ — never assigned to a single country in isolation.
+        </p>
+        <p>
+          <strong>Explicitly not built</strong>, checked and disclosed rather than faked: the entire
+          bank-level layer (individual G-SIB/D-SIB tracking, CET1/LCR/NSFR, Stage-2 migration, deposit
+          concentration, derivatives notional), deposit/uninsured-deposit/deposit-velocity tracking (no
+          free per-country source), CRE-refinancing-wall and mortgage-payment-shock simulators (need
+          loan-maturity-schedule data no free source publishes), sovereign-bank/property-bank/
+          corporate-bank feedback-loop SIMULATION (the underlying series exist and are noted
+          conceptually, but no forward simulation runs), an interactive bank contagion network graph, a
+          full stress-scenario library with deposit-outflow/wholesale-funding/collateral-haircut
+          ladders, historical backtesting with lead-time analysis, and a daily report/AI Q&amp;A layer.
+          None of these show fabricated values — every score and figure that is built is real.
         </p>
       </section>
 

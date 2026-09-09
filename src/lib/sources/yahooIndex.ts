@@ -52,6 +52,29 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   // stablecoin peg/supply, which Yahoo doesn't publish.
   { metricKey: "crypto.btc_price_usd", symbol: "BTC-USD", unit: "USD", range: "5y" },
   { metricKey: "crypto.eth_price_usd", symbol: "ETH-USD", unit: "USD", range: "5y" },
+  // Banking Systemic Risk engine (bankingSystemicRisk.ts) — Market Stress
+  // domain. No free source publishes bank CDS or a uniform cross-country
+  // bank-equity-sector index API, so this is the free next-best: a broad
+  // bank-sector index/ETF where one exists, a single large representative
+  // bank's equity where it doesn't. All seven verified live with fresh
+  // (multi-week, current) daily bars before being added; two rejected
+  // candidates are noted per-country below since they LOOKED plausible but
+  // returned zero recent bars when actually checked.
+  { metricKey: "banking.equity_us", symbol: "^BKX", unit: "index" }, // KBW Nasdaq Bank Index
+  // Europe (proxy for the Eurozone G7 members Germany/France/Italy):
+  // EURO STOXX Banks (^SX7E) returned zero bars in the last month when
+  // checked — dead on Yahoo despite resolving — so this uses the iShares
+  // STOXX Europe 600 Banks UCITS ETF instead, a broader (not Eurozone-only)
+  // but genuinely live European bank-sector proxy.
+  { metricKey: "banking.equity_europe", symbol: "EXV1.DE", unit: "EUR" },
+  // UK: FTSE 350 Banks (^NMX8350) also returned zero recent bars when
+  // checked — Barclays, a large UK G-SIB, is used as a single-bank proxy
+  // instead (disclosed as such, not presented as a broad index).
+  { metricKey: "banking.equity_uk", symbol: "BARC.L", unit: "GBp" },
+  { metricKey: "banking.equity_japan", symbol: "1631.T", unit: "JPY" }, // NEXT FUNDS TOPIX-17 Banks ETF
+  { metricKey: "banking.equity_canada", symbol: "ZEB.TO", unit: "CAD" }, // BMO Equal Weight Banks Index ETF
+  { metricKey: "banking.equity_china", symbol: "3988.HK", unit: "HKD" }, // ICBC — single large-bank proxy, no free China bank-sector index found live
+  { metricKey: "banking.equity_india", symbol: "^NSEBANK", unit: "index" }, // Nifty Bank Index
 ];
 
 type ChartResponse = {
