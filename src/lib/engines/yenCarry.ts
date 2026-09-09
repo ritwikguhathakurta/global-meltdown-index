@@ -1,21 +1,8 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { stdev, subtractSeriesByDate } from "../metrics/stats";
+import { subtractSeriesByDate, realizedVolAnnualized } from "../metrics/stats";
 import type { Point } from "../metrics/stats";
-
-function realizedVolAnnualized(series: Point[], window = 20): number | null {
-  const sorted = [...series].sort((a, b) => (a.t < b.t ? -1 : 1));
-  if (sorted.length < window + 1) return null;
-  const tail = sorted.slice(-window - 1);
-  const rets: number[] = [];
-  for (let i = 1; i < tail.length; i++) {
-    if (tail[i - 1].v === 0) continue;
-    rets.push(Math.log(tail[i].v / tail[i - 1].v));
-  }
-  const sd = stdev(rets);
-  return Number.isNaN(sd) ? null : sd * Math.sqrt(252) * 100;
-}
 
 export async function runYenCarryEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
   const [usdjpy, audjpy, nzdjpy, us10y, jp10y, cotNet] = await Promise.all([

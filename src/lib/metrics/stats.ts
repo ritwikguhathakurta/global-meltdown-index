@@ -204,3 +204,41 @@ export function rollingSum(points: Point[], window: number): Point[] {
 export function daysSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 86400000;
 }
+
+/** Annualized realized volatility (%) of the most recent `window` daily log returns. */
+export function realizedVolAnnualized(points: Point[], window = 20): number | null {
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  if (sorted.length < window + 1) return null;
+  const tail = sorted.slice(-window - 1);
+  const rets: number[] = [];
+  for (let i = 1; i < tail.length; i++) {
+    if (tail[i - 1].v === 0) continue;
+    rets.push(Math.log(tail[i].v / tail[i - 1].v));
+  }
+  const sd = stdev(rets);
+  return Number.isNaN(sd) ? null : sd * Math.sqrt(252) * 100;
+}
+
+/**
+ * Time series of trailing-`window` annualized realized volatility, one point
+ * per trading day once enough history exists — used to find where TODAY's
+ * vol reading sits in its own historical distribution (percentileRank),
+ * rather than only knowing today's single number in isolation. Same rolling
+ * log-return/stdev math as realizedVolAnnualized, just walked forward.
+ */
+export function rollingRealizedVolSeries(points: Point[], window = 20): Point[] {
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  if (sorted.length < window + 1) return [];
+  const logRets: Point[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i - 1].v === 0) continue;
+    logRets.push({ t: sorted[i].t, v: Math.log(sorted[i].v / sorted[i - 1].v) });
+  }
+  const out: Point[] = [];
+  for (let i = window - 1; i < logRets.length; i++) {
+    const slice = logRets.slice(i - window + 1, i + 1).map((p) => p.v);
+    const sd = stdev(slice);
+    if (!Number.isNaN(sd)) out.push({ t: logRets[i].t, v: sd * Math.sqrt(252) * 100 });
+  }
+  return out;
+}

@@ -12,6 +12,25 @@ export const COT_MARKETS: CotDef[] = [
   { metricKeyPrefix: "cot.jpy", marketName: "JAPANESE YEN - CHICAGO MERCANTILE EXCHANGE" },
   { metricKeyPrefix: "cot.sp500_emini", marketName: "E-MINI S&P 500 - CHICAGO MERCANTILE EXCHANGE" },
   { metricKeyPrefix: "cot.vix_futures", marketName: "VIX FUTURES - CBOE FUTURES EXCHANGE" },
+
+  // Global Carry Trade engine — positioning for the other three funding
+  // currencies and six of the target currencies. Each market name below is
+  // the currently-reporting CME contract, verified live against the most
+  // recent report date (CFTC's dataset carries several historical/renamed
+  // variants per currency — e.g. plain "BRITISH POUND", not "BRITISH POUND
+  // STERLING", which stopped updating in 2022; "NZ DOLLAR", not "NEW ZEALAND
+  // DOLLAR"). No CFTC-reportable futures contract was found for INR, IDR,
+  // TRY, HUF, PLN, CZK or KRW — positioning is genuinely unavailable for
+  // those currencies, not estimated.
+  { metricKeyPrefix: "cot.eur", marketName: "EURO FX - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.chf", marketName: "SWISS FRANC - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.gbp", marketName: "BRITISH POUND - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.cad", marketName: "CANADIAN DOLLAR - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.aud", marketName: "AUSTRALIAN DOLLAR - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.nzd", marketName: "NZ DOLLAR - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.mxn", marketName: "MEXICAN PESO - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.brl", marketName: "BRAZILIAN REAL - CHICAGO MERCANTILE EXCHANGE" },
+  { metricKeyPrefix: "cot.zar", marketName: "SO AFRICAN RAND - CHICAGO MERCANTILE EXCHANGE" },
 ];
 
 type CotRow = {

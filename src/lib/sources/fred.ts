@@ -153,6 +153,43 @@ export const FRED_SERIES: FredSeriesDef[] = [
   // automated data collection and commercial use without written consent
   // (see rbiYieldCurve.ts and rbiLiquidity.ts for the full explanation).
   { metricKey: "india.gsec_10y", seriesId: "INDIRLTLT01STM", frequency: "monthly", unit: "%" },
+
+  // Global Carry Trade engine — funding-currency and target-currency short-term
+  // interest rates (OECD MEI "Immediate Rates: Call Money/Interbank Rate" family,
+  // or the closest live equivalent per country), needed for the interest-rate-
+  // differential leg of a carry return. All verified live and current (within
+  // the last ~3 months as of this addition) before being wired in.
+  //
+  // Funding currencies: JPY and CHF had no rate series anywhere in this project
+  // (yenCarry.ts previously used only the JGB 10Y yield as JPY's funding-cost
+  // proxy). EUR and USD already have rate.ecb_deposit_facility / rate.fed_funds_effective.
+  { metricKey: "rate.japan_interbank", seriesId: "IRSTCI01JPM156N", frequency: "monthly", unit: "%" },
+  // Switzerland's own OECD "Immediate Rate" series (IRSTCI01CHM156N) was discontinued
+  // in March 2024 (checked directly) — its 3-month interbank rate is still live.
+  { metricKey: "rate.chf_interbank_3m", seriesId: "IR3TIB01CHM156N", frequency: "monthly", unit: "%" },
+
+  // Target currencies. Checked and explicitly NOT included: New Zealand
+  // (IRSTCI01NZM156N stopped updating in Dec 2024 — stale, not current) and
+  // China (INTDSRCNM193N last observation over a year old) — both genuinely
+  // unavailable rather than backfilled with a stale reading. Thailand,
+  // Malaysia and the Philippines have no OECD MEI interbank-rate series at
+  // all for this project's purposes — checked directly, none found.
+  { metricKey: "rate.australia_interbank", seriesId: "IRSTCI01AUM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.canada_interbank", seriesId: "IRSTCI01CAM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.mexico_interbank", seriesId: "IRSTCI01MXM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.poland_interbank", seriesId: "IRSTCI01PLM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.hungary_interbank", seriesId: "IRSTCI01HUM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.south_africa_interbank", seriesId: "IRSTCI01ZAM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.india_interbank", seriesId: "IRSTCI01INM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.indonesia_interbank", seriesId: "IRSTCI01IDM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.czech_interbank", seriesId: "IRSTCI01CZM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.korea_interbank", seriesId: "IRSTCI01KRM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.turkey_interbank", seriesId: "IRSTCI01TRM156N", frequency: "monthly", unit: "%" },
+  // Brazil: OECD's own "Immediate Rate" series does not cover Brazil (not an
+  // OECD member) — the closest live FRED series is the central bank's
+  // discount rate, a distinct facility from the primary Selic policy rate and
+  // disclosed as such everywhere it's displayed, not presented as Selic.
+  { metricKey: "rate.brazil_discount", seriesId: "INTDSRBRM193N", frequency: "monthly", unit: "%" },
 ];
 
 export async function fetchFredSeries(

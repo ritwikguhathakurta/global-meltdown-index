@@ -4,7 +4,7 @@ import { signOut } from "@/app/login/actions";
 
 const LINKS = [
   { href: "/dashboard", label: "Global Risk" },
-  { href: "/dashboard/yen-carry", label: "Yen Carry" },
+  { href: "/dashboard/yen-carry", label: "Carry Trade" },
   { href: "/dashboard/liquidity", label: "Liquidity" },
   { href: "/dashboard/credit", label: "Credit" },
   { href: "/dashboard/treasury", label: "Treasury" },

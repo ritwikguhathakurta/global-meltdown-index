@@ -43,6 +43,10 @@ export default function MethodologyPage() {
           page (three scores per country, a 7-stage crisis model) sits alongside the Treasury engine rather
           than replacing or double-counting it — see{" "}
           <a href="#g7-sovereign-debt" className="text-accent hover:underline">G7 Sovereign Debt</a>{" "}
+          below. Likewise, a broader Global Carry Trade Risk page (4 funding currencies x 17 target
+          currencies, a fragility score and 7-stage crisis model per pair) sits alongside the
+          existing Yen Carry Stress engine rather than replacing or double-counting it — see{" "}
+          <a href="#global-carry-trade" className="text-accent hover:underline">Global Carry Trade</a>{" "}
           below.
           None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
           Two further engines beyond the original 24-engine spec were added on request — India Liquidity and
@@ -269,6 +273,89 @@ export default function MethodologyPage() {
           with lead-time analysis; and a daily G7 debt report with an AI Q&amp;A layer. None of these
           show fabricated values — every score and figure that is built is real, and the rest simply
           isn&apos;t on the page yet.
+        </p>
+      </section>
+
+      <section className="mb-8" id="global-carry-trade">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Global Carry Trade Risk — broadening yen carry, built against a 97-section spec
+        </h2>
+        <p className="mb-2">
+          A separate institutional spec (&ldquo;Global Carry Trade Systemic Risk Engine&rdquo;) asked
+          for FX/bond/EM/credit/volatility/commodity/crypto carry tracking across a configurable
+          funding/target-currency universe, forward-implied and covered-vs-uncovered carry, options
+          positioning and skew, cross-currency basis, a leverage/margin-call engine, a
+          funding-to-liquidation network simulation, historical backtesting to 1997, a daily report
+          and an AI Q&amp;A layer, and a user-facing P&amp;L simulator. Checked component by component
+          the same way the EM Debt and G7 Debt specs were: what free, verified data genuinely
+          supports across a broad currency set is built at{" "}
+          <a href="/dashboard/yen-carry" className="text-accent hover:underline">/dashboard/yen-carry</a>
+          , now titled &ldquo;Global Carry Trade Risk&rdquo;; everything else is disclosed below as
+          deferred, not faked.
+        </p>
+        <p className="mb-2">
+          This deliberately does <strong>not</strong> change the existing GFMI-weighted
+          &ldquo;Yen Carry Stress&rdquo; engine or add a second GFMI vote — that composite (JPY
+          crosses, the US-Japan yield spread, CFTC JPY positioning) is unchanged and still shown at
+          the top of the page. The new content below it is a broader, separate analytical layer.
+        </p>
+        <p className="mb-2">
+          <strong>Universe</strong>: 4 funding currencies (JPY, CHF, EUR, USD — the spec&apos;s own
+          explicit list) crossed with 17 target currencies (AUD, NZD, CAD, GBP, MXN, BRL, ZAR, INR,
+          IDR, TRY, PLN, HUF, CZK, KRW, CNY, THB, MYR, PHP). The spec&apos;s CLP/COP are not covered —
+          no free daily FX source publishes either (checked: the ECB does not quote a reference rate
+          for Chilean or Colombian pesos). Funding currencies are never treated as targets of each
+          other (e.g. a JPY-funded EUR trade) — a disclosed scoping simplification, not a data gap.
+        </p>
+        <p className="mb-2">
+          <strong>Carry Return</strong> (uncovered/unhedged only — the spec&apos;s own covered-interest-
+          parity split needs live forward FX pricing, which has no free source) is the rate
+          differential (each currency&apos;s own short-term interbank/policy rate — OECD MEI
+          &ldquo;Immediate Rates&rdquo; series via FRED, or the closest live equivalent; New Zealand
+          and China&apos;s own series are stale, Thailand/Malaysia/the Philippines have none, and
+          Brazil&apos;s is a discount-rate proxy rather than the primary Selic policy rate, disclosed
+          per-row) plus the realized FX return from ECB/Frankfurter daily reference rates, both
+          annualized over a trailing ~1 year. Roll/forward effects, hedging cost and transaction costs
+          are not modeled — a real but incomplete uncovered-carry proxy, disclosed as such.
+        </p>
+        <p className="mb-2">
+          <strong>Volatility</strong> is 20-day annualized realized volatility of the funding/target
+          cross rate, converted to a historical percentile (never a fixed threshold shared across
+          currencies, per the spec&apos;s own instruction) and bucketed into the spec&apos;s six
+          vol-regime labels. <strong>Positioning</strong> is CFTC Commitments of Traders net
+          non-commercial position (% of open interest) — JPY, CHF, EUR, GBP, CAD, AUD, NZD, MXN, BRL
+          and ZAR have an actively-reporting CME futures contract (several historical/renamed CFTC
+          series per currency were checked and rejected as stale); USD and the remaining ten target
+          currencies have no CFTC-reportable contract at all and are genuinely marked unavailable, not
+          estimated.
+        </p>
+        <p className="mb-2">
+          <strong>Carry Fragility</strong> (0-100, the spec&apos;s own &ldquo;carry trap&rdquo;
+          concept — carry stays attractive while volatility is unusually low and positioning is
+          crowded) blends positioning crowding, inverted volatility percentile (low current vol
+          relative to its own history raises the score) and the funding currency&apos;s own recent
+          trend, renormalized across whichever are available. <strong>Crisis Stage</strong> (the
+          spec&apos;s own 7-stage &ldquo;Normal → Carry Building → Crowding → Fragility → Unwind
+          Beginning → Forced Deleveraging → Systemic Contagion&rdquo; model) uses Fragility&apos;s own
+          score bands for Stages 1-4; Stage 5 additionally requires a genuinely detected funding-
+          currency reversal combined with already-elevated volatility at the same time (the spec&apos;s
+          own §29 combination), and Stage 6 additionally requires the realized carry to have actually
+          gone negative by more than the pair&apos;s own annual carry. Stage 7 is reserved for the
+          cross-pair composite only, when a large share of ALL tracked pairs are simultaneously at
+          Stage 5+ (the spec&apos;s own &ldquo;carry unwind breadth&rdquo; concept) — never assigned to
+          a single pair in isolation.
+        </p>
+        <p>
+          <strong>Explicitly not built</strong>, checked and disclosed rather than faked:
+          forward-implied/covered carry (needs live forward FX pricing), cross-currency basis, FX
+          options positioning/skew/risk-reversals, real (inflation-adjusted) carry for every target
+          country (would need a live CPI series per target, not attempted this pass), leveraged-fund/
+          dealer/hedge-fund positioning beyond the CFTC non-commercial proxy, bond/credit/volatility-
+          selling/commodity/crypto carry as separately-modeled engines, a funding-to-margin-to-
+          liquidation network simulation across banks/NBFIs/hedge funds, historical backtesting
+          against 1997-2026 carry episodes with lead-time analysis, a daily report and AI Q&amp;A
+          layer, and a user-facing P&amp;L scenario simulator. None of these show fabricated values —
+          every score and figure that is built is real, and the rest simply isn&apos;t on the page yet.
         </p>
       </section>
 

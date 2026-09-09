@@ -15,7 +15,7 @@ import type { MetricPoint } from "../metrics/store";
 type Rates = {
   JPY: number; AUD: number; NZD: number; INR: number; BRL: number; ZAR: number; MXN: number; CNY: number;
   TRY: number; IDR: number; PHP: number; PLN: number; HUF: number; CZK: number; THB: number; MYR: number; KRW: number;
-  EUR: number; GBP: number; CAD: number;
+  EUR: number; GBP: number; CAD: number; CHF: number;
 };
 
 const CROSS_DEFS: { metricKey: string; unit: string; compute: (r: Rates) => number }[] = [
@@ -27,6 +27,11 @@ const CROSS_DEFS: { metricKey: string; unit: string; compute: (r: Rates) => numb
   { metricKey: "fx.usdeur", unit: "EUR", compute: (r) => r.EUR },
   { metricKey: "fx.usdgbp", unit: "GBP", compute: (r) => r.GBP },
   { metricKey: "fx.usdcad", unit: "CAD", compute: (r) => r.CAD },
+  // Global Carry Trade engine — CHF as a funding currency; AUD and NZD as
+  // standalone targets (previously only derived as the AUDJPY/NZDJPY crosses above)
+  { metricKey: "fx.usdchf", unit: "CHF", compute: (r) => r.CHF },
+  { metricKey: "fx.usdaud", unit: "AUD", compute: (r) => r.AUD },
+  { metricKey: "fx.usdnzd", unit: "NZD", compute: (r) => r.NZD },
   // EM Debt / China engines — direct USD-quoted rates, no cross computation needed
   { metricKey: "fx.usdbrl", unit: "BRL", compute: (r) => r.BRL },
   { metricKey: "fx.usdzar", unit: "ZAR", compute: (r) => r.ZAR },
@@ -52,7 +57,7 @@ type RangeResponse = {
   rates: Record<string, Partial<Rates>>;
 };
 
-const SYMBOLS = "JPY,AUD,NZD,INR,BRL,ZAR,MXN,CNY,TRY,IDR,PHP,PLN,HUF,CZK,THB,MYR,KRW,EUR,GBP,CAD";
+const SYMBOLS = "JPY,AUD,NZD,INR,BRL,ZAR,MXN,CNY,TRY,IDR,PHP,PLN,HUF,CZK,THB,MYR,KRW,EUR,GBP,CAD,CHF";
 
 export async function fetchFxCrossSeries(sinceIso: string): Promise<MetricPoint[]> {
   const since = sinceIso.slice(0, 10);
@@ -68,7 +73,7 @@ export async function fetchFxCrossSeries(sinceIso: string): Promise<MetricPoint[
       r.BRL === undefined || r.ZAR === undefined || r.MXN === undefined || r.CNY === undefined ||
       r.TRY === undefined || r.IDR === undefined || r.PHP === undefined || r.PLN === undefined ||
       r.HUF === undefined || r.CZK === undefined || r.THB === undefined || r.MYR === undefined || r.KRW === undefined ||
-      r.EUR === undefined || r.GBP === undefined || r.CAD === undefined
+      r.EUR === undefined || r.GBP === undefined || r.CAD === undefined || r.CHF === undefined
     ) continue;
     for (const def of CROSS_DEFS) {
       points.push({
