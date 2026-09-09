@@ -28,9 +28,15 @@ import { lookbackDaysFor } from "../metrics/lookback";
  *   found to pair with the uncollateralized overnight call rate (BOJ's
  *   MD07/"Reserves" database doesn't publish one as its own series) — so
  *   Japan is classified on the call rate's own level trend instead.
- * - PBOC (China): already a rate-side-only proxy elsewhere in this project
- *   (no free PBOC balance-sheet/reserve-money series exists) — classified
- *   on its 3-month interbank rate's own level trend.
+ * - PBOC (China): classified on its 3-month interbank rate's own level
+ *   trend, the same rate-side proxy used elsewhere in this project (no free
+ *   PBOC policy-rate/target-rate series exists to form a spread against it,
+ *   the same limitation Japan has). Its Balance Sheet column is no longer
+ *   empty, though: China's monthly Official Reserve Assets minus Gold
+ *   (IMF-compiled via FRED, gap-filled forward each month by SAFE's own
+ *   fresher release — see chinaFxReserves.ts) is shown as real context, the
+ *   same "shown, not used for classification" role Japan's own balance
+ *   sheet plays below.
  *
  * IMPORTANT: every regime label here is relative to that SAME bank's own
  * trailing ~1-year z-score, not a universal absolute threshold shared
@@ -231,7 +237,7 @@ function levelRow(
 }
 
 export async function getCentralBankLiquidityTable(db: SupabaseClient): Promise<CentralBankLiquidityRow[]> {
-  const [fedBS, iorb, sofr, ukReserves, sonia, bankRate, ecbBS, estr, dfr, bojBS, callRate, bocAssets, corra, target, chinaRate] =
+  const [fedBS, iorb, sofr, ukReserves, sonia, bankRate, ecbBS, estr, dfr, bojBS, callRate, bocAssets, corra, target, chinaRate, chinaReservesExGold] =
     await Promise.all([
       loadSeries(db, "liquidity.fed_reserve_balances", "weekly"),
       loadSeries(db, "rate.us_iorb"),
@@ -248,6 +254,7 @@ export async function getCentralBankLiquidityTable(db: SupabaseClient): Promise<
       loadSeries(db, "rate.canada_corra"),
       loadSeries(db, "rate.canada_target"),
       loadSeries(db, "china.interbank_rate_3m", "monthly"),
+      loadSeries(db, "liquidity.china_reserves_ex_gold", "monthly"),
     ]);
 
   return [
@@ -256,6 +263,6 @@ export async function getCentralBankLiquidityTable(db: SupabaseClient): Promise<
     spreadRow("European Central Bank", "Balance Sheet", ecbBS, "EUR mm", "€STR − Deposit Facility Rate", estr, dfr),
     spreadRow("Bank of Canada", "Total Assets", bocAssets, "CAD mm", "CORRA − Target Rate", corra, target),
     levelRow("Bank of Japan", "Balance Sheet (monthly)", bojBS, "JPY bn", "O/N Call Rate (level, no free target-rate series to pair it with)", "%", callRate),
-    levelRow("PBOC (China)", "No free balance-sheet/reserve-money series found", [], "", "3M Interbank Rate (level, rate-side proxy only)", "%", chinaRate),
+    levelRow("PBOC (China)", "Official Reserves ex-Gold (SAFE/FRED)", chinaReservesExGold, "USD mm", "3M Interbank Rate (level, rate-side proxy)", "%", chinaRate),
   ];
 }

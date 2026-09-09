@@ -17,14 +17,17 @@ import { subtractSeriesByDate } from "../metrics/stats";
  * - Germany/France/Italy: already covered by the ECB balance sheet (there
  *   is no separate national central-bank balance sheet distinct from the
  *   consolidated Eurosystem one — the ECB figure IS their liquidity input).
- * - China: no free, verified PBOC total-assets or reserve-money series was
- *   found (checked pbc.gov.cn's own statistics pages directly) — so China's
- *   funding-rate proxy already tracked elsewhere in this project (the
- *   3-month SHIBOR-equivalent interbank rate) is reused here as China's
- *   liquidity signal, the same role SOFR and the ECB deposit rate play for
- *   the US and Eurozone respectively. This is a rate-side, not
- *   balance-sheet-side, proxy for China — disclosed as such, not papered
- *   over as equivalent to the others.
+ * - China: no free, verified PBOC total-assets series was found (checked
+ *   pbc.gov.cn's own statistics pages directly), but a genuine
+ *   balance-sheet-side quantity now feeds this engine instead of leaving
+ *   that side empty: China's monthly Official Reserve Assets (Total minus
+ *   Gold), IMF-compiled via FRED for deep history and gap-filled forward
+ *   each month by SAFE's own fresher release under the identical definition
+ *   — see chinaFxReserves.ts. The 3-month interbank rate (the same rate-side
+ *   proxy SOFR and the ECB deposit rate play for the US and Eurozone) is
+ *   kept alongside it, not replaced by it — one is a quantity signal, the
+ *   other a price signal, the same complementary pairing every other G7
+ *   central bank already gets in this engine.
  *
  * Money-market-rate-vs-policy-rate spreads (SOFR-IORB, SONIA-Bank Rate,
  * CORRA-Target, €STR-Deposit Facility Rate) were added on top of the
@@ -45,7 +48,7 @@ import { subtractSeriesByDate } from "../metrics/stats";
 export async function runGlobalLiquidityEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
   const [
     dxy, sofr, fedBS, rrp, tga, m2, nfci, ecbBS, bojBS, ecbRate,
-    ukReserves, canadaAssets, chinaRate,
+    ukReserves, canadaAssets, chinaRate, chinaReservesExGold,
     iorb, fedReserves, sonia, bankRate, estr, corra, target, callRate,
   ] = await Promise.all([
     buildIndicator(ctx.db, "fx.dxy_broad", "Broad Dollar Index (DXY proxy)", "coincident", "daily", "index"),
@@ -61,6 +64,7 @@ export async function runGlobalLiquidityEngine(ctx: EngineContext, horizon: Hori
     buildIndicator(ctx.db, "liquidity.uk_boe_reserves", "BoE Reserve Balances (UK)", "leading", "weekly", "GBP mm"),
     buildIndicator(ctx.db, "liquidity.canada_boc_assets", "BoC Total Assets (Canada)", "leading", "weekly", "CAD mm"),
     buildIndicator(ctx.db, "china.interbank_rate_3m", "China 3M Interbank Rate (liquidity proxy)", "coincident", "monthly", "%"),
+    buildIndicator(ctx.db, "liquidity.china_reserves_ex_gold", "China Official Reserves ex-Gold (SAFE/FRED, PBOC balance-sheet proxy)", "leading", "monthly", "USD mm"),
     buildIndicator(ctx.db, "rate.us_iorb", "US Interest on Reserve Balances (IORB)", "coincident", "daily", "%"),
     buildIndicator(ctx.db, "liquidity.fed_reserve_balances", "Fed Reserve Balances (WRESBAL)", "leading", "weekly", "USD mm"),
     buildIndicator(ctx.db, "rate.uk_sonia", "SONIA (UK)", "coincident", "daily", "%"),
@@ -95,6 +99,7 @@ export async function runGlobalLiquidityEngine(ctx: EngineContext, horizon: Hori
       { ref: ukReserves.ref, series: ukReserves.series, weight: 0.5, zDirection: -1 },
       { ref: canadaAssets.ref, series: canadaAssets.series, weight: 0.4, zDirection: -1 },
       { ref: chinaRate.ref, series: chinaRate.series, weight: 0.5, zDirection: 1 },
+      { ref: chinaReservesExGold.ref, series: chinaReservesExGold.series, weight: 0.5, zDirection: -1 },
       { ref: fedReserves.ref, series: fedReserves.series, weight: 0.9, zDirection: -1 },
       { ref: callRate.ref, series: callRate.series, weight: 0.4, zDirection: 1 },
       {
@@ -143,10 +148,10 @@ export async function runGlobalLiquidityEngine(ctx: EngineContext, horizon: Hori
       "None of the four tracked money-market-rate-vs-policy-rate spreads have moved persistently positive/wide",
     ],
     contradictoryEvidence: [
-      "China's input here is a money-market rate (3M interbank), not a PBOC balance-sheet/reserve-money figure — no free, verified source for the latter was found — so a PBOC balance-sheet-driven liquidity shift could occur without moving this engine's China signal.",
+      "China's balance-sheet-side input (Official Reserves ex-Gold) is a reserves quantity, not PBOC's own total-assets figure — no free source for the latter was found — so a PBOC liquidity operation that doesn't move FX reserves (e.g. a pure RRR cut) could occur without moving this specific China signal.",
       "Japan's uncollateralized overnight call rate is tracked on its own level trend, not a spread — no free daily BOJ policy/target-rate series was found to pair it with, unlike the other four rate pairs.",
     ],
-    methodologyVersion: "v0.3-freedata-ample-reserves-spreads",
+    methodologyVersion: "v0.4-china-reserves-ex-gold",
   });
 
   return result;

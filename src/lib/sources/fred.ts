@@ -88,6 +88,13 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "china.imports_cny", seriesId: "XTIMVA01CNM667S", frequency: "monthly", unit: "CNY" },
   { metricKey: "china.cpi_index", seriesId: "CHNCPIALLMINMEI", frequency: "monthly", unit: "index" },
   { metricKey: "china.interbank_rate_3m", seriesId: "IR3TIB01CNM156N", frequency: "monthly", unit: "%" },
+  // Global Liquidity engine — a genuine PBOC-adjacent balance-sheet-side
+  // quantity for China (previously only had the interbank rate above, a
+  // rate-side proxy). IMF-compiled via FRED, ~2-3 month publication lag;
+  // gap-filled forward each month by SAFE's own fresher (~1-month lag)
+  // release under the exact same "excluding gold" definition — see
+  // chinaFxReserves.ts.
+  { metricKey: "liquidity.china_reserves_ex_gold", seriesId: "TRESEGCNM052N", frequency: "monthly", unit: "USD mm" },
   { metricKey: "property.hpi_real_china", seriesId: "QCNR628BIS", frequency: "quarterly", unit: "index_2010_100" },
   { metricKey: "credit.asia_em_oas", seriesId: "BAMLEMRACRPIASIAOAS", frequency: "daily", unit: "%" },
 

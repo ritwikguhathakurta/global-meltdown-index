@@ -36,6 +36,7 @@ const SOURCE_TIER_BY_KEY: Record<string, number> = {
   mof_japan: 1,
   world_bank: 1,
   damodaran_nyu: 2,
+  safe_gov_cn: 1,
 };
 
 export async function buildIndicator(
@@ -114,6 +115,13 @@ function guessSourceKey(metricKey: string): string {
   // mislabeled.
   if (metricKey === "fx.dxy_broad") return "fred";
   if (metricKey.startsWith("fx.")) return "frankfurter";
+  if (metricKey === "china.fx_reserves_usd") return "safe_gov_cn";
+  // Primarily FRED (deep history); SAFE gap-fills only the most recent
+  // month or two under the identical "excluding gold" definition — see
+  // chinaFxReserves.ts. This single-key attribution is the same
+  // simplification already used for every other gap-filled metric key in
+  // this project (e.g. emdebt.*.govt_debt_to_gdp).
+  if (metricKey === "liquidity.china_reserves_ex_gold") return "fred";
   if (YAHOO_FALLBACK_KEYS.has(metricKey)) return "yahoo_finance";
   if (metricKey.startsWith("cot.")) return "cftc_cot";
   if (metricKey === "supplychain.gscpi") return "ny_fed_gscpi";

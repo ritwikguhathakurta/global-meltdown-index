@@ -519,13 +519,20 @@ export default function MethodologyPage() {
           here is their liquidity input.
         </p>
         <p className="mb-2">
-          <strong>China</strong> is honestly a rate-side, not balance-sheet-side, proxy: no free, verified
-          PBOC total-assets or reserve-money series was found (checked pbc.gov.cn&apos;s own statistics
-          pages directly — its monthly English-language Financial Statistics Reports cover Total Social
-          Financing and RMB loans, not a balance-sheet total). China&apos;s 3-month interbank rate
-          (already tracked elsewhere in this project as a funding-stress proxy) is reused here instead,
-          playing the same role SOFR and the ECB deposit rate play for the US and Eurozone — a real signal,
-          just not the same *kind* of signal as the balance-sheet series used for the rest of G7.
+          <strong>China</strong> now has a genuine balance-sheet-side quantity, not just a rate-side
+          proxy: no free, verified PBOC total-assets series was found (checked pbc.gov.cn&apos;s own
+          statistics pages directly — its monthly English-language Financial Statistics Reports cover
+          Total Social Financing and RMB loans, not a balance-sheet total), but China&apos;s monthly
+          Official Reserve Assets minus Gold is a real, free, verified quantity — IMF-compiled via
+          FRED (series TRESEGCNM052N, &ldquo;Total Reserves excluding Gold for China&rdquo;) for deep
+          history, gap-filled forward each month by SAFE&apos;s (State Administration of Foreign
+          Exchange) own fresher release under the identical definition once FRED&apos;s own ~2-3 month
+          lag falls behind. Verified directly: SAFE&apos;s own August 2026 ex-gold figure (~$3.50T)
+          lines up with FRED&apos;s June 2026 reading (~$3.48T) for the same underlying concept. FX
+          reserves have historically been the dominant driver of PBOC balance-sheet size, making this a
+          genuine (if partial — it excludes RMB-denominated domestic assets) balance-sheet-side signal,
+          shown alongside (not replacing) China&apos;s 3-month interbank rate, the same rate-side role
+          SOFR and the ECB deposit rate play for the US and Eurozone.
         </p>
         <p>
           <strong>India Liquidity is a new, separate tab</strong> — deliberately not folded into India
@@ -578,9 +585,12 @@ export default function MethodologyPage() {
           overnight call rate&apos;s own level trend — sourced from BOJ&apos;s own new (launched
           February 2026) public Time-Series Data Search API, series STRDCLUCON, free and
           key-less — since no free daily BOJ policy/target-rate time series was found to pair it
-          with for a spread. <strong>PBOC (China)</strong> stays the rate-only proxy already used
-          elsewhere in this project (its 3-month interbank rate), for the same reason no free
-          PBOC balance-sheet series exists.
+          with for a spread. <strong>PBOC (China)</strong> is likewise classified on its 3-month
+          interbank rate&apos;s own level trend, for the same reason (no free PBOC policy/target-rate
+          series exists to pair it with) — but its Balance Sheet column is no longer empty: China&apos;s
+          Official Reserve Assets minus Gold (FRED, gap-filled by SAFE — see &ldquo;Global Liquidity:
+          G7+China&rdquo; above) is shown as real context, the same &ldquo;shown, not used for
+          classification&rdquo; role Japan&apos;s own balance sheet plays in this table.
         </p>
         <p>
           Every regime label is relative to that <strong>same</strong> bank&apos;s own trailing
