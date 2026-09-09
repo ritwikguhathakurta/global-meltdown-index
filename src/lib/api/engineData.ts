@@ -4,6 +4,7 @@ import { computeIndiaSeasonalNotes } from "@/lib/engines/indiaSeasonality";
 import { getCentralBankLiquidityTable as computeCentralBankLiquidityTable, type CentralBankLiquidityRow } from "@/lib/engines/liquidityRegime";
 import { getCountryCreditTable as computeCountryCreditTable, type CountryCreditRow } from "@/lib/engines/creditRegime";
 import { getCountryEmDebtTable as computeCountryEmDebtTable, type CountryEmDebtRow } from "@/lib/engines/emDebtRegime";
+import { getCountryG7DebtTable as computeCountryG7DebtTable, getG7CompositeScore, type CountryG7DebtRow, type G7CrisisStageDef } from "@/lib/engines/g7DebtRegime";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -178,6 +179,20 @@ export async function getCountryEmDebtTable(): Promise<CountryEmDebtRow[]> {
   } catch (e) {
     console.error((e as Error).message);
     return [];
+  }
+}
+
+export async function getG7DebtTable(): Promise<{ rows: CountryG7DebtRow[]; composite: { score: number | null; stage: G7CrisisStageDef | null } }> {
+  const empty = { rows: [] as CountryG7DebtRow[], composite: { score: null, stage: null } };
+  if (!isSupabaseConfigured) return empty;
+  try {
+    const db = await createServerSupabase();
+    const rows = await computeCountryG7DebtTable(db);
+    const composite = await getG7CompositeScore(db, rows);
+    return { rows, composite };
+  } catch (e) {
+    console.error((e as Error).message);
+    return empty;
   }
 }
 

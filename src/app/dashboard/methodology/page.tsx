@@ -39,7 +39,11 @@ export default function MethodologyPage() {
           no free source publishes the equity-investment/purchase-commitment/SPV web it asks for, so
           building it would mean guessing at exactly the kind of relationship the spec warns against.
           Also not yet implemented: a standalone Central-Bank Policy composite (needs the
-          hawkish/dovish NLP classifier, deferred — see README).
+          hawkish/dovish NLP classifier, deferred — see README). A separate G7 Sovereign Debt deep-dive
+          page (three scores per country, a 7-stage crisis model) sits alongside the Treasury engine rather
+          than replacing or double-counting it — see{" "}
+          <a href="#g7-sovereign-debt" className="text-accent hover:underline">G7 Sovereign Debt</a>{" "}
+          below.
           None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
           Two further engines beyond the original 24-engine spec were added on request — India Liquidity and
           India Yield Curve, both India-specific reads distinct from India Market Regime — see{" "}
@@ -159,11 +163,12 @@ export default function MethodologyPage() {
           annual; the US&apos;s own quarterly figure) are official national-accounts statistics that take
           governments and the IMF/OECD 1-2+ years to finalize, checked directly against FRED&apos;s own
           latest-observation metadata for all seven series, confirming each one already holds the newest
-          figure that source has ever published. There is nothing fresher being missed. IMF&apos;s own
-          World Economic Outlook database, the only plausible source with a shorter lag, sits behind an
-          Akamai bot-mitigation block that returned an explicit &ldquo;Access Denied&rdquo; to a plain,
-          correctly-formed request, the same category of technical block this project already declines to
-          solve for RBI&apos;s Weekly Statistical Supplement (Imperva/TSPD).
+          figure that source has ever published. There is nothing fresher being missed. (An earlier version
+          of this note said IMF&apos;s own World Economic Outlook database sat behind an Akamai
+          bot-mitigation block — that was true of the old <code>data.imf.org</code> web front end, but
+          IMF&apos;s separate SDMX API at <code>api.imf.org</code> is genuinely free and unblocked, and is
+          now used directly for the France/G7 fiscal data below and the EM Debt engine&apos;s own gap
+          fillers — see the next section and imfFiscalGaps.ts.)
         </p>
         <p>
           Making every Treasury indicator show LIVE or RECENT at all times is not achievable without either
@@ -171,6 +176,75 @@ export default function MethodologyPage() {
           until a genuinely 2-year-old debt/GDP figure reads as fresh, both would misrepresent what the data
           actually is. STALE on this tab is the system telling the truth about a real-world reporting lag,
           not a broken feed.
+        </p>
+      </section>
+
+      <section className="mb-8" id="g7-sovereign-debt">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          G7 Sovereign Debt — a deeper per-country breakdown, built against a 106-section spec
+        </h2>
+        <p className="mb-2">
+          A separate, much more detailed institutional spec (&ldquo;G7 Sovereign Debt Systemic Risk
+          Engine&rdquo;) asked for a full early-warning system across the US, Japan, Germany, France,
+          Italy, the UK and Canada: three independent 0-100 scores per country (Structural Vulnerability,
+          Market Stress, Funding/Contagion), a 7-stage crisis model, an interactive contagion network,
+          PCA/factor decomposition, historical backtesting to 1992, a daily AI report and a 10-scenario
+          stress-test library. Checked component by component the same way the second EM Debt spec was:
+          what free, verified data genuinely supports is built at{" "}
+          <a href="/dashboard/g7-debt" className="text-accent hover:underline">/dashboard/g7-debt</a>;
+          everything else is disclosed below as deferred, not faked.
+        </p>
+        <p className="mb-2">
+          This deliberately does <strong>not</strong> register as a second GFMI-weighted engine. The
+          existing Treasury &amp; Sovereign engine above already covers this exact seven-country universe
+          with 10Y/30Y yields and debt/GDP, and this project&apos;s engine registry already made the
+          explicit choice to fold &ldquo;Global Sovereign Debt&rdquo; into that one engine specifically to
+          avoid counting the same underlying yield/debt signal twice in the composite — which the new
+          spec&apos;s own section 97 separately warns against doing. The G7 Debt page instead reuses that
+          engine&apos;s existing yield and debt/GDP series as inputs to the deeper three-score breakdown,
+          shown alongside (not instead of) the Treasury engine&apos;s own composite score.
+        </p>
+        <p className="mb-2">
+          <strong>Structural Vulnerability</strong> is government debt/GDP and fiscal balance/GDP,
+          cross-sectionally z-scored against the other six G7 economies (the same peer-group principle used
+          for EM Debt). Six of seven countries&apos; debt/GDP reuses the Treasury engine&apos;s existing
+          FRED-sourced series; France has none (checked directly — FRED carries no French
+          general-government-debt/GDP series at all), so France&apos;s debt/GDP comes from IMF&apos;s
+          Global Debt Database instead. Fiscal balance/GDP is new for all seven — no existing source in
+          this project tracked it for any G7 country — from IMF&apos;s World Economic Outlook database,
+          both via the free, unblocked <code>api.imf.org</code> SDMX endpoint (see above), capped to
+          observations at least one calendar year old so a multi-year-ahead WEO forecast is never ingested
+          as an observed fact.
+        </p>
+        <p className="mb-2">
+          <strong>Market Stress</strong> is each country&apos;s own 10Y-yield time-series z-score (the same
+          series already on the Treasury tab — Bundesbank/BoE/BoC/MOF daily, FRED/OECD monthly proxy for
+          Italy and France), blended for France and Italy with their own spread-to-Bund time-series
+          z-score — the standard eurozone-fragmentation gauge. Germany has no &ldquo;vs-Bund&rdquo; spread
+          since it IS the Bund; the US, UK, Japan and Canada have no natural single benchmark peer to
+          spread against, so their market score is the yield z-score alone.
+        </p>
+        <p className="mb-2">
+          <strong>Funding/Contagion</strong> is a single G7-wide breadth reading — the share of the OTHER
+          six G7 economies whose structural+market blend is already elevated (≥60) — applied identically to
+          all seven countries. This is real and computed, not fabricated, but is disclosed as a
+          simplification: it is not yet the bespoke bilateral bond-correlation/financial-exposure network
+          the spec envisions, since no free source publishes G7 cross-holdings data. The composite score is
+          a GDP-weighted blend of the seven countries&apos; vulnerability scores (World Bank GDP, the
+          spec&apos;s own requirement that the US and Japan carry more weight than smaller G7 economies),
+          not a flat seven-way average.
+        </p>
+        <p>
+          <strong>Explicitly not built</strong>, checked and disclosed rather than faked: interest-burden
+          acceleration, gross financing requirement, maturity-wall buckets, auction-level stress and
+          investor-base/central-bank-holdings tracking (no single free, uniformly-available-for-all-seven
+          source for per-country interest expense, auction results or bond ownership was verified live —
+          US Treasury Fiscal Data and Japan&apos;s MOF both publish auction results, but building seven
+          different national auction parsers is a real, large effort not attempted this pass); a PCA/
+          factor-model decomposition; an interactive sovereign-contagion network graph; historical
+          backtesting against 1992-2024 crisis episodes with lead-time analysis; and a daily G7 debt report
+          with an AI Q&amp;A layer. None of these show fabricated values — the three scores that are built
+          are real, and the rest simply isn&apos;t on the page yet.
         </p>
       </section>
 
