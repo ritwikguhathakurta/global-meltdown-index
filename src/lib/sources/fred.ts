@@ -168,12 +168,16 @@ export const FRED_SERIES: FredSeriesDef[] = [
   // in March 2024 (checked directly) — its 3-month interbank rate is still live.
   { metricKey: "rate.chf_interbank_3m", seriesId: "IR3TIB01CHM156N", frequency: "monthly", unit: "%" },
 
-  // Target currencies. Checked and explicitly NOT included: New Zealand
-  // (IRSTCI01NZM156N stopped updating in Dec 2024 — stale, not current) and
-  // China (INTDSRCNM193N last observation over a year old) — both genuinely
-  // unavailable rather than backfilled with a stale reading. Thailand,
-  // Malaysia and the Philippines have no OECD MEI interbank-rate series at
-  // all for this project's purposes — checked directly, none found.
+  // Target currencies. New Zealand and China's own OECD "Immediate Rate"
+  // series (IRSTCI01NZM156N / historical discount-rate proxies) are stale,
+  // but each has a live 3-month interbank-rate series instead — checked
+  // directly, current within the last few months. Thailand, Malaysia and
+  // the Philippines have no current free short-term rate series found at
+  // all (checked the OECD MEI "Immediate Rate"/"3M interbank" families and
+  // a general FRED series search — only stale annual bank-margin indicators
+  // exist for these three) — genuinely unavailable rather than backfilled.
+  { metricKey: "rate.new_zealand_interbank_3m", seriesId: "IR3TIB01NZM156N", frequency: "monthly", unit: "%" },
+  { metricKey: "rate.china_interbank_3m", seriesId: "IR3TIB01CNM156N", frequency: "monthly", unit: "%" },
   { metricKey: "rate.australia_interbank", seriesId: "IRSTCI01AUM156N", frequency: "monthly", unit: "%" },
   { metricKey: "rate.canada_interbank", seriesId: "IRSTCI01CAM156N", frequency: "monthly", unit: "%" },
   { metricKey: "rate.mexico_interbank", seriesId: "IRSTCI01MXM156N", frequency: "monthly", unit: "%" },

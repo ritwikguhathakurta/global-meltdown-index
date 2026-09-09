@@ -45,12 +45,16 @@ import type { Point } from "../metrics/stats";
  * implied/covered-interest-parity split needs live forward FX pricing, which
  * has no free source; disclosed as not built):
  *  - Rate differential: target country's short-term interbank/policy rate
- *    minus the funding currency's own (OECD MEI "Immediate Rates" series via
- *    FRED, or the closest live equivalent — see fred.ts for exactly which
- *    series and which countries/currencies have no free live series at all:
- *    New Zealand and China's own series are stale, Thailand/Malaysia/the
- *    Philippines have none, and Brazil's is a discount-rate proxy rather
- *    than the primary Selic policy rate, disclosed per-row as such).
+ *    minus the funding currency's own (OECD MEI "Immediate Rates"/"3-Month
+ *    Interbank Rate" family via FRED, or the closest live equivalent — see
+ *    fred.ts for exactly which series and which countries/currencies have
+ *    no free live series at all: Thailand, Malaysia and the Philippines have
+ *    none, and Brazil's is a discount-rate proxy rather than the primary
+ *    Selic policy rate, disclosed per-row as such). For those three
+ *    currencies the FX return and Carry Fragility score are still shown —
+ *    see the file-level note on the heatmap fallback below — only the rate
+ *    differential and anything derived from it (realized carry return,
+ *    carry/vol ratio, break-even move) are genuinely unavailable.
  *  - FX return: the realized percentage return, in funding-currency terms,
  *    of holding the target currency — i.e. how much the target currency
  *    strengthened or weakened against the funding currency — from ECB/
@@ -160,7 +164,7 @@ export type TargetCurrencyDef = {
 
 export const TARGET_CURRENCIES: TargetCurrencyDef[] = [
   { key: "aud", name: "Australian Dollar", code: "AUD", fxKey: "fx.usdaud", rateKey: "rate.australia_interbank", rateLabel: "Australia interbank rate", cotKey: "cot.aud" },
-  { key: "nzd", name: "New Zealand Dollar", code: "NZD", fxKey: "fx.usdnzd", rateKey: null, cotKey: "cot.nzd" },
+  { key: "nzd", name: "New Zealand Dollar", code: "NZD", fxKey: "fx.usdnzd", rateKey: "rate.new_zealand_interbank_3m", rateLabel: "New Zealand 3M interbank rate", cotKey: "cot.nzd" },
   { key: "cad", name: "Canadian Dollar", code: "CAD", fxKey: "fx.usdcad", rateKey: "rate.canada_interbank", rateLabel: "Canada interbank rate", cotKey: "cot.cad" },
   { key: "gbp", name: "British Pound", code: "GBP", fxKey: "fx.usdgbp", rateKey: "rate.uk_short_term", rateLabel: "UK interbank rate", cotKey: "cot.gbp" },
   { key: "mxn", name: "Mexican Peso", code: "MXN", fxKey: "fx.usdmxn", rateKey: "rate.mexico_interbank", rateLabel: "Mexico interbank rate", cotKey: "cot.mxn" },
@@ -176,7 +180,7 @@ export const TARGET_CURRENCIES: TargetCurrencyDef[] = [
   { key: "huf", name: "Hungarian Forint", code: "HUF", fxKey: "fx.usdhuf", rateKey: "rate.hungary_interbank", rateLabel: "Hungary interbank rate", cotKey: null },
   { key: "czk", name: "Czech Koruna", code: "CZK", fxKey: "fx.usdczk", rateKey: "rate.czech_interbank", rateLabel: "Czech interbank rate", cotKey: null },
   { key: "krw", name: "South Korean Won", code: "KRW", fxKey: "fx.usdkrw", rateKey: "rate.korea_interbank", rateLabel: "Korea interbank rate", cotKey: null },
-  { key: "cny", name: "Chinese Yuan", code: "CNY", fxKey: "fx.usdcny", rateKey: null, cotKey: null },
+  { key: "cny", name: "Chinese Yuan", code: "CNY", fxKey: "fx.usdcny", rateKey: "rate.china_interbank_3m", rateLabel: "China 3M interbank rate", cotKey: null },
   { key: "thb", name: "Thai Baht", code: "THB", fxKey: "fx.usdthb", rateKey: null, cotKey: null },
   { key: "myr", name: "Malaysian Ringgit", code: "MYR", fxKey: "fx.usdmyr", rateKey: null, cotKey: null },
   { key: "php", name: "Philippine Peso", code: "PHP", fxKey: "fx.usdphp", rateKey: null, cotKey: null },

@@ -238,7 +238,10 @@ export default async function GlobalCarryTradePage() {
         <p className="mb-3 max-w-3xl text-xs text-text-dim">
           Each cell shows the realized carry return (rate differential + FX return, trailing ~1Y,
           uncovered — no forward/hedging cost adjustment) for that funding/target pair, colored by
-          its Carry Fragility score. Hover a cell for its crisis stage.
+          its Carry Fragility score. Hover a cell for its crisis stage. THB, MYR and PHP have no free
+          live interest-rate source (checked directly — disclosed on the methodology page), so their
+          cells show FX return alone, marked with <span className="gfew-mono">≈</span> — real,
+          live data, just not the full rate-plus-FX carry figure the other columns show.
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-center text-xs">
@@ -258,14 +261,20 @@ export default async function GlobalCarryTradePage() {
                   {[...new Map(pairs.map((p) => [p.targetKey, p.targetCode])).entries()].map(([targetKey]) => {
                     const cell = pairs.find((p) => p.fundingKey === fundingKey && p.targetKey === targetKey);
                     const color = cell ? scoreColor(cell.fragilityScore) : "#5a6472";
+                    const hasFullCarry = cell?.realizedCarryReturn1y !== null && cell?.realizedCarryReturn1y !== undefined;
+                    const displayValue = cell
+                      ? hasFullCarry
+                        ? fmtPct(cell.realizedCarryReturn1y, 1)
+                        : cell.fxReturn1y !== null
+                          ? `≈${fmtPct(cell.fxReturn1y, 1)}`
+                          : "—"
+                      : "—";
+                    const tooltip = cell
+                      ? `Stage ${cell.stage ?? "—"} · ${cell.stageLabel}${hasFullCarry ? "" : " — no live rate source for this currency; figure is FX return only"}`
+                      : "No data";
                     return (
-                      <td
-                        key={targetKey}
-                        className="gfew-mono px-2 py-2"
-                        style={{ color }}
-                        title={cell ? `Stage ${cell.stage ?? "—"} · ${cell.stageLabel}` : "No data"}
-                      >
-                        {cell ? fmtPct(cell.realizedCarryReturn1y, 1) : "—"}
+                      <td key={targetKey} className="gfew-mono px-2 py-2" style={{ color }} title={tooltip}>
+                        {displayValue}
                       </td>
                     );
                   })}

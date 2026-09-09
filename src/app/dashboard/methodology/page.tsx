@@ -311,12 +311,16 @@ export default function MethodologyPage() {
           <strong>Carry Return</strong> (uncovered/unhedged only — the spec&apos;s own covered-interest-
           parity split needs live forward FX pricing, which has no free source) is the rate
           differential (each currency&apos;s own short-term interbank/policy rate — OECD MEI
-          &ldquo;Immediate Rates&rdquo; series via FRED, or the closest live equivalent; New Zealand
-          and China&apos;s own series are stale, Thailand/Malaysia/the Philippines have none, and
-          Brazil&apos;s is a discount-rate proxy rather than the primary Selic policy rate, disclosed
-          per-row) plus the realized FX return from ECB/Frankfurter daily reference rates, both
-          annualized over a trailing ~1 year. Roll/forward effects, hedging cost and transaction costs
-          are not modeled — a real but incomplete uncovered-carry proxy, disclosed as such.
+          &ldquo;Immediate Rates&rdquo;/&ldquo;3-Month Interbank Rate&rdquo; family via FRED, or the
+          closest live equivalent; Thailand, Malaysia and the Philippines have no current free
+          short-term rate series at all — checked directly, only stale annual bank-margin indicators
+          exist for these three — and Brazil&apos;s is a discount-rate proxy rather than the primary
+          Selic policy rate, disclosed per-row) plus the realized FX return from ECB/Frankfurter daily
+          reference rates, both annualized over a trailing ~1 year. Roll/forward effects, hedging cost
+          and transaction costs are not modeled — a real but incomplete uncovered-carry proxy,
+          disclosed as such. The Carry Heatmap shows FX return alone (marked &ldquo;≈&rdquo;) for
+          Thailand, Malaysia and the Philippines, since the rate leg genuinely doesn&apos;t exist for
+          them — never a blank cell where real data is actually available.
         </p>
         <p className="mb-2">
           <strong>Volatility</strong> is 20-day annualized realized volatility of the funding/target
