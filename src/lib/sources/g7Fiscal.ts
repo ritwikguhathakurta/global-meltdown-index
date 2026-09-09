@@ -1,4 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
+import { budgetDeadline, pastDeadline } from "../pipeline/timeBudget";
 
 /**
  * Three genuinely new data points for the G7 Sovereign Debt engine, on top of
@@ -152,7 +153,12 @@ async function fetchG7Gdp(): Promise<MetricPoint[]> {
 
 export async function fetchG7FiscalData(): Promise<MetricPoint[]> {
   const results: MetricPoint[] = [];
+  const deadline = budgetDeadline(80_000);
   for (const c of G7_COUNTRIES) {
+    if (pastDeadline(deadline)) {
+      console.error(`G7 fiscal data: stopping early at time budget, ${c.key} and later skipped this run`);
+      break;
+    }
     try {
       results.push(...(await fetchFiscalBalanceWeo(c.iso3, c.key)));
     } catch (e) {

@@ -45,6 +45,46 @@ async function logRun(db: SupabaseClient, runDate: string, stage: string, status
   await db.from("pipeline_runs").insert({ run_date: runDate, stage, status, detail, finished_at: new Date().toISOString() });
 }
 
+/**
+ * Safety net on top of the per-loop time budgets in timeBudget.ts: races
+ * every stage against a generous timeout so a single hung/slow stage can
+ * never block runIngestionPipeline's Promise.all past a bound well under
+ * the /api/cron/pipeline route's 300s maxDuration. Without this, Vercel
+ * kills the WHOLE serverless function once any one stage runs long enough —
+ * silently dropping every OTHER concurrently-running stage's data too, not
+ * just the slow one, with no error logged anywhere. This is the actual
+ * mechanism that let one flaky upstream API on one cron run blank out
+ * unrelated engines' data in the same run.
+ *
+ * Racing a timeout doesn't cancel the underlying stage promise (Node has no
+ * true fetch-cancellation without threading an AbortController through
+ * every call site) — it keeps running in the background and may still
+ * write its own real result a little later. That's fine: the goal here is
+ * only to guarantee the overall pipeline request always returns in time and
+ * every stage gets SOME logged pipeline_runs row, never silent nothing.
+ */
+async function withStageTimeout(
+  stageLabel: string,
+  promise: Promise<IngestStageResult>,
+  ms: number,
+  db: SupabaseClient,
+  runDate: string
+): Promise<IngestStageResult> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeoutResult = new Promise<IngestStageResult>((resolve) => {
+    timer = setTimeout(() => {
+      const detail = { error: `stage exceeded its ${Math.round(ms / 1000)}s safety budget and was abandoned so the rest of this pipeline run could still finish on time` };
+      logRun(db, runDate, stageLabel, "failed", detail).catch(() => {});
+      resolve({ stage: stageLabel, status: "failed", detail });
+    }, ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutResult]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
 export async function ingestFred(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   const apiKey = process.env.FRED_API_KEY;
   if (!apiKey) {
@@ -578,34 +618,38 @@ export async function ingestStatCan(db: SupabaseClient, runDate: string): Promis
 
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
+  // Every stage races against a shared 150s safety net (see withStageTimeout
+  // above) — comfortably under the route's 300s ceiling even with several
+  // stages concurrently at their own limit, since they all run in parallel.
+  const withTimeout = (stage: string, p: Promise<IngestStageResult>) => withStageTimeout(stage, p, 150_000, db, runDate);
   const results = await Promise.all([
-    ingestFred(db, runDate),
-    ingestFx(db, runDate),
-    ingestYahooIndices(db, runDate),
-    ingestCftc(db, runDate),
-    ingestCentralBankFeeds(db, runDate),
-    ingestGscpi(db, runDate),
-    ingestGpr(db, runDate),
-    ingestCrypto(db, runDate),
-    ingestCloudStatus(db, runDate),
-    ingestSecEdgar(db, runDate),
-    ingestGovBondYields(db, runDate),
-    ingestGovLiquidity(db, runDate),
-    ingestCentralBankShortRates(db, runDate),
-    ingestRbiLiquidity(db, runDate),
-    ingestRbiYieldCurve(db, runDate),
-    ingestBisCreditGaps(db, runDate),
-    ingestChinaLgfvDebt(db, runDate),
-    ingestGovCnStatistics(db, runDate),
-    ingestStatCan(db, runDate),
-    ingestEmDebtStructural(db, runDate),
-    ingestEmDebtSovereignCds(db, runDate),
-    ingestEmDebtForeignHoldings(db, runDate),
-    ingestEmDebtCorporateFx(db, runDate),
-    ingestEmDebtFiscalGaps(db, runDate),
-    ingestEmDebtQedsGaps(db, runDate),
-    ingestG7FiscalData(db, runDate),
-    ingestUsTreasuryLiveData(db, runDate),
+    withTimeout("ingest_fred", ingestFred(db, runDate)),
+    withTimeout("ingest_fx", ingestFx(db, runDate)),
+    withTimeout("ingest_yahoo_indices", ingestYahooIndices(db, runDate)),
+    withTimeout("ingest_cftc", ingestCftc(db, runDate)),
+    withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
+    withTimeout("ingest_gscpi", ingestGscpi(db, runDate)),
+    withTimeout("ingest_gpr", ingestGpr(db, runDate)),
+    withTimeout("ingest_crypto", ingestCrypto(db, runDate)),
+    withTimeout("ingest_cloud_status", ingestCloudStatus(db, runDate)),
+    withTimeout("ingest_sec_edgar", ingestSecEdgar(db, runDate)),
+    withTimeout("ingest_gov_bond_yields", ingestGovBondYields(db, runDate)),
+    withTimeout("ingest_gov_liquidity", ingestGovLiquidity(db, runDate)),
+    withTimeout("ingest_central_bank_short_rates", ingestCentralBankShortRates(db, runDate)),
+    withTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate)),
+    withTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate)),
+    withTimeout("ingest_bis_credit_gaps", ingestBisCreditGaps(db, runDate)),
+    withTimeout("ingest_china_lgfv_debt", ingestChinaLgfvDebt(db, runDate)),
+    withTimeout("ingest_gov_cn_statistics", ingestGovCnStatistics(db, runDate)),
+    withTimeout("ingest_statcan", ingestStatCan(db, runDate)),
+    withTimeout("ingest_em_debt_structural", ingestEmDebtStructural(db, runDate)),
+    withTimeout("ingest_em_debt_sovereign_cds", ingestEmDebtSovereignCds(db, runDate)),
+    withTimeout("ingest_em_debt_foreign_holdings", ingestEmDebtForeignHoldings(db, runDate)),
+    withTimeout("ingest_em_debt_corporate_fx", ingestEmDebtCorporateFx(db, runDate)),
+    withTimeout("ingest_em_debt_fiscal_gaps", ingestEmDebtFiscalGaps(db, runDate)),
+    withTimeout("ingest_em_debt_qeds_gaps", ingestEmDebtQedsGaps(db, runDate)),
+    withTimeout("ingest_g7_fiscal_data", ingestG7FiscalData(db, runDate)),
+    withTimeout("ingest_us_treasury_live", ingestUsTreasuryLiveData(db, runDate)),
   ]);
   return { runDate, results };
 }

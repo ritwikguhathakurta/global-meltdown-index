@@ -1,4 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
+import { budgetDeadline, pastDeadline } from "../pipeline/timeBudget";
 
 /**
  * Patches two specific World Bank WDI coverage gaps in the EM Debt
@@ -115,7 +116,12 @@ async function fetchFiscalBalanceWeo(iso3: string, countryKey: string): Promise<
 
 export async function fetchImfFiscalGapFillers(): Promise<MetricPoint[]> {
   const results: MetricPoint[] = [];
+  const deadline = budgetDeadline(80_000);
   for (const c of GOVT_DEBT_GAP_COUNTRIES) {
+    if (pastDeadline(deadline)) {
+      console.error(`IMF GDD govt debt: stopping early at time budget, ${c.key} and later skipped this run`);
+      break;
+    }
     try {
       results.push(...(await fetchGovtDebtGdd(c.iso3, c.key)));
     } catch (e) {
@@ -124,6 +130,10 @@ export async function fetchImfFiscalGapFillers(): Promise<MetricPoint[]> {
     await new Promise((r) => setTimeout(r, 300));
   }
   for (const c of FISCAL_BALANCE_GAP_COUNTRIES) {
+    if (pastDeadline(deadline)) {
+      console.error(`IMF WEO fiscal balance: stopping early at time budget, ${c.key} and later skipped this run`);
+      break;
+    }
     try {
       results.push(...(await fetchFiscalBalanceWeo(c.iso3, c.key)));
     } catch (e) {

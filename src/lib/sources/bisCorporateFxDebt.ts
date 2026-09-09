@@ -1,5 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { EM_DEBT_COUNTRIES } from "./worldBankEmDebt";
+import { budgetDeadline, pastDeadline } from "../pipeline/timeBudget";
 
 /**
  * Corporate FX debt, from BIS's International Debt Securities statistics
@@ -120,7 +121,12 @@ async function fetchCorporateFxDebtForCountry(iso3: string, countryKey: string):
 
 export async function fetchBisCorporateFxDebt(): Promise<MetricPoint[]> {
   const results: MetricPoint[] = [];
+  const deadline = budgetDeadline(80_000);
   for (const c of EM_DEBT_COUNTRIES) {
+    if (pastDeadline(deadline)) {
+      console.error(`BIS corporate FX debt: stopping early at time budget, ${c.key} and later skipped this run`);
+      break;
+    }
     try {
       const points = await fetchCorporateFxDebtForCountry(c.iso3, c.key);
       results.push(...points);

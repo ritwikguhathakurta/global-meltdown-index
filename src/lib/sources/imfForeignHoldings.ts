@@ -1,5 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { EM_DEBT_COUNTRIES } from "./worldBankEmDebt";
+import { budgetDeadline, pastDeadline } from "../pipeline/timeBudget";
 
 /**
  * Foreign holdings of local debt securities, from the IMF's Portfolio
@@ -110,7 +111,12 @@ async function fetchForeignHoldingsForCountry(iso3: string, countryKey: string):
 
 export async function fetchImfForeignHoldings(): Promise<MetricPoint[]> {
   const results: MetricPoint[] = [];
+  const deadline = budgetDeadline(80_000);
   for (const c of EM_DEBT_COUNTRIES) {
+    if (pastDeadline(deadline)) {
+      console.error(`IMF PIP foreign holdings: stopping early at time budget, ${c.key} and later skipped this run`);
+      break;
+    }
     try {
       const points = await fetchForeignHoldingsForCountry(c.iso3, c.key);
       results.push(...points);

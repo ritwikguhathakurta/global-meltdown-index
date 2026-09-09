@@ -1,4 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
+import { budgetDeadline, pastDeadline } from "../pipeline/timeBudget";
 
 /**
  * World Bank Open Data API (api.worldbank.org) — free, no key, official multilateral
@@ -135,12 +136,25 @@ async function fetchWbIndicator(def: WbIndicatorDef): Promise<MetricPoint[]> {
 
 export async function fetchWorldBankEmDebtIndicators(): Promise<MetricPoint[]> {
   const results: MetricPoint[] = [];
+  const deadline = budgetDeadline(80_000);
   for (const def of WB_EM_DEBT_INDICATORS) {
     // Sequential with a short pause between calls — the World Bank API rate-limits
     // rapid bursts (confirmed directly: back-to-back requests intermittently hang or
-    // time out, then work fine seconds later with no other change).
-    const points = await fetchWbIndicator(def);
-    results.push(...points);
+    // time out, then work fine seconds later with no other change). Bounded by a
+    // wall-clock budget (see timeBudget.ts) so a bad day for this API can't run
+    // long enough to threaten the whole pipeline's 300s ceiling — whatever
+    // indicators were already fetched are real and kept; the rest are picked up
+    // on the next run rather than left silently missing forever.
+    if (pastDeadline(deadline)) {
+      console.error(`World Bank EM Debt indicators: stopping early at time budget, ${def.code} and later skipped this run`);
+      break;
+    }
+    try {
+      const points = await fetchWbIndicator(def);
+      results.push(...points);
+    } catch (e) {
+      console.error(`World Bank EM Debt indicator (${def.code}): ${(e as Error).message}`);
+    }
     await new Promise((r) => setTimeout(r, 400));
   }
   return results;

@@ -1,4 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
+import { budgetDeadline, pastDeadline } from "../pipeline/timeBudget";
 
 /**
  * Patches the external_debt_to_gni structural indicator for the two
@@ -87,7 +88,12 @@ async function fetchExternalDebtStock(iso3: string, countryKey: string): Promise
 
 export async function fetchQedsExternalDebtGapFillers(): Promise<MetricPoint[]> {
   const results: MetricPoint[] = [];
+  const deadline = budgetDeadline(80_000);
   for (const c of GAP_COUNTRIES) {
+    if (pastDeadline(deadline)) {
+      console.error(`QEDS external debt: stopping early at time budget, ${c.key} and later skipped this run`);
+      break;
+    }
     try {
       results.push(...(await fetchExternalDebtStock(c.iso3, c.key)));
     } catch (e) {
