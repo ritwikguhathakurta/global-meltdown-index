@@ -7,6 +7,7 @@ import { getCountryEmDebtTable as computeCountryEmDebtTable, type CountryEmDebtR
 import { getCountryG7DebtTable as computeCountryG7DebtTable, getG7CompositeScore, type CountryG7DebtRow, type G7CrisisStageDef } from "@/lib/engines/g7DebtRegime";
 import { getCarryTradeTable as computeCarryTradeTable, getCarryCompositeScore, type CarryPairRow, type FundingCurrencyRow, type CarryStageDef } from "@/lib/engines/carryTrade";
 import { getBankingSystemicRiskTable as computeBankingSystemicRiskTable, getBankingCompositeScore, type CountryBankingRow, type BankingStageDef } from "@/lib/engines/bankingSystemicRisk";
+import { getBankLevelTable as computeBankLevelTable, type BankLevelRow } from "@/lib/engines/bankLevel";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -223,6 +224,17 @@ export async function getBankingSystemicRiskTable(): Promise<{ rows: CountryBank
   } catch (e) {
     console.error((e as Error).message);
     return empty;
+  }
+}
+
+export async function getBankLevelTable(): Promise<BankLevelRow[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeBankLevelTable(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
   }
 }
 

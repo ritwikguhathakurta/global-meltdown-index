@@ -38,8 +38,8 @@ export const AI_COMPANIES: SecCompanyDef[] = [
   { ticker: "avgo", cik: "0001730168", name: "Broadcom" },
 ];
 
-type XbrlFact = { start?: string; end: string; val: number; form: string; filed: string; fy?: number; fp?: string };
-type CompanyFacts = { facts?: { "us-gaap"?: Record<string, { units?: Record<string, XbrlFact[]> }> } };
+export type XbrlFact = { start?: string; end: string; val: number; form: string; filed: string; fy?: number; fp?: string };
+export type CompanyFacts = { facts?: { "us-gaap"?: Record<string, { units?: Record<string, XbrlFact[]> }> } };
 
 // Income-statement-style items: usually already discrete per quarter, but run through the
 // same de-cumulation path anyway since it's a no-op when facts are already discrete.
@@ -68,7 +68,7 @@ const INSTANT_CONCEPTS: { metricKey: string; tags: string[]; unit: "USD" }[] = [
   { metricKey: "debt_maturity_y3", tags: ["LongTermDebtMaturitiesRepaymentsOfPrincipalInYearThree"], unit: "USD" },
 ];
 
-async function fetchCompanyFacts(cik: string): Promise<CompanyFacts> {
+export async function fetchCompanyFacts(cik: string): Promise<CompanyFacts> {
   const res = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, {
     headers: { "User-Agent": "GlobalMeltdownIndex research contact@globalmeltdownindex.net" },
     next: { revalidate: 0 },
@@ -77,7 +77,7 @@ async function fetchCompanyFacts(cik: string): Promise<CompanyFacts> {
   return (await res.json()) as CompanyFacts;
 }
 
-function extractDiscreteQuarterly(facts: CompanyFacts, tags: string[], allowNegative: boolean, unit: "USD" | "USD/shares"): { end: string; val: number }[] {
+export function extractDiscreteQuarterly(facts: CompanyFacts, tags: string[], allowNegative: boolean, unit: "USD" | "USD/shares"): { end: string; val: number }[] {
   const byKey = new Map<string, XbrlFact>();
   for (const tag of tags) {
     const usd = facts.facts?.["us-gaap"]?.[tag]?.units?.[unit];
@@ -111,7 +111,7 @@ function extractDiscreteQuarterly(facts: CompanyFacts, tags: string[], allowNega
     .sort((a, b) => (a.end < b.end ? -1 : 1));
 }
 
-function extractInstant(facts: CompanyFacts, tags: string[]): { end: string; val: number }[] {
+export function extractInstant(facts: CompanyFacts, tags: string[]): { end: string; val: number }[] {
   const byEnd = new Map<string, XbrlFact>();
   for (const tag of tags) {
     const usd = facts.facts?.["us-gaap"]?.[tag]?.units?.USD;

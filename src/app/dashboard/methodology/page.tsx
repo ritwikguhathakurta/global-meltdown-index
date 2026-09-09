@@ -461,17 +461,45 @@ export default function MethodologyPage() {
           cross-country composite only, when a large share of ALL nine countries are simultaneously at
           Stage 6+ — never assigned to a single country in isolation.
         </p>
+        <p className="mb-2">
+          <strong>Bank-level layer</strong>: the spec&apos;s own recommended source for individual-bank
+          CET1/LCR/NSFR is FFIEC&apos;s CDR bulk data download — checked live before building anything,
+          and found genuinely blocked: the actual file-serving endpoint
+          (<span className="gfew-mono">ffiec.gov/npw/FinancialReport/ReturnBHCFZipFiles</span>) returns
+          Cloudflare&apos;s bot-challenge response to a plain automated request (verified directly — the
+          response carries a <span className="gfew-mono">Cf-Mitigated: challenge</span> header), and
+          Chicago Fed&apos;s own historical mirror of the same files stops at 2021-Q1 (verified: the
+          2021-Q1 file downloads, every 2022+ quarter 404s) — five years stale, not a current feed.
+          FFIEC&apos;s SOAP webservice does expose the real thing (CET1 ratio, Tier 1 leverage ratio,
+          risk-weighted assets from FR Y-9C) but requires a registered CDR account&apos;s credentials, a
+          manual signup this deployment doesn&apos;t have yet — a disclosed future upgrade path, not
+          abandoned. In its place, the bank-level table on{" "}
+          <a href="/dashboard/banking" className="text-accent hover:underline">/dashboard/banking</a>{" "}
+          reuses the SEC EDGAR XBRL machinery already built for the AI engines to pull real Total
+          Assets/Equity/Deposits/Loans/Net Income for all eight US G-SIBs plus four large
+          super-regionals (standard GAAP concepts, verified live and consistently tagged across every
+          bank checked, including trading-heavy Goldman Sachs and Morgan Stanley) and computes a
+          genuine Leverage Ratio (Equity/Assets) and a coarse Risk Score from them — disclosed
+          explicitly as a leverage ratio, not the risk-weighted CET1 ratio, and as a first-pass
+          three-input screen, not the country table&apos;s full five-domain model. No other
+          jurisdiction&apos;s individual banks are covered (non-US G-SIBs mostly aren&apos;t SEC filers,
+          or don&apos;t tag the same concepts consistently as ADRs) — disclosed as deferred.
+        </p>
         <p>
-          <strong>Explicitly not built</strong>, checked and disclosed rather than faked: the entire
-          bank-level layer (individual G-SIB/D-SIB tracking, CET1/LCR/NSFR, Stage-2 migration, deposit
-          concentration, derivatives notional), deposit/uninsured-deposit/deposit-velocity tracking (no
-          free per-country source), CRE-refinancing-wall and mortgage-payment-shock simulators (need
-          loan-maturity-schedule data no free source publishes), sovereign-bank/property-bank/
-          corporate-bank feedback-loop SIMULATION (the underlying series exist and are noted
-          conceptually, but no forward simulation runs), an interactive bank contagion network graph, a
-          full stress-scenario library with deposit-outflow/wholesale-funding/collateral-haircut
-          ladders, historical backtesting with lead-time analysis, and a daily report/AI Q&amp;A layer.
-          None of these show fabricated values — every score and figure that is built is real.
+          <strong>Still explicitly not built</strong>, checked and disclosed rather than faked: Stage-2
+          migration, deposit concentration, derivatives notional and other Pillar-3-only bank-level
+          disclosures; deposit/uninsured-deposit/deposit-velocity tracking (no free per-country source);
+          CRE-refinancing-wall and mortgage-payment-shock simulators (need loan-maturity-schedule data
+          no free source publishes); sovereign-bank/property-bank/corporate-bank feedback-loop
+          SIMULATION (the underlying series exist and are noted conceptually, but no forward simulation
+          runs); an interactive bank contagion network graph (a bilateral-exposure-inferring
+          maximum-entropy reconstruction was considered and deliberately not built, since true
+          interbank exposures are confidential everywhere and an inferred matrix would be a MODELED
+          ESTIMATE presented alongside genuinely observed data — a different category of thing this
+          site is careful not to blur); a full stress-scenario library with deposit-outflow/
+          wholesale-funding/collateral-haircut ladders; historical backtesting with lead-time analysis;
+          and a daily report/AI Q&amp;A layer. None of these show fabricated values — every score and
+          figure that is built is real.
         </p>
       </section>
 

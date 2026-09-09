@@ -1,4 +1,4 @@
-import { getLatestEngine, getBankingSystemicRiskTable } from "@/lib/api/engineData";
+import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import { BANKING_STAGES } from "@/lib/engines/bankingSystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
@@ -6,6 +6,16 @@ import { gfmiColor } from "@/components/RegimeBadge";
 function fmt(v: number | null, unit: string, decimals = 2): string {
   if (v === null) return "—";
   return `${v.toFixed(decimals)}${unit ? " " + unit : ""}`;
+}
+
+function fmtUsdBn(v: number | null): string {
+  if (v === null) return "—";
+  return `$${(v / 1e9).toFixed(1)}B`;
+}
+
+function fmtPct(v: number | null, decimals = 1): string {
+  if (v === null) return "—";
+  return `${v > 0 ? "+" : ""}${v.toFixed(decimals)}%`;
 }
 
 function scoreColor(score: number | null): string {
@@ -25,10 +35,12 @@ function stageColor(stage: number | null): { bg: string; fg: string } {
 }
 
 export default async function BankingPage() {
-  const [bankingRows, { rows, composite }] = await Promise.all([
+  const [bankingRows, { rows, composite }, bankRows] = await Promise.all([
     getLatestEngine("banking"),
     getBankingSystemicRiskTable(),
+    getBankLevelTable(),
   ]);
+  const rankedBanks = [...bankRows].sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));
 
   const ranked = [...rows].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
   const topRisks = ranked.filter((r) => r.compositeScore !== null).slice(0, 6);
@@ -248,6 +260,81 @@ export default async function BankingPage() {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={11} className="px-3 py-6 text-center text-text-dim">
+                    No data yet — trigger a pipeline run from /admin.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">
+          Bank-Level Detail — US G-SIBs &amp; Large Regionals
+        </h2>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          Real per-bank data from SEC EDGAR XBRL filings (Total Assets, Equity, Deposits, Loans, Net
+          Income — standard GAAP concepts, not estimates). The literal Basel III CET1 ratio, LCR and
+          NSFR are NOT shown here: they are regulatory concepts each bank tags with its own custom
+          XBRL element names rather than a common comparable tag, and the free bulk source that does
+          carry them (FFIEC&apos;s CDR) is Cloudflare-blocked for a plain automated request — a
+          registered CDR account&apos;s credentials would unlock the fuller version, a disclosed future
+          upgrade, not built this pass. Leverage Ratio (Equity/Assets) is a genuine but different
+          capital-adequacy measure computed from these two clean GAAP figures instead. Risk Score
+          blends Leverage (40%), Deposit Growth (30%) and an ROA proxy (30%), cross-sectionally
+          z-scored against these same eleven peer banks — a first-pass bank screen, not the full
+          five-domain model the country table above uses.
+        </p>
+        <div className="overflow-x-auto rounded border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-panel-raised text-text-dim">
+              <tr>
+                <th className="px-3 py-2 font-medium">Bank</th>
+                <th className="px-3 py-2 font-medium">Total Assets</th>
+                <th className="px-3 py-2 font-medium">Equity</th>
+                <th className="px-3 py-2 font-medium">Leverage Ratio</th>
+                <th className="px-3 py-2 font-medium">Deposits</th>
+                <th className="px-3 py-2 font-medium">Deposit Growth (YoY)</th>
+                <th className="px-3 py-2 font-medium">Loans</th>
+                <th className="px-3 py-2 font-medium">ROA (TTM)</th>
+                <th className="px-3 py-2 font-medium">Risk Score</th>
+                <th className="px-3 py-2 font-medium">Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rankedBanks.map((b) => (
+                <tr key={b.key} className="border-t border-border align-top">
+                  <td className="px-3 py-2 font-medium">
+                    {b.name}
+                    {b.gsib && (
+                      <span className="ml-1.5 inline-block rounded bg-panel-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-dim">
+                        G-SIB
+                      </span>
+                    )}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalAssets.value)}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalEquity.value)}</td>
+                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(b.leverageScore) }}>
+                    {fmt(b.leverageRatio, "%")}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalDeposits.value)}</td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.depositGrowthScore) }}>
+                    {fmtPct(b.depositGrowthYoy)}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalLoans.value)}</td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.roaScore) }}>
+                    {fmt(b.roa, "%")}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(b.riskScore) }}>
+                    {b.riskScore ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 text-text-dim">{Math.round(b.dataCompleteness * 100)}%</td>
+                </tr>
+              ))}
+              {bankRows.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="px-3 py-6 text-center text-text-dim">
                     No data yet — trigger a pipeline run from /admin.
                   </td>
                 </tr>
