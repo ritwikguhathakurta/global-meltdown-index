@@ -49,7 +49,7 @@ const SHEET_NAME_TO_COUNTRY_KEY: Record<string, string> = {
 
 const VALID_COUNTRY_KEYS = new Set(EM_DEBT_COUNTRIES.map((c) => c.key));
 
-function parseSnapshotDate(header: string): string | null {
+export function parseSnapshotDate(header: string): string | null {
   // Header looks like "CDS Spread (12/31/25)" — extract mm/dd/yy(yy).
   const m = header.match(/CDS Spread \((\d{1,2})\/(\d{1,2})\/(\d{2,4})\)/);
   if (!m) return null;

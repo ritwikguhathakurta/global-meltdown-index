@@ -279,16 +279,19 @@ export default async function G7DebtPage() {
           Sovereign Vulnerability by Country
         </h2>
         <p className="mb-3 max-w-3xl text-xs text-text-dim">
-          Structural = government debt/GDP and fiscal balance/GDP (IMF Global Debt Database /
-          World Economic Outlook for France&apos;s debt/GDP and every country&apos;s fiscal
-          balance; FRED-sourced official series for the other six countries&apos; debt/GDP),
-          cross-sectionally z-scored against the other six G7 economies. Market = each
+          Structural = government debt/GDP, fiscal balance/GDP, real GDP growth and current
+          account/GDP (IMF Global Debt Database / World Economic Outlook for France&apos;s
+          debt/GDP and every country&apos;s fiscal balance; FRED-sourced official series for the
+          other six countries&apos; debt/GDP; World Bank Open Data for growth and current
+          account), cross-sectionally z-scored against the other six G7 economies. Market = each
           country&apos;s own 10Y-yield time-series z-score, blended for France and Italy with
-          their own spread-to-Bund time-series z-score. Funding/Contagion = the share of the
-          OTHER six G7 economies already at Softening-Demand-or-worse — a single G7-wide breadth
-          reading, not yet a bespoke bilateral-exposure-weighted contagion score. See the
-          methodology page for what else (auction stress, interest-burden acceleration, investor
-          base, central-bank dependency) is checked and explicitly not included yet.
+          their own spread-to-Bund time-series z-score, plus a sovereign CDS reading
+          (Damodaran/NYU Stern annual snapshot, cross-sectionally z-scored) and — for the six
+          non-US countries — their own currency-vs-USD time-series z-score. Funding/Contagion =
+          the share of the OTHER six G7 economies already at Softening-Demand-or-worse — a single
+          G7-wide breadth reading, not yet a bespoke bilateral-exposure-weighted contagion score.
+          See the methodology page for what else (auction stress, interest-burden acceleration,
+          investor base, central-bank dependency) is checked and explicitly not included yet.
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">
@@ -302,8 +305,12 @@ export default async function G7DebtPage() {
                 <th className="px-3 py-2 font-medium">Funding</th>
                 <th className="px-3 py-2 font-medium">Debt/GDP</th>
                 <th className="px-3 py-2 font-medium">Fiscal Bal./GDP</th>
+                <th className="px-3 py-2 font-medium">Real GDP Growth</th>
+                <th className="px-3 py-2 font-medium">Curr. Acct/GDP</th>
                 <th className="px-3 py-2 font-medium">10Y Yield</th>
                 <th className="px-3 py-2 font-medium">Spread vs Bund</th>
+                <th className="px-3 py-2 font-medium">Sov. CDS</th>
+                <th className="px-3 py-2 font-medium">FX</th>
                 <th className="px-3 py-2 font-medium">Coverage</th>
               </tr>
             </thead>
@@ -354,16 +361,31 @@ export default async function G7DebtPage() {
                   </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.debtToGdp.value, "%")}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.fiscalBalanceToGdp.value, "%")}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.realGdpGrowth.value, "%")}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.currentAccountToGdp.value, "%")}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.yield10y.value, "%", 2)}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {r.bundSpreadBps ? fmt(r.bundSpreadBps.value, "bps", 0) : "—"}
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {r.sovereignCds.value !== null ? `${Math.round(r.sovereignCds.value)} bps` : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-text-dim">
+                    {r.fx ? (
+                      <>
+                        <div className="gfew-mono">{fmt(r.fx.value, "", 4)}</div>
+                        <div className="text-[10px]">{r.fx.pair}</div>
+                      </>
+                    ) : (
+                      <span className="text-[10px]">USD (base)</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-text-dim">{Math.round(r.dataCompleteness * 100)}%</td>
                 </tr>
               ))}
               {countryTable.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-3 py-6 text-center text-text-dim">
+                  <td colSpan={15} className="px-3 py-6 text-center text-text-dim">
                     No data yet — trigger a pipeline run from /admin.
                   </td>
                 </tr>

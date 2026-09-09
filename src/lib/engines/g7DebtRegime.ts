@@ -43,6 +43,11 @@ import { G7_COUNTRIES } from "../sources/g7Fiscal";
  *  - Fiscal balance/GDP — new for all seven, from IMF's World Economic
  *    Outlook database (see g7Fiscal.ts), since no existing source in this
  *    project tracked this for any G7 country.
+ *  - Real GDP growth and current account/GDP — both new for all seven, from
+ *    World Bank Open Data (see g7Fiscal.ts), the same two indicators (and
+ *    same weights) already used in EM Debt's own structural score — growth
+ *    affects debt-dynamics sustainability via r-g, current-account deficits
+ *    signal external financing need.
  * NOT included, checked and explicitly deferred: interest-burden/GFR/
  * maturity-wall/auction-stress/investor-base (spec §17-25, 32, 51-53) — no
  * single free, uniformly-available-for-all-seven source for per-country
@@ -51,23 +56,28 @@ import { G7_COUNTRIES } from "../sources/g7Fiscal";
  * publish auction results, but Germany/France/Italy/UK/Canada do not have an
  * equally open, uniformly-parseable equivalent within reasonable effort —
  * building seven different national auction parsers is a real, large effort
- * not attempted this pass). r-g (spec §16) is likewise not computed
- * separately; the market-stress score below already reflects "how expensive
- * is borrowing right now" via the yield level itself.
+ * not attempted this pass).
  *
- * MARKET STRESS (own-history time-series z-score, since unlike the annual
- * structural indicators these have enough trailing observations for a
- * proper time-series baseline):
+ * MARKET STRESS:
  *  - The same 10Y yield series the Treasury engine already tracks per
  *    country (Bundesbank/BoE/BoC/MOF daily; FRED/OECD monthly proxy for
  *    Italy and France — see govBondYields.ts and treasury.ts for exactly
- *    why those two remain on the slower proxy).
+ *    why those two remain on the slower proxy), own-history time-series
+ *    z-score.
  *  - For France and Italy specifically, additionally blended with the
  *    France-Bund and Italy-Bund 10Y spread's own time-series z-score (the
  *    standard eurozone-fragmentation gauge, spec §11-13/39/42) — Germany has
- *    no "vs-Bund" spread since it IS the Bund; the other three (US/UK/Japan/
- *    Canada) have no natural single benchmark peer to spread against, so
- *    their market score is the yield z-score alone.
+ *    no "vs-Bund" spread since it IS the Bund.
+ *  - Sovereign CDS (Damodaran/NYU Stern annual snapshot, same source and
+ *    caveats as EM Debt — see g7Fiscal.ts), cross-sectionally z-scored
+ *    against the other six G7 economies since it's a single annual point
+ *    per country, not a time series.
+ *  - Currency vs USD (ECB/Frankfurter daily reference rate — see fx.ts),
+ *    own-history time-series z-score, for the six non-US countries (the
+ *    dollar is the numeraire here, so the US has no own-currency pair).
+ *    Reserve-currency FX moves are a much weaker stress signal than for an
+ *    EM currency, but a genuine, live, free one — the same "blend of
+ *    whatever's available" approach used everywhere else in this engine.
  *
  * FUNDING/CONTAGION — a single G7-wide breadth reading (the fraction of the
  * OTHER six G7 economies whose preliminary structural+market blend is
@@ -193,6 +203,20 @@ const YIELD_FREQ: Record<string, "daily" | "monthly"> = {
   france: "monthly", italy: "monthly",
 };
 
+/** Currency vs USD — no entry for "us" since the dollar is the numeraire. */
+const FX_KEY: Record<string, string> = {
+  japan: "fx.usdjpy",
+  germany: "fx.usdeur",
+  france: "fx.usdeur",
+  italy: "fx.usdeur",
+  uk: "fx.usdgbp",
+  canada: "fx.usdcad",
+};
+
+const FX_PAIR_LABEL: Record<string, string> = {
+  japan: "USD/JPY", germany: "USD/EUR", france: "USD/EUR", italy: "USD/EUR", uk: "USD/GBP", canada: "USD/CAD",
+};
+
 export type G7IndicatorReading = { value: number | null; asOf: string | null; score: number | null };
 
 /**
@@ -231,8 +255,13 @@ export type CountryG7DebtRow = {
   centralBank: string;
   debtToGdp: G7IndicatorReading;
   fiscalBalanceToGdp: G7IndicatorReading;
+  realGdpGrowth: G7IndicatorReading;
+  currentAccountToGdp: G7IndicatorReading;
   yield10y: G7IndicatorReading;
   bundSpreadBps: G7IndicatorReading | null;
+  sovereignCds: G7IndicatorReading;
+  /** Null only for the US — the dollar is the numeraire, so it has no own-currency pair. */
+  fx: { pair: string; value: number | null; asOf: string | null; score: number | null } | null;
   structuralScore: number | null;
   marketScore: number | null;
   fundingScore: number | null;
@@ -284,6 +313,16 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
   const italySpread = diffSeriesByMonth(yieldSeriesByCountry.get("italy") ?? [], germanySeries);
   const spreadByCountry: Record<string, Point[]> = { france: franceSpread, italy: italySpread };
 
+  const fxSeriesByCountry = new Map(
+    await Promise.all(
+      G7_COUNTRIES.filter((c) => FX_KEY[c.key]).map(async (c) => {
+        const since = new Date();
+        since.setUTCDate(since.getUTCDate() - lookbackDaysFor("daily"));
+        return [c.key, await fetchSeries(db, FX_KEY[c.key], since.toISOString())] as const;
+      })
+    )
+  );
+
   const US_DETAIL_KEYS = [
     "g7.us.debt_held_by_public_usd",
     "g7.us.debt_intragovernmental_usd",
@@ -300,6 +339,9 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
     ...G7_COUNTRIES.map((c) => DEBT_KEY[c.key]),
     ...G7_COUNTRIES.map((c) => `g7.${c.key}.fiscal_balance_to_gdp`),
     ...G7_COUNTRIES.map((c) => `g7.${c.key}.gdp_current_usd`),
+    ...G7_COUNTRIES.map((c) => `g7.${c.key}.real_gdp_growth`),
+    ...G7_COUNTRIES.map((c) => `g7.${c.key}.current_account_to_gdp`),
+    ...G7_COUNTRIES.map((c) => `g7.${c.key}.sovereign_cds_10y`),
     ...US_DETAIL_KEYS,
   ];
   const latest = await fetchLatestForKeys(db, latestKeys);
@@ -329,23 +371,39 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
 
   const debtValues = new Map<string, number>();
   const fiscalValues = new Map<string, number>();
+  const gdpGrowthValues = new Map<string, number>();
+  const currentAccountValues = new Map<string, number>();
+  const cdsValues = new Map<string, number>();
   for (const c of G7_COUNTRIES) {
     const d = latest.get(DEBT_KEY[c.key]);
     if (d) debtValues.set(c.key, d.v);
     const f = latest.get(`g7.${c.key}.fiscal_balance_to_gdp`);
     if (f) fiscalValues.set(c.key, f.v);
+    const g = latest.get(`g7.${c.key}.real_gdp_growth`);
+    if (g) gdpGrowthValues.set(c.key, g.v);
+    const ca = latest.get(`g7.${c.key}.current_account_to_gdp`);
+    if (ca) currentAccountValues.set(c.key, ca.v);
+    const cds = latest.get(`g7.${c.key}.sovereign_cds_10y`);
+    if (cds) cdsValues.set(c.key, cds.v);
   }
   const debtZ = crossSectionalZ(debtValues);
   const fiscalZ = crossSectionalZ(fiscalValues);
+  const gdpGrowthZ = crossSectionalZ(gdpGrowthValues);
+  const currentAccountZ = crossSectionalZ(currentAccountValues);
+  const cdsZ = crossSectionalZ(cdsValues);
 
   // Pass 1: structural + market scores per country (funding/contagion needs
   // these first, since it's a breadth measure over the whole G7 set).
   const prelim = G7_COUNTRIES.map((c) => {
     const debtScore = debtZ.has(c.key) ? zToRiskScore(debtZ.get(c.key) ?? null, 1) : null;
     const fiscalScore = fiscalZ.has(c.key) ? zToRiskScore(fiscalZ.get(c.key) ?? null, -1) : null;
+    const gdpGrowthScore = gdpGrowthZ.has(c.key) ? zToRiskScore(gdpGrowthZ.get(c.key) ?? null, -1) : null;
+    const currentAccountScore = currentAccountZ.has(c.key) ? zToRiskScore(currentAccountZ.get(c.key) ?? null, -1) : null;
     const structParts = [
       debtScore !== null ? { score: debtScore, weight: 1.0 } : null,
       fiscalScore !== null ? { score: fiscalScore, weight: 0.9 } : null,
+      gdpGrowthScore !== null ? { score: gdpGrowthScore, weight: 0.6 } : null,
+      currentAccountScore !== null ? { score: currentAccountScore, weight: 0.8 } : null,
     ].filter((p): p is { score: number; weight: number } => p !== null);
     const structuralScore =
       structParts.length > 0
@@ -355,14 +413,13 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
     const yieldSeries = yieldSeriesByCountry.get(c.key) ?? [];
     const yieldWindow = YIELD_FREQ[c.key] === "daily" ? 252 : 36;
     const yieldScore = zToRiskScore(zScore(yieldSeries, yieldWindow), 1);
-    let marketScore = yieldScore;
-    let spreadScore: number | null = null;
     const spreadSeries = spreadByCountry[c.key];
-    if (spreadSeries) {
-      spreadScore = zToRiskScore(zScore(spreadSeries, 36), 1);
-      const parts = [yieldScore, spreadScore].filter((s): s is number => s !== null);
-      marketScore = parts.length > 0 ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length) : null;
-    }
+    const spreadScore = spreadSeries ? zToRiskScore(zScore(spreadSeries, 36), 1) : null;
+    const cdsScore = cdsZ.has(c.key) ? zToRiskScore(cdsZ.get(c.key) ?? null, 1) : null;
+    const fxSeries = fxSeriesByCountry.get(c.key);
+    const fxScore = fxSeries ? zToRiskScore(zScore(fxSeries, 252), 1) : null;
+    const marketParts = [yieldScore, spreadScore, cdsScore, fxScore].filter((s): s is number => s !== null);
+    const marketScore = marketParts.length > 0 ? Math.round(marketParts.reduce((a, b) => a + b, 0) / marketParts.length) : null;
 
     const prelimParts = [
       structuralScore !== null ? { score: structuralScore, weight: 0.4 } : null,
@@ -373,10 +430,13 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
         ? prelimParts.reduce((a, b) => a + b.score * b.weight, 0) / prelimParts.reduce((a, b) => a + b.weight, 0)
         : null;
 
-    return { c, debtScore, fiscalScore, structuralScore, yieldScore, spreadScore, marketScore, prelimScore };
+    return {
+      c, debtScore, fiscalScore, gdpGrowthScore, currentAccountScore, structuralScore,
+      yieldScore, spreadScore, cdsScore, fxScore, marketScore, prelimScore,
+    };
   });
 
-  return prelim.map(({ c, debtScore, fiscalScore, structuralScore, yieldScore, spreadScore, marketScore }) => {
+  return prelim.map(({ c, debtScore, fiscalScore, gdpGrowthScore, currentAccountScore, structuralScore, yieldScore, spreadScore, cdsScore, fxScore, marketScore }) => {
     // Funding/contagion: breadth among the OTHER six — excludes this country
     // from its own denominator/numerator so a country isn't partly "warning
     // about itself".
@@ -397,13 +457,27 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
 
     const debtRow = latest.get(DEBT_KEY[c.key]);
     const fiscalRow = latest.get(`g7.${c.key}.fiscal_balance_to_gdp`);
+    const gdpGrowthRow = latest.get(`g7.${c.key}.real_gdp_growth`);
+    const currentAccountRow = latest.get(`g7.${c.key}.current_account_to_gdp`);
+    const cdsRow = latest.get(`g7.${c.key}.sovereign_cds_10y`);
     const yieldSeries = yieldSeriesByCountry.get(c.key) ?? [];
     const yieldLast = latestPoint(yieldSeries);
     const spreadSeries = spreadByCountry[c.key];
     const spreadLast = spreadSeries ? latestPoint(spreadSeries) : null;
+    const fxSeries = fxSeriesByCountry.get(c.key);
+    const fxLast = fxSeries ? latestPoint(fxSeries) : null;
 
-    const indicatorsAvailable = [debtScore, fiscalScore, yieldScore].filter((v) => v !== null).length;
-    const dataCompleteness = Math.round((indicatorsAvailable / 3) * 100) / 100;
+    // Applicable indicators vary per country: bundSpread only exists for
+    // France/Italy, fx only for the six non-US countries — so the
+    // denominator is per-country, not a fixed constant, or a country
+    // lacking an inapplicable indicator would be unfairly marked incomplete.
+    const applicableScores = [
+      debtScore, fiscalScore, gdpGrowthScore, currentAccountScore, yieldScore, cdsScore,
+      ...(spreadSeries ? [spreadScore] : []),
+      ...(fxSeries ? [fxScore] : []),
+    ];
+    const indicatorsAvailable = applicableScores.filter((v) => v !== null).length;
+    const dataCompleteness = Math.round((indicatorsAvailable / applicableScores.length) * 100) / 100;
 
     const hiddenRisk = structuralScore !== null && marketScore !== null && structuralScore >= 55 && marketScore < 40;
     const marketLedWarning = structuralScore !== null && marketScore !== null && marketScore >= 55 && marketScore - structuralScore >= 20;
@@ -415,8 +489,12 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
       centralBank: c.centralBank,
       debtToGdp: { value: debtRow?.v ?? null, asOf: debtRow?.t ?? null, score: debtScore },
       fiscalBalanceToGdp: { value: fiscalRow?.v ?? null, asOf: fiscalRow?.t ?? null, score: fiscalScore },
+      realGdpGrowth: { value: gdpGrowthRow?.v ?? null, asOf: gdpGrowthRow?.t ?? null, score: gdpGrowthScore },
+      currentAccountToGdp: { value: currentAccountRow?.v ?? null, asOf: currentAccountRow?.t ?? null, score: currentAccountScore },
       yield10y: { value: yieldLast?.v ?? null, asOf: yieldLast?.t ?? null, score: yieldScore },
       bundSpreadBps: spreadSeries ? { value: spreadLast?.v ?? null, asOf: spreadLast?.t ?? null, score: spreadScore } : null,
+      sovereignCds: { value: cdsRow?.v ?? null, asOf: cdsRow?.t ?? null, score: cdsScore },
+      fx: FX_PAIR_LABEL[c.key] ? { pair: FX_PAIR_LABEL[c.key], value: fxLast?.v ?? null, asOf: fxLast?.t ?? null, score: fxScore } : null,
       structuralScore,
       marketScore,
       fundingScore,

@@ -205,24 +205,32 @@ export default function MethodologyPage() {
           shown alongside (not instead of) the Treasury engine&apos;s own composite score.
         </p>
         <p className="mb-2">
-          <strong>Structural Vulnerability</strong> is government debt/GDP and fiscal balance/GDP,
-          cross-sectionally z-scored against the other six G7 economies (the same peer-group principle used
-          for EM Debt). Six of seven countries&apos; debt/GDP reuses the Treasury engine&apos;s existing
-          FRED-sourced series; France has none (checked directly — FRED carries no French
-          general-government-debt/GDP series at all), so France&apos;s debt/GDP comes from IMF&apos;s
-          Global Debt Database instead. Fiscal balance/GDP is new for all seven — no existing source in
-          this project tracked it for any G7 country — from IMF&apos;s World Economic Outlook database,
-          both via the free, unblocked <code>api.imf.org</code> SDMX endpoint (see above), capped to
-          observations at least one calendar year old so a multi-year-ahead WEO forecast is never ingested
-          as an observed fact.
+          <strong>Structural Vulnerability</strong> is government debt/GDP, fiscal balance/GDP, real GDP
+          growth and current account/GDP, cross-sectionally z-scored against the other six G7 economies
+          (the same peer-group principle used for EM Debt). Six of seven countries&apos; debt/GDP reuses
+          the Treasury engine&apos;s existing FRED-sourced series; France has none (checked directly —
+          FRED carries no French general-government-debt/GDP series at all), so France&apos;s debt/GDP
+          comes from IMF&apos;s Global Debt Database instead. Fiscal balance/GDP is from IMF&apos;s World
+          Economic Outlook database, via the free, unblocked <code>api.imf.org</code> SDMX endpoint (see
+          above), capped to observations at least one calendar year old so a multi-year-ahead WEO forecast
+          is never ingested as an observed fact. Real GDP growth and current account/GDP are new for all
+          seven — from World Bank Open Data, the same two indicators (and weights) already used in EM
+          Debt&apos;s own structural score: growth affects debt-dynamics sustainability via r-g, and a
+          current-account deficit signals external financing need.
         </p>
         <p className="mb-2">
           <strong>Market Stress</strong> is each country&apos;s own 10Y-yield time-series z-score (the same
           series already on the Treasury tab — Bundesbank/BoE/BoC/MOF daily, FRED/OECD monthly proxy for
           Italy and France), blended for France and Italy with their own spread-to-Bund time-series
-          z-score — the standard eurozone-fragmentation gauge. Germany has no &ldquo;vs-Bund&rdquo; spread
-          since it IS the Bund; the US, UK, Japan and Canada have no natural single benchmark peer to
-          spread against, so their market score is the yield z-score alone.
+          z-score — the standard eurozone-fragmentation gauge (Germany has no &ldquo;vs-Bund&rdquo; spread
+          since it IS the Bund) — plus a sovereign CDS reading (Damodaran/NYU Stern&apos;s free annual
+          snapshot, the same source and single-point-in-time caveat as EM Debt&apos;s own CDS input,
+          cross-sectionally z-scored across the seven since it is one annual value rather than a time
+          series) and, for the six non-US countries, their own currency-vs-USD time-series z-score (ECB
+          reference rates via Frankfurter — Japan&apos;s already tracked for the yen-carry engine;
+          EUR/GBP/CAD newly added here). The US has no own-currency pair since the dollar is the numeraire.
+          Reserve-currency FX is a far weaker stress signal than an EM currency move, but it is a genuine,
+          free, live one, disclosed as such rather than omitted or faked.
         </p>
         <p className="mb-2">
           <strong>Funding/Contagion</strong> is a single G7-wide breadth reading — the share of the OTHER
