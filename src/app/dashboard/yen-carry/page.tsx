@@ -56,15 +56,17 @@ export default async function GlobalCarryTradePage() {
       <h1 className="mb-2 text-2xl font-semibold">Global Carry Trade Risk</h1>
       <p className="mb-6 max-w-3xl text-sm text-text-dim">
         Funding-currency, positioning, volatility and fragility tracking across 4 low-yield funding
-        currencies (JPY, CHF, EUR, USD) and 17 target currencies — a broader analytical layer on top
-        of the existing yen-carry composite below, not a second vote in GFMI. See the methodology
-        page for exactly what this does and doesn&apos;t cover.
+        currencies (JPY, CHF, EUR, USD) and 17 target currencies. The GFMI-weighted composite below
+        was itself broadened to track all four funding currencies&apos; own stretched-ness and
+        positioning (previously JPY-only); the fuller 4x17 pair-level breakdown further down is a
+        separate analytical layer that does not add a second vote to GFMI. See the methodology page
+        for exactly what each layer does and doesn&apos;t cover.
       </p>
 
       {yenComposite && (
         <section className="gfew-panel mb-6 p-4">
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-dim">
-            Yen Carry Stress (feeds GFMI)
+            Carry Trade Stress — JPY/CHF/EUR/USD (feeds GFMI)
           </h3>
           <div className="flex items-baseline gap-3">
             <span className="gfew-mono text-3xl font-bold" style={{ color: scoreColor(yenComposite.score) }}>
@@ -370,7 +372,7 @@ export default async function GlobalCarryTradePage() {
         </div>
       </section>
 
-      <EngineDetail title="Yen Carry Stress (feeds GFMI)" rows={yenCarryRows} />
+      <EngineDetail title="Carry Trade Stress — JPY/CHF/EUR/USD (feeds GFMI)" rows={yenCarryRows} />
     </div>
   );
 }

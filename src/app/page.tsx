@@ -45,7 +45,7 @@ const ENGINE_LABELS: Record<string, string> = {
   credit: "Credit",
   equity_fragility: "Equity Fragility",
   us_treasury_sovereign: "Treasury & Sovereign (G7 + China)",
-  yen_carry: "Yen Carry",
+  yen_carry: "Carry Trade Stress",
   banking: "Banking",
   property: "Property / CRE",
   emerging_market_debt: "Emerging-Market Debt",

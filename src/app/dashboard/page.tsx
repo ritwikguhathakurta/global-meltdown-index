@@ -39,7 +39,7 @@ const ENGINE_META: Record<string, { label: string; href: string }> = {
   credit: { label: "Credit Markets", href: "/dashboard/credit" },
   equity_fragility: { label: "Equity Fragility", href: "/dashboard/equities" },
   us_treasury_sovereign: { label: "Treasury & Sovereign (G7 + China)", href: "/dashboard/treasury" },
-  yen_carry: { label: "Yen Carry Stress", href: "/dashboard/yen-carry" },
+  yen_carry: { label: "Carry Trade Stress (JPY/CHF/EUR/USD)", href: "/dashboard/yen-carry" },
   banking: { label: "Banking", href: "/dashboard/banking" },
   property: { label: "Property / CRE", href: "/dashboard/property" },
   emerging_market_debt: { label: "Emerging-Market Debt", href: "/dashboard/em-debt" },

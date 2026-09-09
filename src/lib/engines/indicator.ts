@@ -109,6 +109,10 @@ const YAHOO_FALLBACK_KEYS = new Set([
 ]);
 
 function guessSourceKey(metricKey: string): string {
+  // DXY is FRED-sourced (see fred.ts), not one of the Frankfurter ECB cross
+  // rates — checked before the generic "fx." prefix rule below so it isn't
+  // mislabeled.
+  if (metricKey === "fx.dxy_broad") return "fred";
   if (metricKey.startsWith("fx.")) return "frankfurter";
   if (YAHOO_FALLBACK_KEYS.has(metricKey)) return "yahoo_finance";
   if (metricKey.startsWith("cot.")) return "cftc_cot";

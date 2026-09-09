@@ -21,7 +21,7 @@ export default function MethodologyPage() {
           in Equity Valuation), Treasury &amp; Sovereign Debt covering the US plus the rest of the G7 and a
           China proxy (fulfilling Global Sovereign Debt — see{" "}
           <a href="#country-coverage" className="text-accent hover:underline">Country coverage</a>{" "}
-          below), Yen Carry Stress, Banking, Property/CRE, Emerging-Market Debt, Energy, Geopolitical,
+          below), Carry Trade Stress, Banking, Property/CRE, Emerging-Market Debt, Energy, Geopolitical,
           Derivatives/Leverage, Crypto/Stablecoins, Cyber/Infrastructure, Trade/Economic Policy, Supply
           Chains, Market Concentration, Private Credit, AI Financial Sustainability, AI Valuation, AI
           Credit/Financing and AI Debt Maturity Wall — plus partial China and India Market Regime engines
@@ -45,7 +45,8 @@ export default function MethodologyPage() {
           <a href="#g7-sovereign-debt" className="text-accent hover:underline">G7 Sovereign Debt</a>{" "}
           below. Likewise, a broader Global Carry Trade Risk page (4 funding currencies x 17 target
           currencies, a fragility score and 7-stage crisis model per pair) sits alongside the
-          existing Yen Carry Stress engine rather than replacing or double-counting it — see{" "}
+          GFMI-weighted &ldquo;yen_carry&rdquo; engine, which was itself broadened to the same 4
+          funding currencies rather than being replaced or double-counted — see{" "}
           <a href="#global-carry-trade" className="text-accent hover:underline">Global Carry Trade</a>{" "}
           below.
           None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
@@ -135,12 +136,14 @@ export default function MethodologyPage() {
           adds country-level proxies for six of the eight G7+China economies (see &ldquo;Supply Chains:
           from one global number to G7+China&rdquo; below) — the UK is the one economy still genuinely
           uncovered, disclosed there rather than silently dropped.
-          One engine remains intentionally single-country by definition regardless of data availability:
-          Yen Carry Stress (a JPY-specific carry-trade mechanic). Banking and Private Credit remain partly
-          single-country-anchored because no free source publishes bank-level NPL/delinquency data for the
-          UK, Eurozone, Canada or Japan, or a non-US publicly-traded direct-lending vehicle comparable to
-          US BDCs — those engines add whatever real G7 context does exist (policy rates) rather than
-          fabricating data that doesn&apos;t exist for free.
+          Carry Trade Stress (formerly &ldquo;Yen Carry Stress&rdquo;) was JPY-specific by definition
+          until broadened to also track CHF, EUR and USD as funding currencies — see{" "}
+          <a href="#global-carry-trade" className="text-accent hover:underline">Global Carry Trade</a>{" "}
+          below. Banking and Private Credit remain partly single-country-anchored because no free
+          source publishes bank-level NPL/delinquency data for the UK, Eurozone, Canada or Japan, or a
+          non-US publicly-traded direct-lending vehicle comparable to US BDCs — those engines add
+          whatever real G7 context does exist (policy rates) rather than fabricating data that
+          doesn&apos;t exist for free.
         </p>
       </section>
 
@@ -294,10 +297,17 @@ export default function MethodologyPage() {
           deferred, not faked.
         </p>
         <p className="mb-2">
-          This deliberately does <strong>not</strong> change the existing GFMI-weighted
-          &ldquo;Yen Carry Stress&rdquo; engine or add a second GFMI vote — that composite (JPY
-          crosses, the US-Japan yield spread, CFTC JPY positioning) is unchanged and still shown at
-          the top of the page. The new content below it is a broader, separate analytical layer.
+          The existing GFMI-weighted engine (still the same &ldquo;yen_carry&rdquo; key and weight, to
+          avoid breaking the continuity of its own score history) was itself broadened alongside this
+          page: its inputs now include CHF, EUR and USD &ldquo;stretched-ness&rdquo; (how much each
+          funding currency has already weakened, the same concept previously tracked for JPY alone)
+          and CFTC CHF/EUR positioning, on top of the original JPY crosses, US-Japan yield spread and
+          CFTC JPY positioning — using data already flowing into the pipeline for this page, no new
+          sources needed. It deliberately does <strong>not</strong> adopt this page&apos;s own
+          cross-sectional Carry Fragility scoring method (that score has no per-horizon windowing,
+          unlike every GFMI engine&apos;s own short/medium/long differentiation) — same broader
+          inputs, same composition method as every other engine. The fuller 4x17 pair-level breakdown
+          below is a separate analytical layer and does not add a second vote to GFMI.
         </p>
         <p className="mb-2">
           <strong>Universe</strong>: 4 funding currencies (JPY, CHF, EUR, USD — the spec&apos;s own
