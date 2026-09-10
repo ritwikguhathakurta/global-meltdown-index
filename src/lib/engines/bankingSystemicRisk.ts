@@ -169,6 +169,14 @@ export const BANKING_STAGES: BankingStageDef[] = [
   { stage: 7, key: "SYSTEMIC_CONTAGION", label: "Stage 7 — Systemic Contagion", shortLabel: "Systemic Contagion", description: "A large share of ALL nine tracked countries are simultaneously at Stage 6 or worse — a breadth reading, never assigned to a single country in isolation." },
 ];
 
+/** Fixed weights used both when computing Structural/Composite below and
+ * when rendering the dashboard's per-country score breakdown (spec §110/135
+ * "why is this score X" transparency ask) — exported so the breakdown UI
+ * derives contributions from the same numbers the engine actually used,
+ * rather than a second hard-coded copy that could drift out of sync. */
+export const STRUCTURAL_WEIGHTS = { capital: 0.35, credit: 0.3, funding: 0.15, liquidity: 0.2 };
+export const COMPOSITE_WEIGHTS = { structural: 0.4, market: 0.35, contagion: 0.25 };
+
 function stageNumberFromScore(score: number): number {
   if (score < 15) return 1;
   if (score < 30) return 2;
@@ -389,10 +397,10 @@ export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<C
     const liquidityScore = zToRiskScore(zScore(liquiditySeries, windowForFreq(LIQUIDITY_FREQ[c.key])), LIQUIDITY_ZDIRECTION[c.key]);
 
     const structParts = [
-      capitalScore !== null ? { score: capitalScore, weight: 0.35 } : null,
-      creditScore !== null ? { score: creditScore, weight: 0.3 } : null,
-      fundingScore !== null ? { score: fundingScore, weight: 0.15 } : null,
-      liquidityScore !== null ? { score: liquidityScore, weight: 0.2 } : null,
+      capitalScore !== null ? { score: capitalScore, weight: STRUCTURAL_WEIGHTS.capital } : null,
+      creditScore !== null ? { score: creditScore, weight: STRUCTURAL_WEIGHTS.credit } : null,
+      fundingScore !== null ? { score: fundingScore, weight: STRUCTURAL_WEIGHTS.funding } : null,
+      liquidityScore !== null ? { score: liquidityScore, weight: STRUCTURAL_WEIGHTS.liquidity } : null,
     ].filter((p): p is { score: number; weight: number } => p !== null);
     const structuralScore =
       structParts.length > 0
@@ -426,9 +434,9 @@ export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<C
     const contagionScore = othersWithData >= 4 ? Math.round((othersStressed / othersWithData) * 100) : null;
 
     const compositeParts = [
-      structuralScore !== null ? { score: structuralScore, weight: 0.4 } : null,
-      marketScore !== null ? { score: marketScore, weight: 0.35 } : null,
-      contagionScore !== null ? { score: contagionScore, weight: 0.25 } : null,
+      structuralScore !== null ? { score: structuralScore, weight: COMPOSITE_WEIGHTS.structural } : null,
+      marketScore !== null ? { score: marketScore, weight: COMPOSITE_WEIGHTS.market } : null,
+      contagionScore !== null ? { score: contagionScore, weight: COMPOSITE_WEIGHTS.contagion } : null,
     ].filter((p): p is { score: number; weight: number } => p !== null);
     const compositeScore =
       compositeParts.length > 0

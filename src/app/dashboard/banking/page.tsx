@@ -1,6 +1,6 @@
 import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
-import { BANKING_STAGES } from "@/lib/engines/bankingSystemicRisk";
+import { BANKING_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type CountryBankingRow } from "@/lib/engines/bankingSystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
 
 function fmt(v: number | null, unit: string, decimals = 2): string {
@@ -32,6 +32,65 @@ const STAGE_SAMPLE_SCORE = [10, 25, 40, 55, 70, 85, 95];
 function stageColor(stage: number | null): { bg: string; fg: string } {
   if (stage === null || stage < 1 || stage > 7) return { bg: "#1a1f28", fg: "#8b96a8" };
   return gfmiColor(STAGE_SAMPLE_SCORE[stage - 1]);
+}
+
+/** Weighted point contribution of one domain score to a parent composite —
+ * i.e. what that domain actually added to the final number, not the domain's
+ * own 0-100 reading. Used by the score-breakdown panel below (spec §110/135
+ * "why is this score X"). Returns null (rather than 0) when the domain has
+ * no data, so a missing input is visibly absent rather than silently
+ * contributing zero. */
+function contribution(score: number | null, weight: number): number | null {
+  if (score === null) return null;
+  return Math.round(score * weight * 10) / 10;
+}
+
+type Segment = { label: string; value: number | null; color: string };
+
+function ContributionBar({ segments, total }: { segments: Segment[]; total: number | null }) {
+  const known = segments.filter((s) => s.value !== null) as { label: string; value: number; color: string }[];
+  const sum = known.reduce((a, b) => a + b.value, 0);
+  return (
+    <div>
+      <div className="flex h-3 w-full overflow-hidden rounded bg-panel-raised">
+        {known.map((s) => (
+          <div
+            key={s.label}
+            style={{ width: `${sum > 0 ? (s.value / sum) * 100 : 0}%`, background: s.color }}
+            title={`${s.label}: ${s.value} pts`}
+          />
+        ))}
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-text-dim">
+        {segments.map((s) => (
+          <span key={s.label}>
+            {s.label} <span className="gfew-mono">{s.value ?? "—"}</span>
+          </span>
+        ))}
+        {total !== null && (
+          <span className="ml-auto font-semibold text-text">
+            = <span className="gfew-mono">{total}</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Liquidity-Solvency Matrix quadrant (spec §109/165) — placement uses the
+ * same Capital score (solvency proxy) and Liquidity score already computed
+ * per country, split at the midpoint of the 0-100 risk scale. Not a true
+ * scatter plot (no charting library in this app — see other dashboard pages,
+ * which use plain tables/steppers throughout), just the four buckets the
+ * spec itself asks for. */
+function quadrantFor(r: CountryBankingRow): "healthy" | "solvency_watch" | "liquidity_stress" | "crisis" | null {
+  if (r.capitalScore === null || r.liquidityScore === null) return null;
+  const highSolvencyRisk = r.capitalScore >= 50;
+  const highLiquidityRisk = r.liquidityScore >= 50;
+  if (!highSolvencyRisk && !highLiquidityRisk) return "healthy";
+  if (highSolvencyRisk && !highLiquidityRisk) return "solvency_watch";
+  if (!highSolvencyRisk && highLiquidityRisk) return "liquidity_stress";
+  return "crisis";
 }
 
 export default async function BankingPage() {
@@ -183,6 +242,70 @@ export default async function BankingPage() {
 
       <section className="mb-8">
         <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">
+          Liquidity–Solvency Matrix
+        </h2>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          Places each tracked banking system by Capital score (solvency risk, x-axis) against Liquidity
+          score (liquidity risk, y-axis), split at the midpoint of the 0–100 scale — the same four buckets
+          the spec asks for: illiquid-but-solvent and insolvent-but-liquid are genuinely different problems
+          from a system that is both, and this matrix is what keeps that distinction visible instead of
+          collapsing everything into one composite number.
+        </p>
+        <div className="grid grid-cols-[auto_1fr_1fr] gap-1.5 text-xs">
+          <div />
+          <div className="text-center font-semibold text-text-dim">Solvency: Low Risk</div>
+          <div className="text-center font-semibold text-text-dim">Solvency: High Risk</div>
+
+          <div className="flex items-center justify-end pr-1 font-semibold text-text-dim">Liquidity: Low Risk</div>
+          {(["healthy", "solvency_watch"] as const).map((q) => (
+            <div key={q} className="min-h-[90px] rounded border border-border p-2" style={{ background: "#1a1f28" }}>
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-dim">
+                {q === "healthy" ? "Healthy" : "Solvency Watch"}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {rows.filter((r) => quadrantFor(r) === q).map((r) => (
+                  <span
+                    key={r.country}
+                    className="rounded px-1.5 py-0.5 text-[11px] font-medium"
+                    style={{ background: `${scoreColor(r.compositeScore)}22`, color: scoreColor(r.compositeScore) }}
+                  >
+                    {r.country}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-end pr-1 font-semibold text-text-dim">Liquidity: High Risk</div>
+          {(["liquidity_stress", "crisis"] as const).map((q) => (
+            <div key={q} className="min-h-[90px] rounded border border-border p-2" style={{ background: "#1a1f28" }}>
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-dim">
+                {q === "liquidity_stress" ? "Liquidity Stress" : "Banking Crisis Risk"}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {rows.filter((r) => quadrantFor(r) === q).map((r) => (
+                  <span
+                    key={r.country}
+                    className="rounded px-1.5 py-0.5 text-[11px] font-medium"
+                    style={{ background: `${scoreColor(r.compositeScore)}22`, color: scoreColor(r.compositeScore) }}
+                  >
+                    {r.country}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        {rows.some((r) => quadrantFor(r) === null) && (
+          <p className="mt-2 text-[11px] text-text-dim">
+            Not placed (insufficient capital/liquidity data):{" "}
+            {rows.filter((r) => quadrantFor(r) === null).map((r) => r.country).join(", ")}
+          </p>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">
           Banking Systemic Risk — Country Table
         </h2>
         <p className="mb-3 max-w-3xl text-xs text-text-dim">
@@ -266,6 +389,55 @@ export default async function BankingPage() {
               )}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">
+          Score Breakdown — Why Is This Composite What It Is?
+        </h2>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          Every contribution below is traceable to an underlying observation (spec §110/135): the top bar
+          shows how many of the composite&apos;s points came from Structural, Market and Contagion; the
+          bottom bar shows how Structural itself splits across Capital, Credit, Funding and Liquidity.
+          Weights are fixed (Structural 40% / Market 35% / Contagion 25% of composite; Capital 35% /
+          Credit 30% / Funding 15% / Liquidity 20% of Structural) — shown for the six highest-composite
+          countries.
+        </p>
+        <div className="space-y-4">
+          {topRisks.map((r) => (
+            <div key={r.country} className="gfew-panel p-3">
+              <div className="mb-2 flex items-baseline justify-between">
+                <span className="font-medium">{r.country}</span>
+                <span className="text-xs text-text-dim">
+                  Stage {r.stage} · {r.stageLabel}
+                </span>
+              </div>
+              <ContributionBar
+                total={r.compositeScore}
+                segments={[
+                  { label: "Structural", value: contribution(r.structuralScore, COMPOSITE_WEIGHTS.structural), color: "#3fa9f5" },
+                  { label: "Market", value: contribution(r.marketScore, COMPOSITE_WEIGHTS.market), color: "#e0793d" },
+                  { label: "Contagion", value: contribution(r.contagionScore, COMPOSITE_WEIGHTS.contagion), color: "#e05a4d" },
+                ]}
+              />
+              <div className="mt-3 pl-3">
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-dim">
+                  Structural ({r.structuralScore ?? "—"}) breaks down as
+                </div>
+                <ContributionBar
+                  total={null}
+                  segments={[
+                    { label: "Capital", value: contribution(r.capitalScore, STRUCTURAL_WEIGHTS.capital), color: "#34c085" },
+                    { label: "Credit", value: contribution(r.creditScore, STRUCTURAL_WEIGHTS.credit), color: "#e0b93d" },
+                    { label: "Funding", value: contribution(r.fundingScore, STRUCTURAL_WEIGHTS.funding), color: "#3fa9f5" },
+                    { label: "Liquidity", value: contribution(r.liquidityScore, STRUCTURAL_WEIGHTS.liquidity), color: "#8b96a8" },
+                  ]}
+                />
+              </div>
+            </div>
+          ))}
+          {topRisks.length === 0 && <p className="text-sm text-text-dim">No data yet.</p>}
         </div>
       </section>
 

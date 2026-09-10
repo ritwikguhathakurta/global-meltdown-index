@@ -462,6 +462,18 @@ export default function MethodologyPage() {
           Stage 6+ — never assigned to a single country in isolation.
         </p>
         <p className="mb-2">
+          The dashboard also renders two transparency views the spec asks for directly from these same
+          computed numbers, with no new data fetched: a <strong>Liquidity–Solvency Matrix</strong> (spec
+          §109/165) placing each country by Capital score (solvency risk) against Liquidity score
+          (liquidity risk) into the four buckets the spec names — illiquid-but-solvent and
+          insolvent-but-liquid are genuinely different problems from a system that is both, and collapsing
+          everything into one composite number would hide that distinction; and a{" "}
+          <strong>score breakdown</strong> (spec §110/135, &ldquo;why is this score X&rdquo;) for the
+          highest-composite countries, showing the actual weighted point contribution of Structural/
+          Market/Contagion to the composite and of Capital/Credit/Funding/Liquidity to Structural, using
+          the exact same fixed weights the engine computes with rather than a second hard-coded copy.
+        </p>
+        <p className="mb-2">
           <strong>Bank-level layer</strong>: the spec&apos;s own recommended source for individual-bank
           CET1/LCR/NSFR is FFIEC&apos;s CDR bulk data download — checked live before building anything,
           and found genuinely blocked: the actual file-serving endpoint
