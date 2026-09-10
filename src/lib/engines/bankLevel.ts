@@ -48,6 +48,13 @@ import { BANK_FDIC_CERTS } from "../sources/fdicBankFind";
  * / ROA-proxy) screen now that real Capital/Credit/CRE inputs exist — a
  * genuine upgrade toward spec §82-90's domain structure, though still not
  * the full liquidity/market/contagion model the country-level engine runs.
+ *
+ * Each bank also gets a separate `leadingScore` (CRE/Assets 50% + Deposit
+ * Growth 50%) — the bank-level half of the Leading Banking Stress Score on
+ * /dashboard/banking, using only this file's two spec-classified LEADING
+ * inputs rather than the LAGGING CET1/NPL also shown here. See
+ * bankingSystemicRisk.ts's LEADING_WEIGHTS comment and the methodology
+ * page's extrapolation disclaimer.
  */
 
 export type BankLevelRow = {
@@ -75,6 +82,13 @@ export type BankLevelRow = {
   creToAssets: number | null;
   creScore: number | null;
   riskScore: number | null;
+  /** Leading Banking Stress Score, bank level — CRE/Assets (50%) + Deposit
+   * Growth (50%), the two of this file's inputs the spec's own §186
+   * leading/lagging classification calls LEADING (CRE refinancing exposure,
+   * deposit outflows) rather than LAGGING (CET1/NPL, both excluded here even
+   * though real and shown elsewhere on this page). See the methodology
+   * page's extrapolation disclaimer. */
+  leadingScore: number | null;
   dataCompleteness: number;
 };
 
@@ -204,6 +218,13 @@ export async function getBankLevelTable(db: SupabaseClient): Promise<BankLevelRo
       const applicable = [cet1Score, nplScore, creScore, depositGrowthScore, tier1LeverageScore, roaScore];
       const dataCompleteness = Math.round((applicable.filter((v) => v !== null).length / applicable.length) * 100) / 100;
 
+      const leadingParts = [
+        creScore !== null ? { score: creScore, weight: 0.5 } : null,
+        depositGrowthScore !== null ? { score: depositGrowthScore, weight: 0.5 } : null,
+      ].filter((p): p is { score: number; weight: number } => p !== null);
+      const leadingScore =
+        leadingParts.length > 0 ? Math.round(leadingParts.reduce((a, b) => a + b.score * b.weight, 0) / leadingParts.reduce((a, b) => a + b.weight, 0)) : null;
+
       return {
         key: co.key,
         name: co.name,
@@ -229,6 +250,7 @@ export async function getBankLevelTable(db: SupabaseClient): Promise<BankLevelRo
         creToAssets,
         creScore,
         riskScore,
+        leadingScore,
         dataCompleteness,
       };
     }

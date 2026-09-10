@@ -544,6 +544,49 @@ export default function MethodologyPage() {
           manual document-search interfaces for individual banks&apos; own PDF disclosures, not bulk APIs
           — no free structured feed found for any of them.
         </p>
+        <p className="mb-2">
+          A follow-up round specifically claimed &ldquo;live LCR/NSFR programmatic feeds&rdquo; for every
+          tracked country. Every claim relevant to this engine&apos;s nine-country universe was checked
+          directly and none held up: Canada&apos;s OSFI LAR pages are regulatory guidance documents, not a
+          data feed; the Bank of England&apos;s IADB is real but carries macro/monetary aggregates
+          (Bank Rate, money supply), not individual-bank PRA regulatory returns, which aren&apos;t public
+          anywhere; Japan&apos;s BOJ/JFSA has no bulk LCR feed — Japanese banks disclose LCR individually
+          in their own annual-report PDFs; and the FFIEC/EBA P3DH/RBI DBIE claims repeated verbatim the
+          same specific technical details (method names, endpoint behavior) already disproven above. Zero
+          of seven checks confirmed. <strong>CET1, leverage, NPL and CRE concentration are genuinely
+          available (via FDIC, above) — LCR and NSFR specifically are not, for any tracked country, from
+          any source checked so far.</strong>
+        </p>
+        <p className="mb-2" id="leading-banking-stress-score">
+          <strong>Leading Banking Stress Score</strong>: rather than wait on LCR/NSFR, the dashboard
+          computes a score from data already shown elsewhere on the page, restricted to the subset the
+          spec&apos;s own §186 classifies as LEADING rather than LAGGING (&ldquo;LEADING: credit growth,
+          deposit outflows, funding spreads, CRE refinancing, bank equity, yield curve&rdquo; vs.
+          &ldquo;LAGGING: NPL, CET1 after losses, defaults&rdquo;). At country level: Funding 40% + Market
+          (bank-equity price/vol) 35% + the BIS credit-to-GDP Gap 25% where it exists (UK/Canada/Japan
+          only — renormalized to Funding+Market for the other six countries), explicitly excluding the
+          Capital and NPL-based Credit inputs shown in the country table since those are the spec&apos;s
+          own lagging examples. At bank level (US only): CRE/Assets 50% + Deposit Growth 50%, from the
+          same real FDIC/SEC EDGAR data already used for Risk Score, again excluding CET1/NPL. Both are
+          shown on{" "}
+          <a href="/dashboard/banking#leading-banking-stress-score" className="text-accent hover:underline">
+            /dashboard/banking
+          </a>
+          .
+        </p>
+        <p className="mb-2">
+          <strong>Extrapolation disclaimer</strong>: the LEADING/LAGGING split above is a classification
+          from the spec&apos;s own text, reflecting conventional financial-theory priors about which
+          indicators typically move first — it is <em>not</em> an empirically measured lead time in this
+          dataset. This app runs no historical backtesting or lead-time analysis (spec §145-148/188:
+          &ldquo;calculate median lead time, 25th/75th percentile, false-positive rate&rdquo; against past
+          crises — not built, would require validated point-in-time historical data this deployment
+          doesn&apos;t have). A high Leading Score means the specific leading-classified inputs are
+          currently elevated, not that stress is forecast within any timeframe, and it is mechanically
+          correlated with the Composite/Structural scores shown elsewhere on the page since it re-uses
+          their component inputs rather than independent data — a different lens on the same evidence, not
+          a separate confirmation.
+        </p>
         <p>
           <strong>Still explicitly not built</strong>, checked and disclosed rather than faked: LCR/NSFR
           at any bank; IRRBB duration/repricing and CR6 PD/LGD (gated behind the EBA Pillar 3 Data

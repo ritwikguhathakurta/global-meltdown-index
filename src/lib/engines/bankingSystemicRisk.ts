@@ -181,6 +181,20 @@ export const BANKING_STAGES: BankingStageDef[] = [
 export const STRUCTURAL_WEIGHTS = { capital: 0.35, credit: 0.3, funding: 0.15, liquidity: 0.2 };
 export const COMPOSITE_WEIGHTS = { structural: 0.4, market: 0.35, contagion: 0.25 };
 
+/** Leading Banking Stress Score weights — a re-derivation of already-computed
+ * component scores using ONLY the subset this app's spec itself classifies
+ * as LEADING rather than LAGGING (spec §186's own list: "LEADING: credit
+ * growth, deposit outflows, funding spreads, CRE refinancing, bank equity,
+ * yield curve" vs. "LAGGING: NPL, CET1 after losses, defaults"). Funding
+ * (policy/interbank rate) and Market (bank equity price+vol) are used as-is
+ * for every country; the Credit domain is used ONLY where it's the BIS
+ * credit-to-GDP GAP (a genuine "credit boom excess" leading signal, UK/
+ * Canada/Japan) — never where Credit is NPL-based, since NPL is explicitly
+ * the spec's own lagging example. See the methodology page's own
+ * "extrapolation" disclaimer before treating this as anything more than a
+ * re-weighting of already-shown numbers. */
+export const LEADING_WEIGHTS = { funding: 0.4, market: 0.35, creditGap: 0.25 };
+
 function stageNumberFromScore(score: number): number {
   if (score < 15) return 1;
   if (score < 30) return 2;
@@ -318,6 +332,9 @@ export type CountryBankingRow = {
   dataCompleteness: number;
   stage: number | null;
   stageLabel: string;
+  creditGapScore: number | null;
+  leadingScore: number | null;
+  leadingCompleteness: number;
 };
 
 export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<CountryBankingRow[]> {
@@ -386,10 +403,11 @@ export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<C
       if (chargeoffScore !== null) creditParts.push({ score: chargeoffScore, weight: 0.4 });
       if (creScore !== null) creditParts.push({ score: creScore, weight: 0.6 });
     }
+    let creditGapScore: number | null = null;
     if (CREDIT_GAP_KEY[c.key]) {
       const gapSeries = creditGapSeriesByCountry.get(c.key) ?? [];
-      const gapScore = zToRiskScore(zScore(gapSeries, windowForFreq("quarterly")), 1);
-      if (gapScore !== null) creditParts.push({ score: gapScore, weight: 0.6 });
+      creditGapScore = zToRiskScore(zScore(gapSeries, windowForFreq("quarterly")), 1);
+      if (creditGapScore !== null) creditParts.push({ score: creditGapScore, weight: 0.6 });
     }
     const creditScore =
       creditParts.length > 0 ? Math.round(creditParts.reduce((a, b) => a + b.score * b.weight, 0) / creditParts.reduce((a, b) => a + b.weight, 0)) : null;
@@ -428,10 +446,10 @@ export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<C
     const prelimScore =
       prelimParts.length > 0 ? prelimParts.reduce((a, b) => a + b.score * b.weight, 0) / prelimParts.reduce((a, b) => a + b.weight, 0) : null;
 
-    return { c, capitalScore, creditScore, fundingScore, liquidityScore, structuralScore, marketScore, prelimScore };
+    return { c, capitalScore, creditScore, creditGapScore, fundingScore, liquidityScore, structuralScore, marketScore, prelimScore };
   });
 
-  return prelim.map(({ c, capitalScore, creditScore, fundingScore, liquidityScore, structuralScore, marketScore }) => {
+  return prelim.map(({ c, capitalScore, creditScore, creditGapScore, fundingScore, liquidityScore, structuralScore, marketScore }) => {
     const others = prelim.filter((p) => p.c.key !== c.key);
     const othersWithData = others.filter((p) => p.prelimScore !== null).length;
     const othersStressed = others.filter((p) => p.prelimScore !== null && (p.prelimScore as number) >= 60).length;
@@ -461,6 +479,18 @@ export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<C
     const marketLedWarning = structuralScore !== null && marketScore !== null && marketScore >= 55 && marketScore - structuralScore >= 20;
     const stageDef = bankingStageFor(compositeScore, hiddenRisk, marketLedWarning);
 
+    const leadingParts = [
+      fundingScore !== null ? { score: fundingScore, weight: LEADING_WEIGHTS.funding } : null,
+      marketScore !== null ? { score: marketScore, weight: LEADING_WEIGHTS.market } : null,
+      creditGapScore !== null ? { score: creditGapScore, weight: LEADING_WEIGHTS.creditGap } : null,
+    ].filter((p): p is { score: number; weight: number } => p !== null);
+    const leadingScore =
+      leadingParts.length > 0
+        ? Math.round(leadingParts.reduce((a, b) => a + b.score * b.weight, 0) / leadingParts.reduce((a, b) => a + b.weight, 0))
+        : null;
+    const leadingApplicable = [fundingScore, marketScore, creditGapScore];
+    const leadingCompleteness = Math.round((leadingApplicable.filter((v) => v !== null).length / leadingApplicable.length) * 100) / 100;
+
     return {
       country: c.name,
       capitalRatio: { value: capitalRow?.v ?? null, asOf: capitalRow?.t ?? null, score: capitalScore },
@@ -482,8 +512,23 @@ export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<C
       dataCompleteness,
       stage: stageDef?.stage ?? null,
       stageLabel: stageDef?.shortLabel ?? "—",
+      creditGapScore,
+      leadingScore,
+      leadingCompleteness,
     };
   });
+}
+
+/** Equal-weighted average of each country's Leading Banking Stress Score
+ * (see LEADING_WEIGHTS above) — deliberately NOT run through the crisis-
+ * stage machinery above, since "leading indicators are elevated" and "this
+ * is Stage N" are different claims; see the methodology page's
+ * extrapolation disclaimer before treating a high reading here as a
+ * forecast. */
+export function getLeadingCompositeScore(rows: CountryBankingRow[]): number | null {
+  const withData = rows.filter((r) => r.leadingScore !== null);
+  if (withData.length === 0) return null;
+  return Math.round(withData.reduce((a, b) => a + (b.leadingScore as number), 0) / withData.length);
 }
 
 export function bankingBreadth(rows: CountryBankingRow[]): { stressedCount: number; totalWithData: number } {

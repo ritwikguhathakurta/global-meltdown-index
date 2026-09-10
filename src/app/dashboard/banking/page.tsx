@@ -1,6 +1,12 @@
 import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
-import { BANKING_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type CountryBankingRow } from "@/lib/engines/bankingSystemicRisk";
+import {
+  BANKING_STAGES,
+  STRUCTURAL_WEIGHTS,
+  COMPOSITE_WEIGHTS,
+  getLeadingCompositeScore,
+  type CountryBankingRow,
+} from "@/lib/engines/bankingSystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
 
 function fmt(v: number | null, unit: string, decimals = 2): string {
@@ -108,6 +114,14 @@ export default async function BankingPage() {
 
   const bankingComposite = bankingRows.find((r) => r.horizon === "short") ?? bankingRows[0] ?? null;
 
+  const leadingComposite = getLeadingCompositeScore(rows);
+  const rankedByLeading = [...rows].filter((r) => r.leadingScore !== null).sort((a, b) => (b.leadingScore as number) - (a.leadingScore as number));
+  const banksWithLeading = bankRows.filter((b) => b.leadingScore !== null);
+  const usBankLeadingOverlay =
+    banksWithLeading.length > 0
+      ? Math.round(banksWithLeading.reduce((a, b) => a + (b.leadingScore as number), 0) / banksWithLeading.length)
+      : null;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Global Banking Systemic Risk</h1>
@@ -179,6 +193,77 @@ export default async function BankingPage() {
         ) : (
           <p className="text-sm text-text-dim">Insufficient data for a composite reading yet.</p>
         )}
+      </section>
+
+      <section className="gfew-panel mb-8 p-4" id="leading-banking-stress-score">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-dim">
+            Leading Banking Stress Score
+          </h3>
+          <a href="/dashboard/methodology#leading-banking-stress-score" className="text-xs text-accent hover:underline">
+            Methodology →
+          </a>
+        </div>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          A re-derivation of numbers already shown elsewhere on this page, using only the inputs this
+          app&apos;s own spec classifies as LEADING rather than LAGGING: Funding (40%) + Market (35%) +
+          BIS credit-to-GDP Gap where available (25%, UK/Canada/Japan only — renormalized to Funding+Market
+          for the other six countries), explicitly excluding the Capital/NPL inputs shown in the country
+          table above since those are the spec&apos;s own LAGGING examples.
+        </p>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="gfew-mono text-3xl font-bold" style={{ color: scoreColor(leadingComposite) }}>
+            {leadingComposite ?? "—"}
+          </span>
+          <span className="text-sm uppercase tracking-wide text-text-dim">
+            Equal-weighted across the nine tracked banking systems
+          </span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-dim">By country</h4>
+            <ol className="space-y-1.5">
+              {rankedByLeading.map((r, i) => (
+                <li key={r.country} className="text-sm">
+                  <span className="gfew-mono mr-2 text-text-dim">{i + 1}.</span>
+                  <span className="font-medium">{r.country}</span>{" "}
+                  <span className="gfew-mono" style={{ color: scoreColor(r.leadingScore) }}>
+                    {r.leadingScore}
+                  </span>{" "}
+                  <span className="text-[10px] text-text-dim">
+                    ({Math.round(r.leadingCompleteness * 100)}% coverage{r.creditGapScore !== null ? ", incl. credit gap" : ""})
+                  </span>
+                </li>
+              ))}
+              {rankedByLeading.length === 0 && <li className="text-sm text-text-dim">No data yet.</li>}
+            </ol>
+          </div>
+          <div>
+            <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-dim">
+              US bank-level leading overlay
+            </h4>
+            <p className="mb-2 text-xs text-text-dim">
+              Average of CRE/Assets (50%) and Deposit Growth (50%) across the twelve tracked US banks —
+              real FDIC/SEC EDGAR data, but averaged across a 12-bank sample, not a US-system-wide
+              observation. Shown separately rather than blended into the US country row above, since it is
+              a different entity level and sample size.
+            </p>
+            <span className="gfew-mono text-2xl font-bold" style={{ color: scoreColor(usBankLeadingOverlay) }}>
+              {usBankLeadingOverlay ?? "—"}
+            </span>
+          </div>
+        </div>
+        <div className="mt-4 rounded border border-border bg-panel-raised p-3 text-xs text-text-dim">
+          <strong className="text-text">Extrapolation disclaimer:</strong> &ldquo;Leading&rdquo; here
+          reflects a conventional financial-theory classification (funding costs, bank equity and credit
+          growth are commonly observed to move before regulatory metrics confirm stress) — it is{" "}
+          <strong>not</strong> an empirically validated lead time measured in this dataset. This app runs
+          no historical backtesting or lead-time analysis (spec §146/188, not built — see methodology). A
+          high reading means the specific inputs above are currently elevated, not that stress is
+          forecast to arrive in any particular timeframe, and it is mechanically correlated with the
+          Composite/Structural scores shown above since it reuses their component inputs rather than
+          independent data. Treat it as a different lens on the same evidence, not a separate forecast.
+        </div>
       </section>
 
       <section className="mb-8 grid gap-4 sm:grid-cols-3">
@@ -472,6 +557,7 @@ export default async function BankingPage() {
                 <th className="px-3 py-2 font-medium">Deposit Growth (YoY)</th>
                 <th className="px-3 py-2 font-medium">ROA (TTM)</th>
                 <th className="px-3 py-2 font-medium">Risk Score</th>
+                <th className="px-3 py-2 font-medium">Leading Score</th>
                 <th className="px-3 py-2 font-medium">Coverage</th>
               </tr>
             </thead>
@@ -509,12 +595,15 @@ export default async function BankingPage() {
                   <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(b.riskScore) }}>
                     {b.riskScore ?? "—"}
                   </td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.leadingScore) }}>
+                    {b.leadingScore ?? "—"}
+                  </td>
                   <td className="px-3 py-2 text-text-dim">{Math.round(b.dataCompleteness * 100)}%</td>
                 </tr>
               ))}
               {bankRows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-text-dim">
+                  <td colSpan={11} className="px-3 py-6 text-center text-text-dim">
                     No data yet — trigger a pipeline run from /admin.
                   </td>
                 </tr>
