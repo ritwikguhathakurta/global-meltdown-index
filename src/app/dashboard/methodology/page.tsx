@@ -623,7 +623,11 @@ export default function MethodologyPage() {
           human judgment this app doesn&apos;t automate. This is not a hypothetical safeguard: building and
           testing this check is what caught the France and Bank of Canada rows already being one edition
           behind (December 2025 → June 2026, and 2025 → 2026 respectively) the same day this feature was
-          built.
+          built. France&apos;s own auto-check currently shows &ldquo;Check failed&rdquo; rather than
+          &ldquo;Verified&rdquo;: Banque de France&apos;s site returns HTTP 403 to Vercel&apos;s serverless
+          IPs specifically (verified working from a residential IP with the same headers) — a datacenter-IP
+          block, the same class of issue as the FFIEC CDR webservice elsewhere in this app. Disclosed rather
+          than hidden; it does not affect the other eight countries.
         </p>
         <p className="mb-2">
           <strong>&ldquo;Report&apos;s Own Stance&rdquo; and &ldquo;Δ vs Central Bank&rdquo;</strong>: each

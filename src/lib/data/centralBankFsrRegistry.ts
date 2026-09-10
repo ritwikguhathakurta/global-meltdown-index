@@ -184,6 +184,12 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "The French financial system is stated to continue displaying resilience in the face of a series of shocks since 2020, though the report flags new adverse commodity-supply disruption risk from Middle East geopolitical tensions.",
     bankStanceLevel: "moderate",
+    // Auto-check verified working with a full browser header set from a
+    // residential IP, but returns HTTP 403 from Vercel's serverless IPs —
+    // same class of datacenter-IP block seen with the FFIEC CDR webservice
+    // elsewhere in this app. Left wired in (rather than downgraded to a
+    // manual-only entry) since the block may not be permanent; the
+    // dashboard surfaces this honestly as "Check failed", not "Verified".
     checkMethod: "html",
     checkUrl: "https://www.banque-france.fr/en/publications-and-research/our-main-publications/financial-stability-report",
     checkRegex: "Financial stability report - (\\w+ \\d{4})",
