@@ -471,9 +471,14 @@ export default function MethodologyPage() {
           Chicago Fed&apos;s own historical mirror of the same files stops at 2021-Q1 (verified: the
           2021-Q1 file downloads, every 2022+ quarter 404s) — five years stale, not a current feed.
           FFIEC&apos;s SOAP webservice does expose the real thing (CET1 ratio, Tier 1 leverage ratio,
-          risk-weighted assets from FR Y-9C) but requires a registered CDR account&apos;s credentials, a
-          manual signup this deployment doesn&apos;t have yet — a disclosed future upgrade path, not
-          abandoned. In its place, the bank-level table on{" "}
+          risk-weighted assets from FR Y-9C) — a registered CDR account&apos;s WS-Security credentials
+          were obtained and tested directly against the live service, and authentication genuinely
+          succeeds. But every operation tried (TestUserAccess, RetrieveReportingPeriods,
+          RetrievePanelOfReporters) returns the identical fault{" "}
+          <span className="gfew-mono">Server.MethodUnavailable: This service is no longer available</span>,
+          not an authentication error — FFIEC has retired the entire legacy webservice, and no
+          documented v2/REST replacement was found. This is a confirmed dead end, not a gap pending
+          credentials. In its place, the bank-level table on{" "}
           <a href="/dashboard/banking" className="text-accent hover:underline">/dashboard/banking</a>{" "}
           reuses the SEC EDGAR XBRL machinery already built for the AI engines to pull real Total
           Assets/Equity/Deposits/Loans/Net Income for all eight US G-SIBs plus four large

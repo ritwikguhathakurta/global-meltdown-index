@@ -12,8 +12,13 @@ import { fetchCompanyFacts, extractDiscreteQuarterly, extractInstant } from "./s
  * the same bulk files stops at 2021-Q1 (verified: bhcf2103.csv = 200,
  * bhcf2203.csv onward = 404) — five years stale, not a current feed. FFIEC's
  * SOAP webservice (which does expose real CET1/leverage/RWA data from FR
- * Y-9C) requires a registered CDR account's WS-Security credentials — a real
- * path, but gated behind a manual signup this deployment doesn't have yet.
+ * Y-9C) was also checked directly with a registered CDR account's
+ * WS-Security credentials: authentication genuinely succeeds, but every
+ * operation (TestUserAccess, RetrieveReportingPeriods,
+ * RetrievePanelOfReporters) returns the identical
+ * `Server.MethodUnavailable: This service is no longer available` fault —
+ * FFIEC has retired the entire legacy webservice, with no documented v2/REST
+ * replacement found. A confirmed dead end, not a gap pending credentials.
  *
  * This module instead reuses the SEC EDGAR XBRL company-facts machinery
  * already proven out for the AI engines (see secEdgar.ts) to pull real,
