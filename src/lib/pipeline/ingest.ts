@@ -35,6 +35,7 @@ import {
   fetchIndiaCreditGap,
 } from "../sources/bisCreditGap";
 import { fetchIndiaPropertyPrices } from "../sources/bisPropertyPrices";
+import { runCentralBankFsrChecks } from "../sources/centralBankFsrCheck";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
 import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
 import { fetchCanadaInventoryToSalesRatio } from "../sources/statCan";
@@ -703,6 +704,25 @@ export async function ingestBankFdicMetrics(db: SupabaseClient, runDate: string)
   }
 }
 
+export async function ingestCentralBankFsrChecks(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const results = await runCentralBankFsrChecks(db);
+    const rows = results.map((r) => ({ key: r.key, last_checked_at: new Date().toISOString(), check_status: r.status, note: r.note }));
+    const { error } = await db.from("central_bank_fsr_checks").upsert(rows, { onConflict: "key" });
+    if (error) throw new Error(error.message);
+    const needsReview = results.filter((r) => r.status === "needs_review").map((r) => r.key);
+    const failed = results.filter((r) => r.status === "check_failed").map((r) => r.key);
+    const status = needsReview.length > 0 || failed.length > 0 ? "warning" : "ok";
+    const detail = { total: results.length, needsReview, failed };
+    await logRun(db, runDate, "ingest_central_bank_fsr_checks", status, detail);
+    return { stage: "ingest_central_bank_fsr_checks", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_central_bank_fsr_checks", "failed", detail);
+    return { stage: "ingest_central_bank_fsr_checks", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -742,6 +762,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_bank_sec_filings", ingestBankSecFilings(db, runDate)),
     withTimeout("ingest_bank_fdic_metrics", ingestBankFdicMetrics(db, runDate)),
     withTimeout("ingest_india_property_prices", ingestIndiaPropertyPrices(db, runDate)),
+    withTimeout("ingest_central_bank_fsr_checks", ingestCentralBankFsrChecks(db, runDate)),
   ]);
   return { runDate, results };
 }

@@ -7,18 +7,25 @@
  * the Fed's "Financial Stability Report", the BoE's "Financial Stability
  * Report", BOJ's "Financial System Report", Bundesbank's "Financial
  * Stability Review", Banca d'Italia's "Financial Stability Report", Banque
- * de France's "Assessment of Risks to the French Financial System", the Bank
- * of Canada's "Financial Stability Report", the PBOC's "China Financial
- * Stability Report" and the RBI's "Financial Stability Report".
+ * de France's "Financial Stability Report", the Bank of Canada's "Financial
+ * Stability Report", the PBOC's "China Financial Stability Report" and the
+ * RBI's "Financial Stability Report".
  *
- * This registry is a CURATED, MANUALLY-VERIFIED table, not a live feed — by
- * design (the user's own framing: "It need not to be live. It will change
- * whenever central bank publish its report"). Every url/publishedDate below
- * was checked directly against the central bank's own site (or a same-day
- * press report quoting it) at the time this was built; it changes only when
- * someone updates this file after the next edition is published, not
- * automatically. Do not treat a stale-looking date here as this app being
- * behind — check the linked report itself before assuming so.
+ * The qualitative fields below (institution, report name, stance,
+ * bankStanceLevel) are CURATED and MANUALLY VERIFIED — reading and
+ * classifying a report's own content is a human judgment, not something to
+ * auto-extract reliably (same discipline as everywhere else in this app).
+ * They change only when someone updates this file after reading a new
+ * edition, not automatically.
+ *
+ * The FRESHNESS of that curation, though, IS auto-checked on every pipeline
+ * run — see centralBankFsrCheck.ts and the central_bank_fsr_checks table
+ * (migration 0019). Each entry below declares HOW to mechanically verify
+ * whether a newer edition has likely appeared (checkMethod/checkRegex/
+ * checkExpected or feedInstitution), so a stale row gets flagged for review
+ * instead of silently going out of date. This was not theoretical: building
+ * and testing this check is what caught France's and Canada's rows already
+ * being one edition behind the day this was written (see git history).
  *
  * `bankStanceLevel` is a deliberately coarse, human-read classification of
  * that report's OWN stated overall tone (calm / moderate / elevated) —
@@ -36,6 +43,28 @@
 
 export type BankStanceLevel = "calm" | "moderate" | "elevated";
 
+/** How centralBankFsrCheck.ts automatically re-verifies this row is still
+ * current, on every pipeline run:
+ *  - "rss": the institution already has a live press-release RSS feed wired
+ *    up in centralBankRss.ts, accumulating into central_bank_events (Fed,
+ *    BoE, RBI). Check whether that table now holds a "Financial Stability
+ *    Report"-titled item for this institution dated AFTER publishedDate.
+ *  - "html": fetch `checkUrl` (the institution's own publications listing
+ *    page, not the specific-edition reportUrl above, since several of these
+ *    mint a brand-new URL every edition) and run `checkRegex` (a RegExp
+ *    source with exactly one capture group) against the page's tag-stripped,
+ *    entity-decoded text. Compare the FIRST match's captured group to
+ *    `checkExpected` — a mismatch (or no match at all) means whatever now
+ *    appears first in that institution's own listing no longer matches what
+ *    this registry has on file, so a newer edition has likely been
+ *    published and this row needs a human re-verification pass before the
+ *    entry above is edited. Regexes are anchored to each institution's own
+ *    real list-row wording (see centralBankFsrCheck.ts's comment for the
+ *    exact text this was tested against), not a generic date scan — a
+ *    generic scan would also match nav/breadcrumb text or older archived
+ *    rows that never disappear from these listing pages. */
+export type FsrCheckMethod = "rss" | "html";
+
 export type CentralBankFsrEntry = {
   key: string; // matches BANKING_COUNTRIES key in bankFinancialSoundness.ts
   country: string;
@@ -47,6 +76,18 @@ export type CentralBankFsrEntry = {
   cadenceLabel: string;
   stance: string; // short paraphrase of the report's own stated assessment
   bankStanceLevel: BankStanceLevel;
+  checkMethod: FsrCheckMethod;
+  /** rss only: the exact `institution` value used in centralBankRss.ts's
+   * CENTRAL_BANK_FEEDS, to match rows already accumulating in
+   * central_bank_events. */
+  feedInstitution?: string;
+  /** html only: the listing page to fetch. */
+  checkUrl?: string;
+  /** html only: RegExp source with one capture group, tested against the
+   * page's first matching occurrence. */
+  checkRegex?: string;
+  /** html only: the expected value of that first match's capture group. */
+  checkExpected?: string;
 };
 
 export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
@@ -62,6 +103,8 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "Elevated asset valuations and high, concentrated leverage in shadow banking/private credit, alongside moderate funding risk; system judged structurally more resilient than pre-2008 on capital and liquidity.",
     bankStanceLevel: "moderate",
+    checkMethod: "rss",
+    feedInstitution: "Federal Reserve",
   },
   {
     key: "uk",
@@ -75,6 +118,8 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "Households, businesses and the banking system judged resilient enough to support a stress; this edition's stated focus is AI-driven cyber/operational risk, not capital or liquidity stress.",
     bankStanceLevel: "calm",
+    checkMethod: "rss",
+    feedInstitution: "Bank of England",
   },
   {
     key: "japan",
@@ -88,6 +133,10 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "Financial system stability maintained on the whole and credit intermediation functioning smoothly, though the report flags market volatility from Middle East tensions since late February 2026.",
     bankStanceLevel: "calm",
+    checkMethod: "html",
+    checkUrl: "https://www.boj.or.jp/en/research/brp/fsr/index.htm",
+    checkRegex: "Financial System Report \\(([A-Za-z]+ \\d{4})\\)",
+    checkExpected: "April 2026",
   },
   {
     key: "germany",
@@ -101,6 +150,10 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "Risks to the German financial system explicitly stated to have increased — geopolitical tension, trade conflict and rising government debt; bank NPL ratio rising steadily since late 2022, initially concentrated in commercial real estate.",
     bankStanceLevel: "elevated",
+    checkMethod: "html",
+    checkUrl: "https://www.bundesbank.de/en/publications/reports/financial-stability-reviews",
+    checkRegex: "Financial Stability Review (\\d{4}) \\d{2}\\.\\d{2}\\.\\d{4}",
+    checkExpected: "2025",
   },
   {
     key: "italy",
@@ -114,32 +167,44 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "Main risks judged to stem from international/geopolitical factors rather than domestic credit conditions; household risk described as limited given sound balance sheets and low debt.",
     bankStanceLevel: "moderate",
+    checkMethod: "html",
+    checkUrl: "https://www.bancaditalia.it/pubblicazioni/rapporto-stabilita/index.html",
+    checkRegex: "(\\d{1,2} \\w+ \\d{4}) Rapporto sulla stabilit",
+    checkExpected: "29 aprile 2026",
   },
   {
     key: "france",
     country: "France",
     institution: "Banque de France",
-    reportName: "Assessment of Risks to the French Financial System",
-    reportUrl: "https://www.banque-france.fr/en/publications-and-statistics/publications/financial-stability-report-december-2025",
-    publishedDate: "2026-01-20",
+    reportName: "Financial Stability Report — June 2026",
+    reportUrl: "https://www.banque-france.fr/en/news/financial-stability-report-june-2026",
+    publishedDate: "2026-06-24",
     cadenceDays: 182,
-    cadenceLabel: "Semiannual (June / December edition)",
+    cadenceLabel: "Semiannual (June / December)",
     stance:
-      "Elevated market valuations and growing interconnection between non-bank financial intermediaries and banks flagged as the key systemic risk; France's own sovereign-debt trajectory flagged as a specific domestic vulnerability.",
+      "The French financial system is stated to continue displaying resilience in the face of a series of shocks since 2020, though the report flags new adverse commodity-supply disruption risk from Middle East geopolitical tensions.",
     bankStanceLevel: "moderate",
+    checkMethod: "html",
+    checkUrl: "https://www.banque-france.fr/en/publications-and-research/our-main-publications/financial-stability-report",
+    checkRegex: "Financial stability report - (\\w+ \\d{4})",
+    checkExpected: "June 2026",
   },
   {
     key: "canada",
     country: "Canada",
     institution: "Bank of Canada",
-    reportName: "Financial Stability Report",
-    reportUrl: "https://www.bankofcanada.ca/2025/05/financial-stability-report-2025/",
-    publishedDate: "2025-05-08",
+    reportName: "Financial Stability Report — 2026",
+    reportUrl: "https://www.bankofcanada.ca/publications/financial-stability-report/financial-stability-report-2026/",
+    publishedDate: "2026-05-28",
     cadenceDays: 365,
     cadenceLabel: "Annual (May)",
     stance:
-      "System judged resilient with a well-capitalized banking sector, but vulnerabilities described as having grown; U.S. trade policy/tariff uncertainty flagged as the main pressure on the outlook.",
+      "System stated to have continued functioning well despite US tariffs and trade uncertainty; households/businesses generally stable and banks have strengthened resilience, but vulnerabilities in certain sectors could amplify stress if multiple challenges emerge simultaneously.",
     bankStanceLevel: "moderate",
+    checkMethod: "html",
+    checkUrl: "https://www.bankofcanada.ca/publications/financial-stability-report/",
+    checkRegex: "Financial Stability Report\\W{0,3}(\\d{4})",
+    checkExpected: "2026",
   },
   {
     key: "china",
@@ -153,6 +218,10 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "Financial risks described as converging and generally controllable; 3,217 of 3,529 rated banking institutions (98% of system assets) rated as operating safely; residual risk concentrated in real estate finance, LGFV debt and small/mid-size local banks.",
     bankStanceLevel: "calm",
+    checkMethod: "html",
+    checkUrl: "https://www.pbc.gov.cn/en/3688235/3688414/3710021/index.html",
+    checkRegex: "Financial Stability Reports (\\d{4})",
+    checkExpected: "2025",
   },
   {
     key: "india",
@@ -166,6 +235,8 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "Domestic financial system resilience described as continuously improving — strong capital buffers, low non-performing loans, robust profitability; stress tests show capital staying above the regulatory minimum even under adverse shocks.",
     bankStanceLevel: "calm",
+    checkMethod: "rss",
+    feedInstitution: "Reserve Bank of India",
   },
 ];
 

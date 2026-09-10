@@ -258,6 +258,18 @@ export async function getPropertySystemicRiskTable(): Promise<{ rows: CountryPro
   }
 }
 
+export type CentralBankFsrCheckRow = {
+  key: string;
+  last_checked_at: string | null;
+  check_status: string;
+  note: string | null;
+};
+
+export async function getCentralBankFsrChecks(): Promise<CentralBankFsrCheckRow[]> {
+  const db = await createServerSupabase();
+  return safe<CentralBankFsrCheckRow[]>(() => db.from("central_bank_fsr_checks").select("*"), []);
+}
+
 export async function getRecentPipelineRuns(limit = 20): Promise<PipelineRunRow[]> {
   const db = await createServerSupabase();
   return safe<PipelineRunRow[]>(

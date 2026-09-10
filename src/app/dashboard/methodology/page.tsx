@@ -607,6 +607,25 @@ export default function MethodologyPage() {
           will change whenever central bank publish its report&rdquo;).
         </p>
         <p className="mb-2">
+          <strong>Auto-Check</strong>: the qualitative fields above stay manually curated, but their
+          freshness is genuinely automated (centralBankFsrCheck.ts, migration 0019&apos;s
+          central_bank_fsr_checks table). On every pipeline run: for the three institutions with an
+          already-integrated press-release RSS feed (Fed, BoE, RBI — see centralBankRss.ts/
+          central_bank_events), the check queries that table for a &ldquo;Financial Stability
+          Report&rdquo;-titled item dated after the registry&apos;s publishedDate. For the other six (BOJ,
+          Bundesbank, Banca d&apos;Italia, Banque de France, Bank of Canada, PBOC), it re-fetches that
+          institution&apos;s own publications listing page and runs a regex anchored to that specific
+          institution&apos;s real list-row wording (not a generic date scan, which would also match
+          nav/breadcrumb text or older archived rows that never disappear from these pages), comparing the
+          first match against what the registry expects. A mismatch — or a newer RSS item — sets that row
+          to &ldquo;Needs review&rdquo; on the dashboard; it does NOT auto-edit the registry&apos;s
+          publishedDate or stance, since reading and classifying a new edition&apos;s actual content is a
+          human judgment this app doesn&apos;t automate. This is not a hypothetical safeguard: building and
+          testing this check is what caught the France and Bank of Canada rows already being one edition
+          behind (December 2025 → June 2026, and 2025 → 2026 respectively) the same day this feature was
+          built.
+        </p>
+        <p className="mb-2">
           <strong>&ldquo;Report&apos;s Own Stance&rdquo; and &ldquo;Δ vs Central Bank&rdquo;</strong>: each
           report is tagged calm/moderate/elevated from its own stated language (transcribed, not inferred —
           e.g. the Bundesbank&apos;s 2025 review says risks &ldquo;have increased&rdquo;, so it is tagged

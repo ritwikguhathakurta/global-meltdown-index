@@ -1,4 +1,4 @@
-import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable } from "@/lib/api/engineData";
+import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import {
   BANKING_STAGES,
@@ -49,6 +49,13 @@ function freshnessColor(status: "current" | "due" | "overdue"): string {
 
 function stanceLabel(level: "calm" | "moderate" | "elevated"): string {
   return level === "calm" ? "Calm" : level === "moderate" ? "Moderate" : "Elevated";
+}
+
+function checkStatusBadge(status: string | undefined): { label: string; color: string } {
+  if (status === "current") return { label: "Verified", color: "#34c085" };
+  if (status === "needs_review") return { label: "Needs review", color: "#e0793d" };
+  if (status === "check_failed") return { label: "Check failed", color: "#5a6472" };
+  return { label: "Not yet checked", color: "#5a6472" };
 }
 
 /** Weighted point contribution of one domain score to a parent composite —
@@ -111,11 +118,13 @@ function quadrantFor(r: CountryBankingRow): "healthy" | "solvency_watch" | "liqu
 }
 
 export default async function BankingPage() {
-  const [bankingRows, { rows, composite }, bankRows] = await Promise.all([
+  const [bankingRows, { rows, composite }, bankRows, fsrChecks] = await Promise.all([
     getLatestEngine("banking"),
     getBankingSystemicRiskTable(),
     getBankLevelTable(),
+    getCentralBankFsrChecks(),
   ]);
+  const fsrCheckByKey = new Map(fsrChecks.map((c) => [c.key, c]));
   const rankedBanks = [...bankRows].sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));
 
   const ranked = [...rows].sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
@@ -290,9 +299,12 @@ export default async function BankingPage() {
           Every G7 + China + India central bank publishes its own periodic assessment of the soundness and
           resilience of its financial system. This table links directly to each institution&apos;s own
           latest published report — a curated verification registry, not a live feed, updated whenever a
-          central bank publishes a new edition. &ldquo;Δ vs central bank&rdquo; compares this app&apos;s
-          current composite score to that report&apos;s own stated stance; it is not a point-in-time
-          backtest (see methodology for why).
+          central bank publishes a new edition. The <strong>Auto-Check</strong> column is genuinely
+          automated: every pipeline run re-fetches each institution&apos;s own publications listing (or its
+          press-release feed, where already wired up) and flags &ldquo;Needs review&rdquo; the moment a
+          newer edition appears to be out, so this table is never silently more than one pipeline cycle
+          behind. &ldquo;Δ vs central bank&rdquo; compares this app&apos;s current composite score to that
+          report&apos;s own stated stance; it is not a point-in-time backtest (see methodology for why).
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">
@@ -306,6 +318,7 @@ export default async function BankingPage() {
                 <th className="px-3 py-2 font-medium">Report&apos;s Own Stance</th>
                 <th className="px-3 py-2 font-medium">Our Composite</th>
                 <th className="px-3 py-2 font-medium">Δ vs Central Bank</th>
+                <th className="px-3 py-2 font-medium">Auto-Check</th>
               </tr>
             </thead>
             <tbody>
@@ -314,6 +327,8 @@ export default async function BankingPage() {
                 const row = rows.find((r) => r.country === entry.country);
                 const ourLevel = ourStanceLevel(row?.compositeScore ?? null);
                 const comparison = ourLevel ? compareStance(ourLevel, entry.bankStanceLevel) : null;
+                const check = fsrCheckByKey.get(entry.key);
+                const badge = checkStatusBadge(check?.check_status);
                 return (
                   <tr key={entry.key} className="border-t border-border align-top">
                     <td className="px-3 py-2 font-medium">{entry.country}</td>
@@ -347,6 +362,20 @@ export default async function BankingPage() {
                       {comparison === "more_stressed" && <span style={{ color: "#e0793d" }}>Our model reads more stress</span>}
                       {comparison === "less_stressed" && <span style={{ color: "#3fa9f5" }}>Our model reads less stress</span>}
                       {comparison === null && <span className="text-text-dim">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      <span
+                        className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium"
+                        style={{ background: `${badge.color}22`, color: badge.color }}
+                        title={check?.note ?? "This entry has not yet been checked by a pipeline run."}
+                      >
+                        {badge.label}
+                      </span>
+                      {check?.last_checked_at && (
+                        <div className="mt-0.5 text-[10px] text-text-dim">
+                          {new Date(check.last_checked_at).toISOString().slice(0, 10)}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
