@@ -55,8 +55,11 @@ function checkStatusBadge(status: string | undefined): { label: string; color: s
   if (status === "current") return { label: "Verified", color: "#34c085" };
   if (status === "needs_review") return { label: "Needs review", color: "#e0793d" };
   if (status === "check_failed") return { label: "Check failed", color: "#5a6472" };
+  if (status === "not_automated") return { label: "Not automated", color: "#8b96a8" };
   return { label: "Not yet checked", color: "#5a6472" };
 }
+
+const FSR_REGION_ORDER = ["G7", "G20 / Major EM", "ASEAN", "CEE", "Latin America", "Middle East", "Africa"] as const;
 
 /** Weighted point contribution of one domain score to a parent composite —
  * i.e. what that domain actually added to the final number, not the domain's
@@ -296,15 +299,21 @@ export default async function BankingPage() {
           </a>
         </div>
         <p className="mb-3 max-w-3xl text-xs text-text-dim">
-          Every G7 + China + India central bank publishes its own periodic assessment of the soundness and
-          resilience of its financial system. This table links directly to each institution&apos;s own
-          latest published report — a curated verification registry, not a live feed, updated whenever a
-          central bank publishes a new edition. The <strong>Auto-Check</strong> column is genuinely
-          automated: every pipeline run re-fetches each institution&apos;s own publications listing (or its
-          press-release feed, where already wired up) and flags &ldquo;Needs review&rdquo; the moment a
-          newer edition appears to be out, so this table is never silently more than one pipeline cycle
-          behind. &ldquo;Δ vs central bank&rdquo; compares this app&apos;s current composite score to that
-          report&apos;s own stated stance; it is not a point-in-time backtest (see methodology for why).
+          34 central banks across the G7, G20/major EM, ASEAN, CEE, Latin America, Middle East and Africa,
+          each confirmed to publish a genuine periodic assessment of the soundness and resilience of its
+          financial system. This table links directly to each institution&apos;s own latest published
+          report — a curated verification registry, not a live feed, updated whenever a central bank
+          publishes a new edition (checked, and deliberately excluded: Vietnam, Qatar and Nigeria — see
+          methodology). The <strong>Auto-Check</strong> column is genuinely automated for entries marked
+          &ldquo;Verified&rdquo;/&ldquo;Needs review&rdquo;/&ldquo;Check failed&rdquo;: every pipeline run
+          re-fetches each institution&apos;s own publications listing (or its press-release feed, where
+          already wired up) and flags a review the moment a newer edition appears to be out. Entries marked
+          &ldquo;Not automated&rdquo; have a fully real, verified report and hyperlink, but their listing
+          page was found to be JavaScript-rendered or bot-walled when checked, so no automated check exists
+          for them yet — disclosed rather than faked. &ldquo;Δ vs central bank&rdquo; compares this
+          app&apos;s current composite score to that report&apos;s own stated stance (only computed for the
+          original 9 countries this app has banking-engine coverage for); it is not a point-in-time
+          backtest (see methodology for why).
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">
@@ -322,14 +331,23 @@ export default async function BankingPage() {
               </tr>
             </thead>
             <tbody>
-              {CENTRAL_BANK_FSR_REGISTRY.map((entry) => {
-                const { daysSince, status } = fsrFreshness(entry);
-                const row = rows.find((r) => r.country === entry.country);
-                const ourLevel = ourStanceLevel(row?.compositeScore ?? null);
-                const comparison = ourLevel ? compareStance(ourLevel, entry.bankStanceLevel) : null;
-                const check = fsrCheckByKey.get(entry.key);
-                const badge = checkStatusBadge(check?.check_status);
-                return (
+              {FSR_REGION_ORDER.flatMap((region) => {
+                const entries = CENTRAL_BANK_FSR_REGISTRY.filter((e) => e.region === region);
+                if (entries.length === 0) return [];
+                return [
+                  <tr key={`region-${region}`} className="border-t border-border bg-panel-raised">
+                    <td colSpan={9} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-dim">
+                      {region} ({entries.length})
+                    </td>
+                  </tr>,
+                  ...entries.map((entry) => {
+                    const { daysSince, status } = fsrFreshness(entry);
+                    const row = rows.find((r) => r.country === entry.country);
+                    const ourLevel = ourStanceLevel(row?.compositeScore ?? null);
+                    const comparison = ourLevel ? compareStance(ourLevel, entry.bankStanceLevel) : null;
+                    const check = fsrCheckByKey.get(entry.key);
+                    const badge = checkStatusBadge(check?.check_status);
+                    return (
                   <tr key={entry.key} className="border-t border-border align-top">
                     <td className="px-3 py-2 font-medium">{entry.country}</td>
                     <td className="px-3 py-2 text-text-dim">{entry.institution}</td>
@@ -378,7 +396,9 @@ export default async function BankingPage() {
                       )}
                     </td>
                   </tr>
-                );
+                    );
+                  }),
+                ];
               })}
             </tbody>
           </table>

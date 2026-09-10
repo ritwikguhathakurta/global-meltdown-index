@@ -13,7 +13,7 @@ import { CENTRAL_BANK_FSR_REGISTRY, type CentralBankFsrEntry } from "../data/cen
  * report's stance is a judgment call this app does not automate.
  */
 
-export type FsrCheckStatus = "current" | "needs_review" | "check_failed";
+export type FsrCheckStatus = "current" | "needs_review" | "check_failed" | "not_automated";
 
 export type FsrCheckResult = {
   key: string;
@@ -52,8 +52,14 @@ async function checkHtmlEntry(entry: CentralBankFsrEntry): Promise<FsrCheckResul
   }
 
   const text = normalizeHtml(html);
-  const regex = new RegExp(entry.checkRegex);
-  const match = text.match(regex);
+  const wantLast = entry.checkMatchPosition === "last";
+  const regex = new RegExp(entry.checkRegex, wantLast ? "g" : undefined);
+  let match: RegExpMatchArray | null = null;
+  if (wantLast) {
+    for (const m of text.matchAll(regex)) match = m;
+  } else {
+    match = text.match(regex);
+  }
   if (!match) {
     return {
       key: entry.key,
@@ -100,8 +106,19 @@ async function checkRssEntry(db: SupabaseClient, entry: CentralBankFsrEntry): Pr
   };
 }
 
+function manualEntryResult(entry: CentralBankFsrEntry): FsrCheckResult {
+  return {
+    key: entry.key,
+    status: "not_automated",
+    note: "No automated freshness check built for this entry yet (its listing page was verified to be JavaScript-rendered or bot-walled) — verify manually against the linked report.",
+  };
+}
+
 export async function runCentralBankFsrChecks(db: SupabaseClient): Promise<FsrCheckResult[]> {
   return Promise.all(
-    CENTRAL_BANK_FSR_REGISTRY.map((entry) => (entry.checkMethod === "rss" ? checkRssEntry(db, entry) : checkHtmlEntry(entry)))
+    CENTRAL_BANK_FSR_REGISTRY.map((entry) => {
+      if (entry.checkMethod === "manual") return Promise.resolve(manualEntryResult(entry));
+      return entry.checkMethod === "rss" ? checkRssEntry(db, entry) : checkHtmlEntry(entry);
+    })
   );
 }

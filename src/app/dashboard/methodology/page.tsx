@@ -607,6 +607,25 @@ export default function MethodologyPage() {
           will change whenever central bank publish its report&rdquo;).
         </p>
         <p className="mb-2">
+          <strong>Coverage — G7 + G20/major EM + ASEAN + CEE + Latin America + Middle East + Africa</strong>:
+          extended from the original 9 to 34 countries in one pass, each independently verified the same
+          way — a real URL and a real publication date checked directly against the institution&apos;s own
+          site (or, where noted in a code comment, a specific news report stating the fact directly), never
+          guessed. Added: Argentina, Australia, Brazil, Indonesia, Mexico, Russia, Saudi Arabia, South
+          Africa, South Korea, Turkey (G20/major EM); Malaysia, Philippines, Singapore, Thailand (ASEAN);
+          Poland, Czech Republic, Hungary, Romania (CEE); Chile, Colombia, Peru (Latin America); UAE, Israel
+          (Middle East); Kenya, Egypt (Africa). Checked and deliberately <strong>not</strong> added: Vietnam
+          (the State Bank of Vietnam publishes no standalone public FSR-type report), Qatar (Qatar Central
+          Bank&apos;s legacy publications page is broken/bot-gated and no working primary-source URL could
+          be found), and Nigeria (the CBN&apos;s FSR PDF is real and publicly hosted, but every recent
+          edition is itself headed &ldquo;Classified as Confidential&rdquo; — an inconsistent, anomalous
+          case not treated as equivalent to the other clean entries). Note this app&apos;s own banking
+          engine (the &ldquo;Our Composite&rdquo;/&ldquo;Δ vs Central Bank&rdquo; columns) only has
+          free-data-backed country coverage for the original 9 — the 25 newly added countries show a fully
+          real report, hyperlink and stance classification, but no composite-score comparison, since this
+          app has no banking engine built for them.
+        </p>
+        <p className="mb-2">
           <strong>Auto-Check</strong>: the qualitative fields above stay manually curated, but their
           freshness is genuinely automated (centralBankFsrCheck.ts, migration 0019&apos;s
           central_bank_fsr_checks table). On every pipeline run: for the three institutions with an
@@ -628,6 +647,19 @@ export default function MethodologyPage() {
           IPs specifically (verified working from a residential IP with the same headers) — a datacenter-IP
           block, the same class of issue as the FFIEC CDR webservice elsewhere in this app. Disclosed rather
           than hidden; it does not affect the other eight countries.
+        </p>
+        <p className="mb-2">
+          <strong>Auto-Check coverage for the 25-country expansion</strong>: six more got a genuinely
+          tested regex check the same way (Russia, Indonesia, Turkey, Malaysia, Hungary, Kenya — Kenya&apos;s
+          listing page presents its editions oldest-first, so its check reads the LAST matching row on the
+          page rather than the first, via checkMatchPosition). Every other newly added country is marked
+          &ldquo;Not automated&rdquo; on purpose: its listing page was actually fetched and found to be
+          JavaScript-rendered (returns an empty template to a plain HTTP request — e.g. Bank of Korea,
+          MAS Singapore, Banco Central do Brasil) or bot-walled (returns a challenge page instead of content
+          — e.g. SAMA, NBP Poland, CBE Egypt), so no regex could be reliably anchored to real text.
+          Shipping an untested or unreliable check would be worse than no check at all — it would either
+          silently never fire or produce false &ldquo;needs review&rdquo; flags — so those entries show an
+          honest &ldquo;Not automated&rdquo; badge instead of a fabricated &ldquo;Verified&rdquo; one.
         </p>
         <p className="mb-2">
           <strong>&ldquo;Report&apos;s Own Stance&rdquo; and &ldquo;Δ vs Central Bank&rdquo;</strong>: each

@@ -712,8 +712,9 @@ export async function ingestCentralBankFsrChecks(db: SupabaseClient, runDate: st
     if (error) throw new Error(error.message);
     const needsReview = results.filter((r) => r.status === "needs_review").map((r) => r.key);
     const failed = results.filter((r) => r.status === "check_failed").map((r) => r.key);
+    const notAutomated = results.filter((r) => r.status === "not_automated").length;
     const status = needsReview.length > 0 || failed.length > 0 ? "warning" : "ok";
-    const detail = { total: results.length, needsReview, failed };
+    const detail = { total: results.length, needsReview, failed, notAutomated };
     await logRun(db, runDate, "ingest_central_bank_fsr_checks", status, detail);
     return { stage: "ingest_central_bank_fsr_checks", status, detail };
   } catch (e) {
