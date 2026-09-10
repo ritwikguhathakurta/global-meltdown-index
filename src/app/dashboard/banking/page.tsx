@@ -446,17 +446,18 @@ export default async function BankingPage() {
           Bank-Level Detail — US G-SIBs &amp; Large Regionals
         </h2>
         <p className="mb-3 max-w-3xl text-xs text-text-dim">
-          Real per-bank data from SEC EDGAR XBRL filings (Total Assets, Equity, Deposits, Loans, Net
-          Income — standard GAAP concepts, not estimates). The literal Basel III CET1 ratio, LCR and
-          NSFR are NOT shown here: they are regulatory concepts each bank tags with its own custom
-          XBRL element names rather than a common comparable tag, and the free bulk source that does
-          carry them (FFIEC&apos;s CDR) is Cloudflare-blocked for a plain automated request — a
-          registered CDR account&apos;s credentials would unlock the fuller version, a disclosed future
-          upgrade, not built this pass. Leverage Ratio (Equity/Assets) is a genuine but different
-          capital-adequacy measure computed from these two clean GAAP figures instead. Risk Score
-          blends Leverage (40%), Deposit Growth (30%) and an ROA proxy (30%), cross-sectionally
-          z-scored against these same eleven peer banks — a first-pass bank screen, not the full
-          five-domain model the country table above uses.
+          Two real, distinct entity levels for the same twelve banking groups. <strong>Total Assets,
+          Equity, Deposits, Loans</strong> are the SEC-filing HOLDING COMPANY&apos;s GAAP figures (SEC
+          EDGAR XBRL). <strong>CET1 Ratio, Tier 1 Leverage, NPL Ratio and CRE/Assets</strong> are the
+          actual regulatory figures for that group&apos;s lead FDIC-insured BANK SUBSIDIARY (a different
+          legal entity), pulled from the FDIC BankFind Suite API — a genuinely live, free, unauthenticated
+          source verified directly against its own published field dictionary before use. This is the CET1
+          ratio the earlier build of this page said wasn&apos;t available: FFIEC&apos;s bulk download and
+          SOAP webservice are both confirmed dead ends (see methodology), but FDIC&apos;s own Call
+          Report-derived API was not, and carries the real number. LCR and NSFR are still not published
+          anywhere free and structured — still unavailable, not fabricated. Risk Score now blends CET1
+          (30%), NPL (20%), CRE/Assets (15%), Deposit Growth (15%), Tier 1 Leverage (10%) and ROA (10%),
+          cross-sectionally z-scored against these same twelve peer banks.
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">
@@ -464,11 +465,11 @@ export default async function BankingPage() {
               <tr>
                 <th className="px-3 py-2 font-medium">Bank</th>
                 <th className="px-3 py-2 font-medium">Total Assets</th>
-                <th className="px-3 py-2 font-medium">Equity</th>
-                <th className="px-3 py-2 font-medium">Leverage Ratio</th>
-                <th className="px-3 py-2 font-medium">Deposits</th>
+                <th className="px-3 py-2 font-medium">CET1 Ratio</th>
+                <th className="px-3 py-2 font-medium">Tier 1 Leverage</th>
+                <th className="px-3 py-2 font-medium">NPL Ratio</th>
+                <th className="px-3 py-2 font-medium">CRE / Assets</th>
                 <th className="px-3 py-2 font-medium">Deposit Growth (YoY)</th>
-                <th className="px-3 py-2 font-medium">Loans</th>
                 <th className="px-3 py-2 font-medium">ROA (TTM)</th>
                 <th className="px-3 py-2 font-medium">Risk Score</th>
                 <th className="px-3 py-2 font-medium">Coverage</th>
@@ -484,17 +485,24 @@ export default async function BankingPage() {
                         G-SIB
                       </span>
                     )}
+                    {b.entityName && <div className="text-[10px] font-normal text-text-dim">{b.entityName}</div>}
                   </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalAssets.value)}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalEquity.value)}</td>
-                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(b.leverageScore) }}>
-                    {fmt(b.leverageRatio, "%")}
+                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(b.cet1Score) }}>
+                    {fmt(b.cet1Ratio.value, "%", 2)}
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalDeposits.value)}</td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.tier1LeverageScore) }}>
+                    {fmt(b.tier1LeverageRatio.value, "%", 2)}
+                  </td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.nplScore) }}>
+                    {fmt(b.nplRatio.value, "%", 2)}
+                  </td>
+                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.creScore) }}>
+                    {fmt(b.creToAssets, "%", 1)}
+                  </td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.depositGrowthScore) }}>
                     {fmtPct(b.depositGrowthYoy)}
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalLoans.value)}</td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.roaScore) }}>
                     {fmt(b.roa, "%")}
                   </td>

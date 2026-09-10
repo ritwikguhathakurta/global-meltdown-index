@@ -490,22 +490,66 @@ export default function MethodologyPage() {
           <span className="gfew-mono">Server.MethodUnavailable: This service is no longer available</span>,
           not an authentication error — FFIEC has retired the entire legacy webservice, and no
           documented v2/REST replacement was found. This is a confirmed dead end, not a gap pending
-          credentials. In its place, the bank-level table on{" "}
+          credentials. The bank-level table on{" "}
           <a href="/dashboard/banking" className="text-accent hover:underline">/dashboard/banking</a>{" "}
-          reuses the SEC EDGAR XBRL machinery already built for the AI engines to pull real Total
-          Assets/Equity/Deposits/Loans/Net Income for all eight US G-SIBs plus four large
-          super-regionals (standard GAAP concepts, verified live and consistently tagged across every
-          bank checked, including trading-heavy Goldman Sachs and Morgan Stanley) and computes a
-          genuine Leverage Ratio (Equity/Assets) and a coarse Risk Score from them — disclosed
-          explicitly as a leverage ratio, not the risk-weighted CET1 ratio, and as a first-pass
-          three-input screen, not the country table&apos;s full five-domain model. No other
-          jurisdiction&apos;s individual banks are covered (non-US G-SIBs mostly aren&apos;t SEC filers,
-          or don&apos;t tag the same concepts consistently as ADRs) — disclosed as deferred.
+          instead reuses the SEC EDGAR XBRL machinery already built for the AI engines to pull real Total
+          Assets/Equity/Deposits/Loans/Net Income for all eight US G-SIBs plus four large super-regionals
+          (standard GAAP concepts, verified live and consistently tagged across every bank checked,
+          including trading-heavy Goldman Sachs and Morgan Stanley) at the HOLDING COMPANY level.
+        </p>
+        <p className="mb-2">
+          The actual CET1 ratio, however, is now genuinely covered — not through FFIEC or the EU sources
+          below, but through the <strong>FDIC BankFind Suite API</strong> (banks.data.fdic.gov /
+          api.fdic.gov), found and verified live this pass: unauthenticated, real JSON, field codes
+          cross-checked against FDIC&apos;s own published data dictionary
+          (<span className="gfew-mono">risview_properties.yaml</span>) rather than guessed, and every
+          value spot-checked against JPMorgan Chase Bank NA&apos;s real quarterly history (170 quarters
+          back to the 1980s) before use. Its own Call Report/UBPR-derived RISVIEW database exposes the
+          regulatory ratios GAAP-only XBRL never carries as plain numeric fields:{" "}
+          <span className="gfew-mono">IDT1CER</span> (Common Equity Tier 1 ratio),{" "}
+          <span className="gfew-mono">RBC1AAJ</span> (Tier 1 leverage ratio),{" "}
+          <span className="gfew-mono">RBCRWAJ</span> (total risk-based capital ratio),{" "}
+          <span className="gfew-mono">NCLNLSR</span> (the real noncurrent-loans/NPL ratio, not a
+          delinquency proxy) and <span className="gfew-mono">LNCOMRE</span> (commercial real estate loan
+          exposure). This pulls the FDIC-insured lead BANK SUBSIDIARY for each of the same twelve banking
+          groups (e.g. &ldquo;JPMorgan Chase Bank, National Association&rdquo;, CERT 628) — a different
+          legal entity than the SEC-filing holding company, with CERT numbers looked up directly against
+          FDIC&apos;s own institutions endpoint rather than typed from memory, and shown as a separate,
+          explicitly labeled entity on the dashboard rather than blended into the holding-company row.
+          Bank Risk Score now blends CET1 (30%), NPL (20%), CRE/Assets (15%), Deposit Growth (15%), Tier 1
+          Leverage (10%) and ROA (10%) — a real, if still partial, five/six-domain screen. LCR and NSFR
+          remain genuinely unavailable: they are separate, SEC-mandated disclosures for only the largest
+          banks, not a Call Report/RISVIEW field, and no free structured feed of them was found.
+        </p>
+        <p className="mb-2">
+          Every other route checked this pass, in the order investigated: the EBA&apos;s brand-new{" "}
+          <strong>Pillar 3 Data Hub</strong> (launched January 2026) does carry exactly the IRRBB
+          duration/repricing and CR6 PD/LGD templates the spec asks for, but a direct, unauthenticated
+          request to its public endpoint (<span className="gfew-mono">edap-public.eba.europa.eu</span>)
+          was verified to redirect into an infinite <span className="gfew-mono">/Account/Login</span> →{" "}
+          <span className="gfew-mono">/account/tenant</span> loop — &ldquo;public&rdquo; means reachable
+          through a browser session, not a script. The EBA&apos;s older{" "}
+          <strong>EU-wide Transparency Exercise</strong> genuinely does have real, free, unauthenticated
+          bulk CSVs (verified: <span className="gfew-mono">tr_cre.csv</span>,{" "}
+          <span className="gfew-mono">tr_sov.csv</span> etc. download as real HTTP 200 files, 119 banks
+          across 25 EU/EEA countries) — but EBA discontinued it as of June 2025, so it is a frozen,
+          one-time-forever snapshot rather than a live feed, and doesn&apos;t cover IRRBB or CR6 at all;
+          not built this pass given that tradeoff. India&apos;s RBI DBIE is a macro/monetary statistics
+          warehouse, not a repository of individual banks&apos; Pillar 3 disclosures — checked, not there.
+          Brazil&apos;s Banco Central (a genuine OData/Swagger API at{" "}
+          <span className="gfew-mono">olinda.bcb.gov.br</span>) and Türkiye&apos;s BDDK (a real open-data
+          service with Python/R client libraries) are both real APIs, just for countries not currently in
+          this engine&apos;s universe. Mexico&apos;s CNBV, China&apos;s CNINFO, and South
+          Africa/Türkiye/Saudi Arabia/UAE bank investor-relations and exchange filing portals are all
+          manual document-search interfaces for individual banks&apos; own PDF disclosures, not bulk APIs
+          — no free structured feed found for any of them.
         </p>
         <p>
-          <strong>Still explicitly not built</strong>, checked and disclosed rather than faked: Stage-2
-          migration, deposit concentration, derivatives notional and other Pillar-3-only bank-level
-          disclosures; deposit/uninsured-deposit/deposit-velocity tracking (no free per-country source);
+          <strong>Still explicitly not built</strong>, checked and disclosed rather than faked: LCR/NSFR
+          at any bank; IRRBB duration/repricing and CR6 PD/LGD (gated behind the EBA Pillar 3 Data
+          Hub&apos;s login flow); Stage-2 migration, deposit concentration, derivatives notional and other
+          Pillar-3-only bank-level disclosures; deposit/uninsured-deposit/deposit-velocity tracking (no
+          free per-country source);
           CRE-refinancing-wall and mortgage-payment-shock simulators (need loan-maturity-schedule data
           no free source publishes); sovereign-bank/property-bank/corporate-bank feedback-loop
           SIMULATION (the underlying series exist and are noted conceptually, but no forward simulation

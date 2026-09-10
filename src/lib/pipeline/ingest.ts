@@ -40,6 +40,7 @@ import { fetchUsTreasuryLiveData } from "../sources/usTreasuryDebt";
 import { fetchChinaOfficialReserveAssets } from "../sources/chinaFxReserves";
 import { fetchBankFinancialSoundnessData } from "../sources/bankFinancialSoundness";
 import { fetchAllBankSecFilings } from "../sources/bankSecFilings";
+import { fetchAllBankFdicMetrics } from "../sources/fdicBankFind";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -658,6 +659,19 @@ export async function ingestBankSecFilings(db: SupabaseClient, runDate: string):
   }
 }
 
+export async function ingestBankFdicMetrics(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchAllBankFdicMetrics();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_bank_fdic_metrics", "ok", { points: points.length });
+    return { stage: "ingest_bank_fdic_metrics", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_bank_fdic_metrics", "failed", detail);
+    return { stage: "ingest_bank_fdic_metrics", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -695,6 +709,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_china_fx_reserves", ingestChinaFxReserves(db, runDate)),
     withTimeout("ingest_bank_financial_soundness", ingestBankFinancialSoundness(db, runDate)),
     withTimeout("ingest_bank_sec_filings", ingestBankSecFilings(db, runDate)),
+    withTimeout("ingest_bank_fdic_metrics", ingestBankFdicMetrics(db, runDate)),
   ]);
   return { runDate, results };
 }

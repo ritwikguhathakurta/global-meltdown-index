@@ -15,13 +15,17 @@ import { BANKING_COUNTRIES } from "../sources/bankFinancialSoundness";
  * component against what free, verified data genuinely supports for a
  * multi-country universe at once — the same discipline applied to Carry
  * Trade, G7 Debt and EM Debt. What's built here is the genuinely
- * free-data-backed COUNTRY-LEVEL subset; the entire bank-level layer (spec
- * §7-9: individual G-SIB/D-SIB tracking, CET1/LCR/NSFR, Stage 2 migration,
- * deposit concentration, derivatives notional) is disclosed as deferred
- * rather than faked — no free source publishes structured, machine-readable
- * bank-by-bank regulatory filings across countries (each regulator's own
- * portal is a different format, several behind login); see the methodology
- * page for the full breakdown.
+ * free-data-backed COUNTRY-LEVEL subset (spec §7-9's bank-by-bank universe
+ * is instead covered, for US banks only, by bankLevel.ts/bankSecFilings.ts/
+ * fdicBankFind.ts — real holding-company GAAP data from SEC EDGAR plus real
+ * regulatory CET1/leverage/NPL/CRE ratios from the FDIC BankFind API; every
+ * other jurisdiction's individual G-SIBs/D-SIBs, Stage 2 migration, deposit
+ * concentration and derivatives notional remain disclosed as deferred — no
+ * free source publishes structured, machine-readable bank-by-bank
+ * regulatory filings outside the US); see the methodology page for the full
+ * breakdown, including which additional sources (EBA Pillar 3 Data Hub, EBA
+ * Transparency Exercise, RBI DBIE, Banco Central do Brasil, BDDK) were
+ * checked live and why each was or wasn't built on.
  *
  * This deliberately does NOT touch the existing "banking" GFMI-weighted
  * engine (banking.ts) or register a second GFMI vote — same "new analytical

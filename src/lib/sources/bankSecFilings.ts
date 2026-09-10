@@ -32,17 +32,22 @@ import { fetchCompanyFacts, extractDiscreteQuarterly, extractInstant } from "./s
  * Morgan Stanley are more trading- than deposit-funded but still tag
  * `Deposits`, so the concept generalizes even to them).
  *
- * What this does NOT give, and is disclosed as unavailable rather than
- * estimated: the literal Basel III CET1 ratio, LCR, NSFR, or risk-weighted
- * assets. Those are regulatory (not GAAP) concepts and are not standardized
- * XBRL tags — each bank that discloses them at all uses its own custom
- * extension-taxonomy element names in its Pillar 3/10-K capital tables, not
- * a common tag comparable across banks the way `Assets` is. bankLevel.ts
- * instead computes a genuine, comparable LEVERAGE ratio (Equity/Assets) from
- * these two clean GAAP concepts as the free proxy — the same "computed
- * leverage ratio, not risk-weighted CET1" caveat already disclosed for the
- * country-level Capital domain's World Bank data (see
+ * What this does NOT give: the literal Basel III CET1 ratio, LCR, NSFR, or
+ * risk-weighted assets. Those are regulatory (not GAAP) concepts and are not
+ * standardized XBRL tags — each bank that discloses them at all uses its own
+ * custom extension-taxonomy element names in its Pillar 3/10-K capital
+ * tables, not a common tag comparable across banks the way `Assets` is.
+ * bankLevel.ts computes a genuine, comparable LEVERAGE ratio (Equity/Assets)
+ * from these two clean GAAP concepts as a holding-company-level proxy — the
+ * same "computed leverage ratio, not risk-weighted CET1" caveat already
+ * disclosed for the country-level Capital domain's World Bank data (see
  * bankFinancialSoundness.ts).
+ *
+ * The real CET1 ratio is NOT actually unavailable, though — see
+ * fdicBankFind.ts: FDIC's own BankFind Suite API (a different route than
+ * anything FFIEC offers) publishes it directly, for the insured bank
+ * subsidiary rather than this module's SEC-filing holding company. LCR/NSFR
+ * remain genuinely unavailable from any free source found.
  */
 
 export type BankCompanyDef = { key: string; cik: string; name: string; gsib: boolean };
