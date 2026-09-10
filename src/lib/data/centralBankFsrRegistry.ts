@@ -469,7 +469,7 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     bankStanceLevel: "calm",
     checkMethod: "html",
     checkUrl: "https://www.bnm.gov.my/publications/fsr/index",
-    checkRegex: "Financial Stability Review - (Second Half|First Half) (\\d{4})",
+    checkRegex: "Financial Stability Review - ((?:Second|First) Half \\d{4})",
     checkExpected: "Second Half 2025",
   },
   {
