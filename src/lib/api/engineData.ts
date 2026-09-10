@@ -8,6 +8,12 @@ import { getCountryG7DebtTable as computeCountryG7DebtTable, getG7CompositeScore
 import { getCarryTradeTable as computeCarryTradeTable, getCarryCompositeScore, type CarryPairRow, type FundingCurrencyRow, type CarryStageDef } from "@/lib/engines/carryTrade";
 import { getBankingSystemicRiskTable as computeBankingSystemicRiskTable, getBankingCompositeScore, type CountryBankingRow, type BankingStageDef } from "@/lib/engines/bankingSystemicRisk";
 import { getBankLevelTable as computeBankLevelTable, type BankLevelRow } from "@/lib/engines/bankLevel";
+import {
+  getPropertySystemicRiskTable as computePropertySystemicRiskTable,
+  getPropertyCompositeScore,
+  type CountryPropertyRow,
+  type PropertyStageDef,
+} from "@/lib/engines/propertySystemicRisk";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -235,6 +241,20 @@ export async function getBankLevelTable(): Promise<BankLevelRow[]> {
   } catch (e) {
     console.error((e as Error).message);
     return [];
+  }
+}
+
+export async function getPropertySystemicRiskTable(): Promise<{ rows: CountryPropertyRow[]; composite: { score: number | null; stage: PropertyStageDef | null } }> {
+  const empty = { rows: [] as CountryPropertyRow[], composite: { score: null, stage: null } };
+  if (!isSupabaseConfigured) return empty;
+  try {
+    const db = await createServerSupabase();
+    const rows = await computePropertySystemicRiskTable(db);
+    const composite = getPropertyCompositeScore(rows);
+    return { rows, composite };
+  } catch (e) {
+    console.error((e as Error).message);
+    return empty;
   }
 }
 

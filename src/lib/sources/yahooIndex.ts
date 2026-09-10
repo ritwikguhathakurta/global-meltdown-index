@@ -75,6 +75,24 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "banking.equity_canada", symbol: "ZEB.TO", unit: "CAD" }, // BMO Equal Weight Banks Index ETF
   { metricKey: "banking.equity_china", symbol: "3988.HK", unit: "HKD" }, // ICBC — single large-bank proxy, no free China bank-sector index found live
   { metricKey: "banking.equity_india", symbol: "^NSEBANK", unit: "index" }, // Nifty Bank Index
+  // Property Systemic Risk engine (propertySystemicRisk.ts) — Market Stress
+  // domain. Same "broad REIT/property-sector ETF where one exists, single
+  // large representative developer where it doesn't" pattern as the Banking
+  // engine's Market domain above. All seven verified live with fresh daily
+  // bars before being added; India's Nifty Realty index (^CNXREALTY) was
+  // checked and rejected — it resolves but returns a single stale bar, dead
+  // on Yahoo despite resolving, same failure shape as the two banking-index
+  // rejections above.
+  { metricKey: "property.reit_us", symbol: "VNQ", unit: "USD" }, // Vanguard Real Estate ETF
+  { metricKey: "property.reit_uk", symbol: "IUKP.L", unit: "GBp" }, // iShares UK Property UCITS ETF
+  { metricKey: "property.reit_canada", symbol: "XRE.TO", unit: "CAD" }, // iShares S&P/TSX Capped REIT ETF
+  // Europe (proxy for the Eurozone members Germany/France/Italy):
+  { metricKey: "property.reit_europe", symbol: "IPRP.L", unit: "GBp" }, // iShares European Property Yield UCITS ETF (LSE-listed, GBp-denominated despite covering EU property)
+  { metricKey: "property.reit_japan", symbol: "1343.T", unit: "JPY" }, // NEXT FUNDS REIT Index ETF
+  { metricKey: "property.reit_china", symbol: "3187.HK", unit: "HKD" }, // CSOP CSI China Mainland Real Estate ETF
+  // India: ^CNXREALTY (Nifty Realty) rejected (1 stale bar) — DLF Ltd, India's
+  // largest listed developer, used as a single-company proxy instead.
+  { metricKey: "property.reit_india", symbol: "DLF.NS", unit: "INR" },
 ];
 
 type ChartResponse = {

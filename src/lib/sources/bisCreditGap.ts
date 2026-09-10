@@ -42,6 +42,16 @@ const COUNTRY_METRIC_KEYS: Record<string, string> = {
   GB: "credit.uk_credit_gap",
   CA: "credit.canada_credit_gap",
   JP: "credit.japan_credit_gap",
+  // Added for the Property Systemic Risk engine (propertySystemicRisk.ts) —
+  // verified live directly against this same dataflow before adding (US/DE/
+  // FR/IT/IN all return real, fresh-through-2025-Q4 data), completing full
+  // nine-country coverage of BANKING_COUNTRIES for a genuine credit-leverage
+  // domain rather than the three-country subset Banking's Credit domain has.
+  US: "credit.us_credit_gap",
+  DE: "credit.germany_credit_gap",
+  FR: "credit.france_credit_gap",
+  IT: "credit.italy_credit_gap",
+  IN: "credit.india_credit_gap",
 };
 
 async function fetchCreditGap(countryCode: string): Promise<MetricPoint[]> {
@@ -94,4 +104,24 @@ export async function fetchCanadaCreditGap(): Promise<MetricPoint[]> {
 
 export async function fetchJapanCreditGap(): Promise<MetricPoint[]> {
   return fetchCreditGap("JP");
+}
+
+export async function fetchUsCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("US");
+}
+
+export async function fetchGermanyCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("DE");
+}
+
+export async function fetchFranceCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("FR");
+}
+
+export async function fetchItalyCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("IT");
+}
+
+export async function fetchIndiaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("IN");
 }

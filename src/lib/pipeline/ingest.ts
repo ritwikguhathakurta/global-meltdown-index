@@ -23,7 +23,18 @@ import {
   fetchBojCallRate,
 } from "../sources/govBondYields";
 import { fetchChinaYield10y, fetchChinaCorpAaaYield10y } from "../sources/chinaBondYield";
-import { fetchChinaCreditGap, fetchUkCreditGap, fetchCanadaCreditGap, fetchJapanCreditGap } from "../sources/bisCreditGap";
+import {
+  fetchChinaCreditGap,
+  fetchUkCreditGap,
+  fetchCanadaCreditGap,
+  fetchJapanCreditGap,
+  fetchUsCreditGap,
+  fetchGermanyCreditGap,
+  fetchFranceCreditGap,
+  fetchItalyCreditGap,
+  fetchIndiaCreditGap,
+} from "../sources/bisCreditGap";
+import { fetchIndiaPropertyPrices } from "../sources/bisPropertyPrices";
 import { fetchChinaLgfvDebt } from "../sources/imfAugmentedDebt";
 import { fetchChinaMonthlyReleases, GOV_CN_BACKFILL_PAGE_LIMIT, GOV_CN_APPEND_PAGE_LIMIT, MIN_GOV_CN_OBSERVATIONS } from "../sources/govCnStatistics";
 import { fetchCanadaInventoryToSalesRatio } from "../sources/statCan";
@@ -429,6 +440,13 @@ export async function ingestBisCreditGaps(db: SupabaseClient, runDate: string): 
     { name: "UK", fn: fetchUkCreditGap },
     { name: "Canada", fn: fetchCanadaCreditGap },
     { name: "Japan", fn: fetchJapanCreditGap },
+    // Added for the Property Systemic Risk engine's Credit domain — see
+    // bisCreditGap.ts's own comment on these five entries.
+    { name: "US", fn: fetchUsCreditGap },
+    { name: "Germany", fn: fetchGermanyCreditGap },
+    { name: "France", fn: fetchFranceCreditGap },
+    { name: "Italy", fn: fetchItalyCreditGap },
+    { name: "India", fn: fetchIndiaCreditGap },
   ];
   let ok = 0;
   let points = 0;
@@ -659,6 +677,19 @@ export async function ingestBankSecFilings(db: SupabaseClient, runDate: string):
   }
 }
 
+export async function ingestIndiaPropertyPrices(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchIndiaPropertyPrices();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_india_property_prices", "ok", { points: points.length });
+    return { stage: "ingest_india_property_prices", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_india_property_prices", "failed", detail);
+    return { stage: "ingest_india_property_prices", status: "failed", detail };
+  }
+}
+
 export async function ingestBankFdicMetrics(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchAllBankFdicMetrics();
@@ -710,6 +741,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_bank_financial_soundness", ingestBankFinancialSoundness(db, runDate)),
     withTimeout("ingest_bank_sec_filings", ingestBankSecFilings(db, runDate)),
     withTimeout("ingest_bank_fdic_metrics", ingestBankFdicMetrics(db, runDate)),
+    withTimeout("ingest_india_property_prices", ingestIndiaPropertyPrices(db, runDate)),
   ]);
   return { runDate, results };
 }

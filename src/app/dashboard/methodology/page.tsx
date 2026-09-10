@@ -607,6 +607,129 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="global-property-systemic-risk">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Global Property Systemic Risk — a country-level layer, built against a 256-section spec
+        </h2>
+        <p className="mb-2">
+          A separate institutional spec (&ldquo;Global Property Systemic Risk Engine&rdquo;) asked for a
+          property_country_master universe spanning G20/major EM/ASEAN/CEE/Latin America/Middle East/
+          Africa, residential + commercial (office/retail/industrial/hotel/multifamily) + construction +
+          mortgage + developer + REIT + MBS tracking, a bank/NBFI/developer contagion network, a
+          12-scenario stress-test library, historical backtesting to the 1990s Japan property collapse,
+          a daily report and an AI Q&amp;A layer. Checked component by component the same way as Banking
+          Systemic Risk: what free, verified data genuinely supports at the country level across nine
+          markets is built at{" "}
+          <a href="/dashboard/property" className="text-accent hover:underline">/dashboard/property</a>.
+          This is a new analytical layer alongside the existing GFMI-weighted &ldquo;property&rdquo;
+          engine (unchanged — still its own BIS real-HPI-for-8-countries plus US mortgage-rate/starts/
+          permits inputs) rather than a replacement or a second vote in the composite.
+        </p>
+        <p className="mb-2">
+          <strong>Universe</strong>: the same nine countries as Banking Systemic Risk (the G7 plus China
+          and India), reusing the identical country keys on purpose — it makes a genuine
+          Property-Bank Convergence view (spec §141) possible by joining the two engines&apos; tables
+          directly, no fuzzy country-name matching needed. Australia, South Korea, Singapore, Hong Kong,
+          Brazil, Mexico, Indonesia, Türkiye, South Africa, Saudi Arabia and UAE are not covered — not
+          checked this pass, disclosed as deferred rather than estimated.
+        </p>
+        <p className="mb-2">
+          <strong>Valuation</strong> is the BIS &ldquo;Selected residential property prices&rdquo; real
+          house-price index — the same series the existing GFMI-weighted property engine already uses
+          for eight countries via FRED mirrors, extended to India via a direct BIS SDMX API call (FRED
+          doesn&apos;t mirror India&apos;s series; verified live and fresh through 2026-Q1 before use —
+          the exact dimension structure of BIS&apos;s dataflow, FREQ.REF_AREA.VALUE.UNIT_MEASURE, was
+          checked against BIS&apos;s own published data structure rather than guessed). Rather than
+          comparing raw index levels across countries (which would be meaningless — a &ldquo;higher
+          number&rdquo; only reflects each series&apos; own base, not relative overvaluation), each
+          country&apos;s Valuation score is its OWN deviation from a 15-year (60-quarter) trend — a
+          longer window than this app&apos;s usual 3-year default, matching the spec&apos;s own emphasis
+          on 5/10/20-year trend comparisons (§13). A genuine price-to-income ratio (the OECD&apos;s own
+          preferred affordability measure, spec §17) was checked and not found via any free, no-key,
+          machine-readable API this pass — not fabricated as a substitute.
+        </p>
+        <p className="mb-2">
+          <strong>Credit</strong> is each country&apos;s own BIS credit-to-GDP gap — the same
+          dataflow (and genuine Basel III countercyclical-buffer signal) already used for three countries
+          on the Credit tab, verified live this pass to also cover the US, Germany, France, Italy and
+          India (all fresh through 2025-Q4), giving this domain full nine-country coverage. This is total
+          private credit, not mortgage credit specifically — no free source breaks mortgage credit out
+          separately across all nine countries — but it is still a genuine leading credit-boom-excess
+          signal, and spec §34 itself explicitly asks for valuation to be connected to the credit-to-GDP
+          gap rather than judged on price alone. <strong>Affordability</strong> reuses each country&apos;s
+          own short-term policy/interbank rate — the same series already wired in for Carry Trade and
+          Banking&apos;s Funding domain — as a financing-cost proxy, since no free source publishes a
+          cross-country 30-year-fixed-equivalent mortgage rate (the US mortgage rate the legacy property
+          engine tracks has no free G7-wide equivalent). <strong>Market</strong> uses a REIT or
+          property-sector equity ETF per country/region (Vanguard Real Estate ETF for the US, national
+          REIT ETFs for the UK/Canada/Japan, a European property-yield ETF for Germany/France/Italy, a
+          China real-estate-sector ETF) and, where no live broad index was found on Yahoo Finance despite
+          initially resolving (India&apos;s Nifty Realty index returned a single stale bar when actually
+          checked), a single large representative developer instead: DLF Ltd, India&apos;s largest listed
+          developer — disclosed as a single-company proxy, not a broad index.
+        </p>
+        <p className="mb-2">
+          <strong>Structural Vulnerability</strong> = Valuation 40% + Credit 30% + Affordability 30% — a
+          free-data-scoped mapping of the spec&apos;s own Valuation 40/Leverage 25/Affordability 15/
+          Supply 10/Financing 10 framing (§133) — Supply and Financing are folded into Affordability since
+          no free source publishes cross-country housing starts/permits or property-specific financing
+          conditions outside the US. <strong>Contagion</strong> is a breadth reading — the fraction of the
+          OTHER eight countries whose preliminary Structural+Market blend is already elevated — the same
+          simplification already used for Banking/G7 Debt, not yet a genuine bank/NBFI/developer
+          exposure-weighted network (spec §116, needs bilateral exposure data no free source publishes).
+          <strong> Composite</strong> = Structural 40% + Market 35% + Contagion 25%, the spec&apos;s own
+          §5 base weighting applied verbatim.
+        </p>
+        <p className="mb-2">
+          <strong>Crisis Stage</strong> compresses the spec&apos;s nine named stages (§123, STAGE 0-8)
+          into this app&apos;s standard 7-stage convention — spec&apos;s separate Credit/Developer Stress
+          and Banking/NBFI Transmission stages are folded into one since no developer-level or
+          bank-exposure data distinguishes them meaningfully here. Hidden Property Risk (§124: structural
+          elevated, market still calm) and Market Already Warning (§202: market deteriorating well ahead
+          of structural) are genuinely computed flags that promote a country&apos;s stage floor, the same
+          pattern already used for Banking/G7 Debt. Stage 7 (Systemic Contagion) is reserved for the
+          cross-country composite only, when a large share of ALL nine countries are simultaneously at
+          Stage 6+ — never assigned to a single country in isolation.
+        </p>
+        <p className="mb-2" id="leading-property-stress-score">
+          <strong>Leading Property Stress Score</strong>: the spec&apos;s own §137 leading/lagging
+          classification explicitly lists &ldquo;valuation&rdquo; and &ldquo;credit growth&rdquo; as
+          LEADING and &ldquo;foreclosures/NPL/developer defaults&rdquo; as LAGGING, so this score is
+          Valuation 50% + Credit 50% — deliberately excluding Affordability (not spec-classified either
+          way) and Market (spec&apos;s own list puts property &ldquo;prices&rdquo; under COINCIDENT, not
+          leading, unlike the Banking spec which explicitly called bank equity leading). The same
+          extrapolation disclaimer as Banking&apos;s Leading Score applies: this is a re-derivation of
+          numbers already shown above using spec&apos;s classification, not an empirically measured lead
+          time — this app runs no historical backtesting (spec §178-181, not built), so a high reading
+          means the leading-classified inputs are currently elevated, not that a correction is forecast
+          within any particular timeframe.
+        </p>
+        <p className="mb-2">
+          <strong>Property-Bank Systemic Convergence</strong> (spec §141) is built directly on the
+          dashboard by joining this table with the Banking Systemic Risk table on the shared country key
+          — flagging countries where BOTH are simultaneously elevated (composite ≥ 55), rather than
+          assuming property stress automatically implies bank systemic risk or vice versa (spec&apos;s own
+          acceptance tests §243/244 require exactly this distinction: a country with property stress but
+          low bank property exposure and strong capital should NOT automatically show elevated bank
+          systemic risk).
+        </p>
+        <p>
+          <strong>Still explicitly not built</strong>, checked and disclosed rather than faked: the entire
+          property_country_master granularity (residential segments, CRE by office/retail/industrial/
+          hotel/multifamily, developer balance sheets, REIT NAV/P-NAV, MBS spreads — spec §7-8, 62-91);
+          price-to-income/price-to-rent/rental-yield ratios (§16-19, no free cross-country API found);
+          mortgage quality/LTV/DSR/mortgage-reset-wall tracking (§36-43, needs bank-level mortgage-book
+          disclosures no free source publishes); transaction/inventory/vacancy tracking (§44-58, US-only
+          free sources, not extended cross-country); CRE cap-rate/DSCR/refinancing-wall engines (§20-22,
+          70-75, needs property-level NOI/debt data no free source publishes); developer-specific engines
+          (§76-82, needs individual developer financials); a genuine bank/NBFI/developer contagion network
+          graph (§116); the full 12-scenario stress-test library with interactive UI controls (§205-207);
+          historical backtesting with lead-time analysis (§178-181); and a daily 8am report/AI Q&amp;A
+          layer (§208-212). None of these show fabricated values — every score and figure that is built
+          is real.
+        </p>
+      </section>
+
       <section className="mb-8" id="china-property-credit-pmi-lgfv">
         <h2 className="mb-2 text-base font-semibold text-text">
           China: closing the property/credit/PMI/LGFV/financing gap
