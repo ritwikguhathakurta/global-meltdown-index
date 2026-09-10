@@ -587,6 +587,48 @@ export default function MethodologyPage() {
           their component inputs rather than independent data — a different lens on the same evidence, not
           a separate confirmation.
         </p>
+        <p className="mb-2" id="central-bank-fsr-verification">
+          <strong>Central Bank Financial Stability Report Verification</strong>: rather than build our own
+          leading indicator in isolation, the banking dashboard&apos;s{" "}
+          <a href="/dashboard/banking#central-bank-fsr-verification" className="text-accent hover:underline">
+            /dashboard/banking
+          </a>{" "}
+          page links directly to each of the nine tracked countries&apos; own central bank Financial
+          Stability Report (or equivalent — the Fed&apos;s and BoE&apos;s &ldquo;Financial Stability
+          Report&rdquo;, BOJ&apos;s &ldquo;Financial System Report&rdquo;, Bundesbank&apos;s &ldquo;Financial
+          Stability Review&rdquo;, Banca d&apos;Italia&apos;s &ldquo;Financial Stability Report&rdquo;,
+          Banque de France&apos;s &ldquo;Assessment of Risks to the French Financial System&rdquo;, the Bank
+          of Canada&apos;s &ldquo;Financial Stability Report&rdquo;, the PBOC&apos;s &ldquo;China Financial
+          Stability Report&rdquo; and the RBI&apos;s &ldquo;Financial Stability Report&rdquo;). Every
+          report&apos;s URL and publication date was checked directly against the institution&apos;s own
+          site before being added. This is a curated verification registry (see
+          centralBankFsrRegistry.ts), not a live feed — it changes only when this file is updated after a
+          central bank publishes its next edition, exactly as requested (&ldquo;It need not to be live. It
+          will change whenever central bank publish its report&rdquo;).
+        </p>
+        <p className="mb-2">
+          <strong>&ldquo;Report&apos;s Own Stance&rdquo; and &ldquo;Δ vs Central Bank&rdquo;</strong>: each
+          report is tagged calm/moderate/elevated from its own stated language (transcribed, not inferred —
+          e.g. the Bundesbank&apos;s 2025 review says risks &ldquo;have increased&rdquo;, so it is tagged
+          elevated; the RBI&apos;s June 2026 report says resilience is &ldquo;continuously improving&rdquo;,
+          so it is tagged calm). This is bucketed onto the same three-level scale as this app&apos;s own
+          composite score (below 40 = calm, 40-64 = moderate, 65+ = elevated) purely so the two can be
+          compared, and the dashboard flags when they disagree.
+        </p>
+        <p>
+          <strong>Extrapolation disclaimer (Central Bank FSR comparison)</strong>: this is <em>not</em> a
+          point-in-time backtest. The comparison is always between the central bank&apos;s report and
+          this app&apos;s CURRENT composite score — not a reconstruction of what this app&apos;s composite
+          score would have read on the report&apos;s own publication date, because this deployment does not
+          store historical composite-score snapshots (each country&apos;s composite is computed live from
+          the latest available metric series every time the page renders, not saved to a time series). A
+          &ldquo;more stress&rdquo;/&ldquo;less stress&rdquo; flag therefore means &ldquo;our model reads
+          differently right now than the central bank&apos;s own most recent published stance&rdquo;, which
+          can reflect either a genuine change in conditions since that report&apos;s publication date or a
+          methodological difference between this model&apos;s free-data proxies and the central bank&apos;s
+          own supervisory data — the table does not distinguish between those two causes, and neither
+          should be assumed without reading the linked report itself.
+        </p>
         <p>
           <strong>Still explicitly not built</strong>, checked and disclosed rather than faked: LCR/NSFR
           at any bank; IRRBB duration/repricing and CR6 PD/LGD (gated behind the EBA Pillar 3 Data

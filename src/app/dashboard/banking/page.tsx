@@ -8,6 +8,7 @@ import {
   type CountryBankingRow,
 } from "@/lib/engines/bankingSystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
+import { CENTRAL_BANK_FSR_REGISTRY, fsrFreshness, ourStanceLevel, compareStance } from "@/lib/data/centralBankFsrRegistry";
 
 function fmt(v: number | null, unit: string, decimals = 2): string {
   if (v === null) return "—";
@@ -38,6 +39,16 @@ const STAGE_SAMPLE_SCORE = [10, 25, 40, 55, 70, 85, 95];
 function stageColor(stage: number | null): { bg: string; fg: string } {
   if (stage === null || stage < 1 || stage > 7) return { bg: "#1a1f28", fg: "#8b96a8" };
   return gfmiColor(STAGE_SAMPLE_SCORE[stage - 1]);
+}
+
+function freshnessColor(status: "current" | "due" | "overdue"): string {
+  if (status === "current") return "#34c085";
+  if (status === "due") return "#e0b93d";
+  return "#e0793d";
+}
+
+function stanceLabel(level: "calm" | "moderate" | "elevated"): string {
+  return level === "calm" ? "Calm" : level === "moderate" ? "Moderate" : "Elevated";
 }
 
 /** Weighted point contribution of one domain score to a parent composite —
@@ -263,6 +274,85 @@ export default async function BankingPage() {
           forecast to arrive in any particular timeframe, and it is mechanically correlated with the
           Composite/Structural scores shown above since it reuses their component inputs rather than
           independent data. Treat it as a different lens on the same evidence, not a separate forecast.
+        </div>
+      </section>
+
+      <section className="gfew-panel mb-8 p-4" id="central-bank-fsr-verification">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-dim">
+            Central Bank Financial Stability Report Verification
+          </h3>
+          <a href="/dashboard/methodology#central-bank-fsr-verification" className="text-xs text-accent hover:underline">
+            Methodology →
+          </a>
+        </div>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          Every G7 + China + India central bank publishes its own periodic assessment of the soundness and
+          resilience of its financial system. This table links directly to each institution&apos;s own
+          latest published report — a curated verification registry, not a live feed, updated whenever a
+          central bank publishes a new edition. &ldquo;Δ vs central bank&rdquo; compares this app&apos;s
+          current composite score to that report&apos;s own stated stance; it is not a point-in-time
+          backtest (see methodology for why).
+        </p>
+        <div className="overflow-x-auto rounded border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-panel-raised text-text-dim">
+              <tr>
+                <th className="px-3 py-2 font-medium">Country</th>
+                <th className="px-3 py-2 font-medium">Central Bank</th>
+                <th className="px-3 py-2 font-medium">Latest Report</th>
+                <th className="px-3 py-2 font-medium">Published</th>
+                <th className="px-3 py-2 font-medium">Cadence</th>
+                <th className="px-3 py-2 font-medium">Report&apos;s Own Stance</th>
+                <th className="px-3 py-2 font-medium">Our Composite</th>
+                <th className="px-3 py-2 font-medium">Δ vs Central Bank</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CENTRAL_BANK_FSR_REGISTRY.map((entry) => {
+                const { daysSince, status } = fsrFreshness(entry);
+                const row = rows.find((r) => r.country === entry.country);
+                const ourLevel = ourStanceLevel(row?.compositeScore ?? null);
+                const comparison = ourLevel ? compareStance(ourLevel, entry.bankStanceLevel) : null;
+                return (
+                  <tr key={entry.key} className="border-t border-border align-top">
+                    <td className="px-3 py-2 font-medium">{entry.country}</td>
+                    <td className="px-3 py-2 text-text-dim">{entry.institution}</td>
+                    <td className="px-3 py-2">
+                      <a href={entry.reportUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                        {entry.reportName}
+                      </a>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs font-medium"
+                        style={{ background: `${freshnessColor(status)}22`, color: freshnessColor(status) }}
+                        title={`${daysSince} days since publication (${status})`}
+                      >
+                        {entry.publishedDate}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-text-dim">{entry.cadenceLabel}</td>
+                    <td className="max-w-xs px-3 py-2 text-xs text-text-dim" title={entry.stance}>
+                      <span className="font-medium" style={{ color: freshnessColor(entry.bankStanceLevel === "elevated" ? "overdue" : entry.bankStanceLevel === "moderate" ? "due" : "current") }}>
+                        {stanceLabel(entry.bankStanceLevel)}
+                      </span>
+                      <div className="mt-0.5">{entry.stance}</div>
+                    </td>
+                    <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(row?.compositeScore ?? null) }}>
+                      {row?.compositeScore ?? "—"}
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {comparison === "consistent" && <span className="text-text-dim">Consistent</span>}
+                      {comparison === "more_stressed" && <span style={{ color: "#e0793d" }}>Our model reads more stress</span>}
+                      {comparison === "less_stressed" && <span style={{ color: "#3fa9f5" }}>Our model reads less stress</span>}
+                      {comparison === null && <span className="text-text-dim">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </section>
 
