@@ -226,16 +226,18 @@ export const CENTRAL_BANK_FSR_REGISTRY: CentralBankFsrEntry[] = [
     stance:
       "The French financial system is stated to continue displaying resilience in the face of a series of shocks since 2020, though the report flags new adverse commodity-supply disruption risk from Middle East geopolitical tensions.",
     bankStanceLevel: "moderate",
-    // Auto-check verified working with a full browser header set from a
-    // residential IP, but returns HTTP 403 from Vercel's serverless IPs —
+    // Confirmed via two live pipeline runs (2026-09-11) that this is a
+    // persistent WAF-level block on Vercel's serverless IP ranges, not a
+    // header/UA issue: the same fetch (full Chrome UA already set below)
+    // returns 200 from a residential IP and 403 from every Vercel run —
     // same class of datacenter-IP block seen with the FFIEC CDR webservice
-    // elsewhere in this app. Left wired in (rather than downgraded to a
-    // manual-only entry) since the block may not be permanent; the
-    // dashboard surfaces this honestly as "Check failed", not "Verified".
-    checkMethod: "html",
-    checkUrl: "https://www.banque-france.fr/en/publications-and-research/our-main-publications/financial-stability-report",
-    checkRegex: "Financial stability report - (\\w+ \\d{4})",
-    checkExpected: "June 2026",
+    // elsewhere in this app. Checked banque-france.fr for a publications
+    // RSS feed as an alternative (no <link rel="alternate" type="rss">
+    // on the homepage or FSR listing page, and every guessed /rss path
+    // 404s) — none exists to fall back to. Downgraded to manual rather
+    // than left wired in as "html", since a permanent 403 every run is a
+    // false "Check failed" signal, not a genuine freshness check.
+    checkMethod: "manual", // banque-france.fr blocks Vercel's serverless IPs (403); no RSS alternative found
   },
   {
     key: "canada",
