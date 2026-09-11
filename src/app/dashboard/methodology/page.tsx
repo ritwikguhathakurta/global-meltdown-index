@@ -1129,6 +1129,86 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="china-systemic-risk">
+        <h2 className="mb-2 text-base font-semibold text-text">China Systemic Risk</h2>
+        <p className="mb-2">
+          Built against a 96-section institutional spec covering macro/deflation/fiscal/LGFV/property/
+          banking/shadow-banking/credit/monetary/FX/external/industrial/provincial engines, a 100+
+          -signal library, province-level risk maps, a 15-scenario stress-test library with a
+          user-facing policy simulator, historical backtesting to 1997, a daily 8am IST report and a
+          full AI Q&amp;A layer. Same discipline as every other deep-dive engine here: checked domain by
+          domain against what free, verified data genuinely supports for a single-country deep dive on
+          top of an existing app rather than a from-scratch platform, everything else disclosed as
+          deferred rather than faked. Lives on the existing{" "}
+          <a href="/dashboard/china" className="text-accent hover:underline">
+            China
+          </a>{" "}
+          page, below the pre-existing flat, GFMI-weighted &ldquo;China&rdquo; composite engine, which
+          is unchanged by this addition (same &ldquo;new analytical layer, not a second vote&rdquo;
+          pattern as every other Systemic Risk engine here).
+        </p>
+        <p className="mb-2">
+          <strong>Cross-engine reuse, not double-counting</strong>: two of the six structural domains
+          below are not re-derived from raw series — they read China&apos;s own already-computed row
+          straight out of the existing Banking Systemic Risk and Property Systemic Risk engines (China
+          is already a member of both nine-country universes). Because this is a single-country engine,
+          the peer-country contagion-breadth pattern every other Systemic Risk engine here uses cannot
+          apply directly — the spec&apos;s own &ldquo;China Convergence Engine&rdquo; concept (monitor
+          simultaneous deterioration across Property/LGFV/Banks/Credit/Deflation/FX/External; the
+          greater the independent convergence, the higher the systemic risk) supplies the single-country
+          substitute used instead: a Convergence score measuring the fraction of this engine&apos;s own
+          six structural domains that are independently elevated (≥60) at the same time.
+        </p>
+        <p className="mb-2">
+          <strong>Six structural domains</strong>: Property (China&apos;s row from the Property Systemic
+          Risk engine, blended with a locally-computed Activity score from NBS property-sales and
+          developer-financing flow series — declining transactions/investment scored as risk, not
+          &ldquo;overheating,&rdquo; reflecting China&apos;s actual current property problem); Banking
+          (China&apos;s row from the Banking Systemic Risk engine, read not recomputed); Fiscal/LGFV
+          (the IMF Article IV &ldquo;Augmented Debt&rdquo; annual series — only ~6 annual points exist,
+          far below this app&apos;s 20-point z-score minimum, so this domain uses a fixed, disclosed
+          calibration band instead: 60% of GDP = 0 risk, 160% = 100 risk, linear, clamped, anchored on
+          the IMF&apos;s own 97.5%–126.6% historical range for this series); Deflation (year-on-year CPI
+          inflation computed locally from the same CPI index level already ingested for the flat engine
+          — scored as risk when YoY inflation is low or negative, the opposite convention from every
+          other inflation-risk indicator in this app; a true PPI series was checked and found
+          discontinued since December 2022, not used); External/FX (CNY depreciation pressure, SAFE
+          reserves-ex-gold trend, and the trade balance computed from exports minus imports, blended);
+          and Liquidity/Money Market (China&apos;s 3M interbank rate, elevated relative to its own
+          history = funding-cost stress).
+        </p>
+        <p className="mb-2">
+          Market = Shanghai Composite own-history price z-score (60%) blended with realized-volatility
+          z-score (40%) — the identical construction used by every sibling Systemic Risk engine&apos;s
+          own Market domain. Structural = Property 25% + Banking 20% + Fiscal/LGFV 15% + Deflation 15%
+          + External/FX 15% + Liquidity 10% (weighted toward the property→bank→LGFV→fiscal transmission
+          chain the spec draws explicitly). Composite = Structural 40% + Market 35% + Convergence 25% —
+          this app&apos;s standard split, applied verbatim.
+        </p>
+        <p className="mb-2">
+          <strong>Stage model</strong>: the spec&apos;s own 8-stage crisis clock (Stage 0 Stable through
+          Stage 7 Systemic Contagion) compressed to this app&apos;s standard 7-stage convention — the
+          same compression pattern used by Property/Banking/Carry Trade/Treasury Risk. Hidden China Risk
+          (structural elevated, market still calm) and a market-led warning (market deteriorating well
+          ahead of structural) promote the stage floor, never demote it. Stage 7 is reserved for a
+          genuinely high Convergence reading alongside an already-high composite, rather than any single
+          domain in isolation.
+        </p>
+        <p className="mb-2">
+          <strong>Still not built</strong> — checked, no free/reliable source found, or genuinely out of
+          scope for incremental work on an existing app, disclosed rather than faked: province-level
+          LGFV/property/fiscal/banking risk maps (no free province-level breakdown exists for any of
+          these), Total Social Financing / a literal credit impulse computed from raw PBOC flow data
+          (BIS&apos;s own official Credit-to-GDP Gap is used as the already-established free proxy, same
+          as the flat china.ts engine), individual LGFV bond/developer default event tracking, a genuine
+          bank/property/LGFV exposure-weighted contagion network graph (the Convergence score above is a
+          breadth proxy, not a network), dedicated shadow-banking/NBFI-specific tracking, a China policy
+          ammunition/fiscal-monetary-FX space index, a 15-scenario stress-test library with a
+          user-facing policy-response simulator, historical backtesting with lead-time/AUC/Brier-score
+          validation, and a daily 8am IST report/AI Q&amp;A layer.
+        </p>
+      </section>
+
       <section className="mb-8" id="treasury-risk-engine">
         <h2 className="mb-2 text-base font-semibold text-text">Global Treasury Risk Engine</h2>
         <p className="mb-2">

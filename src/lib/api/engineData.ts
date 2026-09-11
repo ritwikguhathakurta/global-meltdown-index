@@ -34,6 +34,7 @@ import {
   type UsTreasuryCashPanel,
   type UsAuctionTenorReading,
 } from "@/lib/engines/treasuryRiskEngine";
+import { getChinaSystemicRiskResult as computeChinaSystemicRiskResult, type ChinaSystemicRiskResult } from "@/lib/engines/chinaSystemicRisk";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -347,6 +348,17 @@ export async function getUsAuctionHealthPanel(): Promise<UsAuctionTenorReading[]
   } catch (e) {
     console.error((e as Error).message);
     return [];
+  }
+}
+
+export async function getChinaSystemicRiskResult(): Promise<ChinaSystemicRiskResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeChinaSystemicRiskResult(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
   }
 }
 
