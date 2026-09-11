@@ -3,6 +3,7 @@ import { fetchSeries } from "../metrics/store";
 import { zScore, zToRiskScore, rollingRealizedVolSeries, subtractSeriesByDate, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 import { BANKING_COUNTRIES } from "../sources/bankFinancialSoundness";
+import { type FsrRegion, FSR_REGION_ORDER } from "../data/centralBankFsrRegistry";
 
 /**
  * Global Liquidity Systemic Risk — built against a 256-section institutional
@@ -17,119 +18,108 @@ import { BANKING_COUNTRIES } from "../sources/bankFinancialSoundness";
  * Property. This module is the country-level "how tight is funding/market
  * liquidity right now" layer; getGlobalDollarLiquidityIndex below is the
  * separate global-currency layer (spec's own §12-16 "BIS Global Liquidity
- * Engine", genuinely distinct from a per-country reading — BIS's Global
- * Liquidity Indicators are compiled by CURRENCY and borrower REGION, not by
- * individual country, so folding them into a per-country z-score would
- * misrepresent what the underlying data actually measures).
+ * Engine", genuinely distinct from a per-country reading).
  *
  * This deliberately does NOT touch the existing "global_liquidity"
  * GFMI-weighted engine (globalLiquidity.ts) or its per-bank
  * AMPLE/ADEQUATE/TIGHTENING/DEFICIT classifier (liquidityRegime.ts) — same
  * "new analytical layer, not a second GFMI vote" pattern as every other
- * *SystemicRisk.ts module (spec's own §175 "Double-Counting Control"). Both
- * existing modules' series are reused here rather than re-fetched.
+ * *SystemicRisk.ts module.
  *
- * COUNTRY UNIVERSE: the same nine countries as bankingSystemicRisk.ts and
- * propertySystemicRisk.ts (BANKING_COUNTRIES) — deliberately, not a
- * coincidence: this is what makes the Transmission panel in engineData.ts
- * genuinely joinable across five engines on one country key, rather than
- * five different country lists that only partially overlap. Spec's own
- * broader ask (G20/ASEAN/CEE/Latin America/Middle East/Africa, §6) is the
- * same universe the Central Bank FSR and Credit Data Verification tables on
- * the Banking/Credit pages already cover with real per-country institution/
- * report/BIS-credit-gap data — extending THIS engine's own five domains
- * (below) to those 25 additional countries would need per-country repo/
- * policy-rate and bond-yield series this pass did not find free, verified,
- * live sources for beyond the nine already wired in elsewhere in this app;
- * disclosed as deferred rather than backfilled with a weaker proxy.
+ * COUNTRY UNIVERSE (LIQUIDITY_COUNTRIES): expanded from the original nine
+ * (BANKING_COUNTRIES — G7 + China + India) to 22, covering the spec's own
+ * §6 G20/ASEAN/CEE/Latin America/Africa ask (region field reuses
+ * centralBankFsrRegistry.ts's FsrRegion/FSR_REGION_ORDER, the same grouping
+ * already used on the Banking/Credit pages' verification tables, so a
+ * reader sees the same country-to-region mapping everywhere in this app).
+ * Every new country's REPO/FX metric keys were checked against what this
+ * app's fred.ts/fx.ts connectors already fetch (verified present, not
+ * assumed) before being wired in here — no new connectors were needed for
+ * the 13 additions, since a wide interbank-rate and FX-cross-rate manifest
+ * was already built for the Carry Trade and EM Debt engines.
  *
- * FOUR DOMAINS (spec's own §2 six-way liquidity taxonomy — funding, market,
- * central-bank, collateral, FX, cross-border, balance-sheet, systemic —
- * trimmed to the four this pass has genuine free daily/weekly data for；
- * "systemic" is computed as the usual breadth-based Contagion score, exactly
- * like every other *SystemicRisk.ts module, not its own indicator domain):
+ * Two of this engine's four domains (Central Bank Liquidity, Bond Market
+ * Liquidity) remain genuinely nine-country-only: no free FX-reserves
+ * connector exists beyond China (chinaFxReserves.ts), and no free daily/
+ * monthly 10-year government-bond-yield series was found for any of the 13
+ * new countries (checked FRED's OECD-mirrored long-term-rate family and the
+ * BIS/national-source options already used for the original nine — none
+ * cover these 13). The other two domains (Repo/Money-Market, FX Liquidity)
+ * DO extend to most of the 13, using each country's already-tracked
+ * interbank/discount rate (LEVEL, not spread — none of these 13 have a free
+ * daily policy-rate series to pair against, the same disclosed limitation
+ * Japan/China/India already have) and USD cross rate. The existing
+ * weighted-renormalization logic (structural/market scores average only
+ * the domains that actually have data, reweighting the denominator rather
+ * than treating a missing domain as zero) means a country with only 1-2 of
+ * 4 domains still gets an honest score built from what it has — not a
+ * fabricated stand-in for what it doesn't.
  *
- *  - CENTRAL BANK LIQUIDITY: each country's own central-bank balance-sheet/
- *    reserves series, the EXACT SAME series and EXACT SAME direction
- *    handling already wired into bankingSystemicRisk.ts's LIQUIDITY_KEY/
- *    LIQUIDITY_ZDIRECTION (Fed reserve balances, BoE reserves, ECB balance
- *    sheet, BoJ balance sheet, BoC assets, China reserves-ex-gold, India's
- *    RBI net liquidity injection — reused rather than re-fetched, own-history
- *    time-series z-score).
- *  - MONEY MARKET / REPO STRESS: the same money-market-rate-vs-policy-rate
- *    SPREAD already used for the AMPLE/ADEQUATE/TIGHTENING/DEFICIT
- *    classification in liquidityRegime.ts (SOFR-IORB, SONIA-Bank Rate,
- *    €STR-Deposit Facility Rate for Germany/France/Italy, CORRA-Target) for
- *    the five where a clean policy-rate pairing exists — the actual
- *    mechanism behind the September 2019 US repo spike (market rate prints
- *    at/above policy rate = reserves getting scarce). Japan, China and India
- *    have no free daily policy/target-rate series to pair against (same
- *    disclosed limitation as liquidityRegime.ts for the first two; India's
- *    own WACR has no clean paired repo-rate series in this app yet either),
- *    so those three are scored on their own money-market rate's LEVEL trend
- *    instead (BOJ call rate, China 3M interbank, India's WACR) — a real but
- *    weaker signal than a spread, disclosed per-row via a distinct reading
- *    label, not silently blended in as equivalent.
- *  - BOND MARKET LIQUIDITY: realized volatility of each country's own 10-year
- *    government bond yield (own-history time-series z, elevated vol = worse)
- *    — a genuine, if partial, market-liquidity proxy (spec §80-92's own
- *    bid/ask-depth-turnover ask needs dealer-level microstructure data no
- *    free source publishes; yield volatility is the closest free daily
- *    signal that a bond market is having to reprice in a disorderly way).
- *  - FX LIQUIDITY: realized volatility of each country's own currency vs USD
- *    (DXY broad index for the US itself, since USD has no bilateral pair
- *    against itself) — same realized-vol mechanism as Bond Market Liquidity,
- *    reusing FX series already flowing from fx.ts.
+ * Checked and EXCLUDED (zero of the four domains have real, free, verified
+ * data — a pegged or untracked currency with no interbank-rate series
+ * either, not merely "not gotten to yet"): Saudi Arabia and the UAE (SAR/AED
+ * are hard-pegged to USD — near-zero genuine FX volatility to measure even
+ * if a series existed, and neither has a free interbank-rate series in this
+ * app), Singapore (SGD has no ECB reference rate in this app's FX connector
+ * and no free interbank-rate series either), Argentina and Russia (ARS/RUB
+ * are both untracked in this app's FX connector, and neither has a free
+ * interbank-rate series — Russia's for the additional reason that reliable
+ * free market data has been disrupted since 2022). Also excluded, for the
+ * same reason: Chile, Colombia, Israel, Romania, Peru, Egypt, Kenya,
+ * Nigeria, Vietnam, Qatar and the major offshore financial centres (Hong
+ * Kong, Cayman, Luxembourg, Singapore again) the spec separately calls
+ * out — none have a free interbank-rate or FX-cross series in this app.
+ * These are disclosed here rather than forced into the table with an
+ * all-null row.
+ *
+ * FOUR DOMAINS:
+ *
+ *  - CENTRAL BANK LIQUIDITY (9 countries only): each country's own
+ *    central-bank balance-sheet/reserves series, the EXACT SAME series and
+ *    direction handling already wired into bankingSystemicRisk.ts's
+ *    LIQUIDITY_KEY/LIQUIDITY_ZDIRECTION, reused rather than re-fetched.
+ *  - MONEY MARKET / REPO STRESS (19 countries): the money-market-rate-vs-
+ *    policy-rate SPREAD already used in liquidityRegime.ts (SOFR-IORB,
+ *    SONIA-Bank Rate, €STR-Deposit Facility Rate, CORRA-Target) for the five
+ *    with a clean pairing; every other country (Japan, China, India, and
+ *    the 10 of 13 new countries with a tracked rate — Brazil, Mexico,
+ *    Indonesia, South Korea, South Africa, Türkiye, Australia, Poland,
+ *    Czech Republic, Hungary) is scored on its own money-market rate's
+ *    LEVEL trend instead — a real but weaker signal than a spread,
+ *    disclosed per-row via a distinct reading label.
+ *  - BOND MARKET LIQUIDITY (9 countries only): realized volatility of each
+ *    country's own 10-year government bond yield.
+ *  - FX LIQUIDITY (21 countries): realized volatility of each country's own
+ *    currency vs USD (DXY broad index for the US itself), extended to 12 of
+ *    the 13 new countries (all except Malaysia/Thailand/Philippines being
+ *    the same set — actually all 13 have a tracked FX cross; see
+ *    LIQUIDITY_COUNTRIES below for the exact per-country domain coverage).
  *
  * STRUCTURAL VULNERABILITY = Central Bank Liquidity (50%) + Money Market/
- * Repo Stress (50%) — the two domains that describe how much reserve/funding
- * buffer exists structurally, mirroring how bankingSystemicRisk.ts folds its
- * own "funding" and "liquidity" domains into Structural.
+ * Repo Stress (50%), renormalized to 100% Repo where Central Bank Liquidity
+ * has no data (13 of 22 countries). MARKET = Bond Market Liquidity (50%) +
+ * FX Liquidity (50%), renormalized to 100% FX Vol where Bond Market
+ * Liquidity has no data (13 of 22 countries) — the same "average only what
+ * exists, reweight the denominator" pattern used everywhere else in this
+ * app, not a new mechanism built for this expansion.
  *
- * MARKET = Bond Market Liquidity (50%) + FX Liquidity (50%) — the two
- * domains that describe whether liquidity stress is ALREADY showing up in
- * market pricing right now.
+ * CONTAGION (breadth): the fraction of the OTHER 21 countries whose
+ * preliminary Structural+Market blend is already elevated (>= 60).
  *
- * CONTAGION (spec §110/133, simplified to a breadth reading exactly like
- * every sibling engine): the fraction of the OTHER eight countries whose
- * preliminary Structural+Market blend is already elevated (>= 60). A genuine
- * cross-border interbank/repo exposure network (spec §107-111, needs BIS
- * Locational Banking Statistics bilateral claims data) is a real future
- * addition, not attempted this pass.
+ * COMPOSITE = Structural (40%) + Market (35%) + Contagion (25%) — this
+ * app's own house convention, unchanged by the country-count expansion.
  *
- * COMPOSITE = Structural (40%) + Market (35%) + Contagion (25%) — this app's
- * own house convention (see bankingSystemicRisk.ts/propertySystemicRisk.ts/
- * carryTrade.ts/g7DebtRegime.ts), applied verbatim rather than spec's own
- * §4 "40/35/25 normal, shifting under stress/crisis" regime-dependent
- * weighting — no other engine in this app implements that regime-switch
- * either, kept consistent rather than making Liquidity a one-off exception.
- *
- * STAGE MODEL: spec's own 8-stage list (§126: Abundant/Normalization/
- * Tightening/Funding Stress/Market Liquidity Stress/Collateral-Margin
- * Stress/Forced Deleveraging/Systemic Crisis) compressed to this app's
- * standard 7-stage convention — deliberately RELABELED rather than copied
- * verbatim: this engine has no collateral-haircut or margin-call data (spec
- * §49-61, no free source), so a stage literally named "Collateral/Margin
- * Stress" would overclaim what's actually measured. The relabeled stages
- * below stay honest about covering only funding, central-bank-reserve and
- * market(bond+FX)-liquidity — never collateral, margin, or NBFI redemption
- * mechanics directly (those are disclosed qualitatively in the NBFI registry
- * and the Transmission panel instead, not folded into this numeric score).
+ * STAGE MODEL: unchanged 7-stage convention (see LIQUIDITY_STAGES below).
  *
  * STILL NOT built — checked, no free/reliable source found or out of scope
  * for incremental work on an existing app, disclosed rather than faked:
- * repo VOLUMES/haircuts/specialness (§43-48, no free source publishes
- * cross-country repo market depth), collateral availability/concentration/
- * haircut-shock modeling (§49-55), margin/CCP data (§56-61), NBFI-specific
- * numeric leverage/redemption/liquidity-mismatch series per country (§67-79
- * — covered instead, qualitatively and at the global level only, by
- * nbfiRegistry.ts/nbfiCheck.ts, since no free source publishes country-level
- * NBFI balance-sheet data), capital-flow/reserve-adequacy metrics for
- * non-China EM (§95-104, would need per-country FX-reserves and external-
- * debt series this app doesn't have beyond China), a Liquidity Shock
- * Simulator (§124-125, 211-213), historical backtesting with lead-time
- * analysis (§179-186), an interactive contagion network graph (§109-111,
- * 210), and a daily 8am report/AI Q&A layer (§214-220).
+ * repo volumes/haircuts/specialness, collateral availability/concentration/
+ * haircut-shock modeling, margin/CCP data, country-level NBFI numeric
+ * leverage/redemption series (covered instead, qualitatively and globally
+ * only, by nbfiRegistry.ts/nbfiCheck.ts), capital-flow/reserve-adequacy
+ * metrics for non-China EM, a Liquidity Shock Simulator, historical
+ * backtesting with lead-time analysis, an interactive contagion network
+ * graph, and a daily 8am report/AI Q&A layer.
  */
 
 export type LiquidityRegimeLabel = "ABUNDANT" | "NORMAL" | "TIGHTENING" | "FUNDING_STRESS" | "SYSTEMIC_LIQUIDITY_STRESS" | "INSUFFICIENT_DATA";
@@ -167,12 +157,9 @@ export const LIQUIDITY_STAGES: LiquidityStageDef[] = [
   { stage: 4, key: "FUNDING_REPO_STRESS", label: "Stage 4 — Funding / Repo Stress", shortLabel: "Funding Stress", description: "Blended score has crossed into the range this model treats as genuine money-market/reserve tightening." },
   { stage: 5, key: "BROAD_LIQUIDITY_STRESS", label: "Stage 5 — Broad Liquidity Stress", shortLabel: "Broad Stress", description: "Severe, broad-based deterioration across structural and market readings together — this app has no collateral/margin data to distinguish a narrower 'collateral spiral' stage, so this stays a general reading." },
   { stage: 6, key: "LIQUIDITY_CRISIS", label: "Stage 6 — Liquidity Crisis", shortLabel: "Liquidity Crisis", description: "Near the top of the observed stress range on this model's 0-100 scale." },
-  { stage: 7, key: "SYSTEMIC_LIQUIDITY_CONTAGION", label: "Stage 7 — Systemic Liquidity Contagion", shortLabel: "Systemic Contagion", description: "A large share of ALL nine tracked countries are simultaneously at Stage 6 or worse — a breadth reading, never assigned to a single country in isolation." },
+  { stage: 7, key: "SYSTEMIC_LIQUIDITY_CONTAGION", label: "Stage 7 — Systemic Liquidity Contagion", shortLabel: "Systemic Contagion", description: "A large share of ALL tracked countries are simultaneously at Stage 6 or worse — a breadth reading, never assigned to a single country in isolation." },
 ];
 
-/** Fixed weights, exported so the dashboard's score-breakdown UI derives
- * contributions from the same numbers the engine actually used — same
- * pattern as bankingSystemicRisk.ts's STRUCTURAL_WEIGHTS/COMPOSITE_WEIGHTS. */
 export const STRUCTURAL_WEIGHTS = { centralBankLiquidity: 0.5, repoStress: 0.5 };
 export const MARKET_WEIGHTS = { bondVol: 0.5, fxVol: 0.5 };
 export const COMPOSITE_WEIGHTS = { structural: 0.4, market: 0.35, contagion: 0.25 };
@@ -195,8 +182,43 @@ export function liquidityStageFor(compositeScore: number | null, hiddenRisk: boo
   return LIQUIDITY_STAGES[Math.min(stage, 6) - 1]; // per-country rows cap at Stage 6; Stage 7 is composite-only
 }
 
+// ---------------------------------------------------------------------------
+// Country universe
+// ---------------------------------------------------------------------------
+
+export type LiquidityCountry = { key: string; name: string; region: FsrRegion };
+
+const ORIGINAL_NINE: LiquidityCountry[] = BANKING_COUNTRIES.map((c) => ({
+  key: c.key,
+  name: c.name,
+  region: c.key === "china" || c.key === "india" ? "G20 / Major EM" : "G7",
+}));
+
+/** The 13-country expansion — see file header for exactly which of the four
+ * domains each one has real data for, and which countries were checked and
+ * excluded for having none. */
+const EXPANDED_COUNTRIES: LiquidityCountry[] = [
+  { key: "brazil", name: "Brazil", region: "G20 / Major EM" },
+  { key: "mexico", name: "Mexico", region: "G20 / Major EM" },
+  { key: "indonesia", name: "Indonesia", region: "G20 / Major EM" },
+  { key: "south_korea", name: "South Korea", region: "G20 / Major EM" },
+  { key: "south_africa", name: "South Africa", region: "G20 / Major EM" },
+  { key: "turkey", name: "Türkiye", region: "G20 / Major EM" },
+  { key: "australia", name: "Australia", region: "G20 / Major EM" },
+  { key: "poland", name: "Poland", region: "CEE" },
+  { key: "czech_republic", name: "Czech Republic", region: "CEE" },
+  { key: "hungary", name: "Hungary", region: "CEE" },
+  { key: "malaysia", name: "Malaysia", region: "ASEAN" },
+  { key: "thailand", name: "Thailand", region: "ASEAN" },
+  { key: "philippines", name: "Philippines", region: "ASEAN" },
+];
+
+export const LIQUIDITY_COUNTRIES: LiquidityCountry[] = [...ORIGINAL_NINE, ...EXPANDED_COUNTRIES];
+export { FSR_REGION_ORDER as LIQUIDITY_REGION_ORDER };
+
 /** Same central-bank balance-sheet/reserves series as bankingSystemicRisk.ts's
- * LIQUIDITY_KEY, reused rather than re-fetched. */
+ * LIQUIDITY_KEY, reused rather than re-fetched. Nine-country-only — see file
+ * header for why no free FX-reserves series exists beyond China. */
 const CENTRAL_BANK_LIQUIDITY_KEY: Record<string, string> = {
   us: "liquidity.fed_reserve_balances",
   uk: "liquidity.uk_boe_reserves",
@@ -216,10 +238,10 @@ const CENTRAL_BANK_LIQUIDITY_FREQ: Record<string, "daily" | "weekly" | "monthly"
   japan: "monthly", canada: "weekly", china: "monthly", india: "daily",
 };
 
-/** Money-market rate vs. policy rate, for the five with a clean pairing —
- * same series as liquidityRegime.ts. Japan/China/India instead use a single
- * level series (their own money-market rate with no policy-rate pairing). */
-type RepoBasis = { kind: "spread"; marketKey: string; policyKey: string } | { kind: "level"; rateKey: string };
+/** Money-market rate vs. policy rate, for the five with a clean pairing.
+ * Every other tracked country instead uses a single LEVEL series (their own
+ * money-market/interbank/discount rate, no policy-rate pairing available). */
+type RepoBasis = { kind: "spread"; marketKey: string; policyKey: string } | { kind: "level"; rateKey: string; label: string };
 const REPO_BASIS: Record<string, RepoBasis> = {
   us: { kind: "spread", marketKey: "rate.sofr", policyKey: "rate.us_iorb" },
   uk: { kind: "spread", marketKey: "rate.uk_sonia", policyKey: "rate.uk_bank_rate" },
@@ -227,13 +249,33 @@ const REPO_BASIS: Record<string, RepoBasis> = {
   france: { kind: "spread", marketKey: "rate.ecb_estr", policyKey: "rate.ecb_deposit_facility" },
   italy: { kind: "spread", marketKey: "rate.ecb_estr", policyKey: "rate.ecb_deposit_facility" },
   canada: { kind: "spread", marketKey: "rate.canada_corra", policyKey: "rate.canada_target" },
-  japan: { kind: "level", rateKey: "rate.japan_call_rate" },
-  china: { kind: "level", rateKey: "china.interbank_rate_3m" },
-  india: { kind: "level", rateKey: "india.wacr" },
+  japan: { kind: "level", rateKey: "rate.japan_call_rate", label: "O/N Call Rate (level)" },
+  china: { kind: "level", rateKey: "china.interbank_rate_3m", label: "3M Interbank Rate (level)" },
+  india: { kind: "level", rateKey: "india.wacr", label: "WACR (level)" },
+  brazil: { kind: "level", rateKey: "rate.brazil_discount", label: "Discount Rate (level, ≠ Selic)" },
+  mexico: { kind: "level", rateKey: "rate.mexico_interbank", label: "Interbank Rate (level)" },
+  indonesia: { kind: "level", rateKey: "rate.indonesia_interbank", label: "Interbank Rate (level)" },
+  south_korea: { kind: "level", rateKey: "rate.korea_interbank", label: "Interbank Rate (level)" },
+  south_africa: { kind: "level", rateKey: "rate.south_africa_interbank", label: "Interbank Rate (level)" },
+  turkey: { kind: "level", rateKey: "rate.turkey_interbank", label: "Interbank Rate (level)" },
+  australia: { kind: "level", rateKey: "rate.australia_interbank", label: "Interbank Rate (level)" },
+  poland: { kind: "level", rateKey: "rate.poland_interbank", label: "Interbank Rate (level)" },
+  czech_republic: { kind: "level", rateKey: "rate.czech_interbank", label: "Interbank Rate (level)" },
+  hungary: { kind: "level", rateKey: "rate.hungary_interbank", label: "Interbank Rate (level)" },
+  // Malaysia, Thailand, Philippines: no free short-term rate series found
+  // anywhere in this app (checked OECD MEI "Immediate Rate"/"3M interbank"
+  // families directly — see fred.ts's own comment) — absent from this map
+  // entirely, not defaulted to a fake value.
 };
 
-/** Each country's own 10-year government bond yield — used for realized-vol,
- * not level. */
+const SPREAD_LABEL: Record<string, string> = {
+  us: "SOFR − IORB", uk: "SONIA − Bank Rate",
+  germany: "€STR − Deposit Facility Rate", france: "€STR − Deposit Facility Rate", italy: "€STR − Deposit Facility Rate",
+  canada: "CORRA − Target",
+};
+
+/** Each country's own 10-year government bond yield — nine-country-only, see
+ * file header for why. */
 const BOND_YIELD_KEY: Record<string, string> = {
   us: "yield.us10y",
   uk: "yield.uk_10y",
@@ -251,7 +293,8 @@ const BOND_YIELD_FREQ: Record<string, "daily" | "monthly"> = {
 };
 
 /** Each country's own currency vs USD — DXY broad index stands in for the US
- * itself (USD has no bilateral pair against itself). */
+ * itself. Extended to 12 of the 13 new countries (all except none — every
+ * one of the 13 has a tracked USD cross in fx.ts). */
 const FX_KEY: Record<string, string> = {
   us: "fx.dxy_broad",
   uk: "fx.usdgbp",
@@ -262,6 +305,19 @@ const FX_KEY: Record<string, string> = {
   canada: "fx.usdcad",
   china: "fx.usdcny",
   india: "fx.usdinr",
+  brazil: "fx.usdbrl",
+  mexico: "fx.usdmxn",
+  indonesia: "fx.usdidr",
+  south_korea: "fx.usdkrw",
+  south_africa: "fx.usdzar",
+  turkey: "fx.usdtry",
+  australia: "fx.usdaud",
+  poland: "fx.usdpln",
+  czech_republic: "fx.usdczk",
+  hungary: "fx.usdhuf",
+  malaysia: "fx.usdmyr",
+  thailand: "fx.usdthb",
+  philippines: "fx.usdphp",
 };
 
 function windowForFreq(freq: "daily" | "weekly" | "monthly"): number {
@@ -279,10 +335,15 @@ function latestPoint(points: Point[]): Point | null {
   return points.reduce((a, b) => (a.t > b.t ? a : b));
 }
 
+async function fetchIfKeyed(db: SupabaseClient, key: string | undefined, sinceIso: string): Promise<Point[]> {
+  return key ? fetchSeries(db, key, sinceIso) : [];
+}
+
 export type LiquidityIndicatorReading = { value: number | null; asOf: string | null; score: number | null };
 
 export type CountryLiquidityRow = {
   country: string;
+  region: FsrRegion;
   centralBankLiquidity: LiquidityIndicatorReading;
   repoReading: LiquidityIndicatorReading;
   repoBasisLabel: string;
@@ -316,16 +377,19 @@ export async function getLiquiditySystemicRiskTable(db: SupabaseClient): Promise
 
   const cbLiquiditySeries = new Map(
     await Promise.all(
-      BANKING_COUNTRIES.map(
-        async (c) => [c.key, await fetchSeries(db, CENTRAL_BANK_LIQUIDITY_KEY[c.key], sinceFor(CENTRAL_BANK_LIQUIDITY_FREQ[c.key]))] as const
-      )
+      LIQUIDITY_COUNTRIES.map(async (c) => {
+        const key = CENTRAL_BANK_LIQUIDITY_KEY[c.key];
+        const freq = CENTRAL_BANK_LIQUIDITY_FREQ[c.key] ?? "monthly";
+        return [c.key, await fetchIfKeyed(db, key, sinceFor(freq))] as const;
+      })
     )
   );
 
   const repoSeries = new Map(
     await Promise.all(
-      BANKING_COUNTRIES.map(async (c) => {
+      LIQUIDITY_COUNTRIES.map(async (c) => {
         const basis = REPO_BASIS[c.key];
+        if (!basis) return [c.key, [] as Point[]] as const;
         if (basis.kind === "level") {
           return [c.key, await fetchSeries(db, basis.rateKey, sinceDaily.toISOString())] as const;
         }
@@ -341,22 +405,27 @@ export async function getLiquiditySystemicRiskTable(db: SupabaseClient): Promise
 
   const bondYieldSeries = new Map(
     await Promise.all(
-      BANKING_COUNTRIES.map(async (c) => [c.key, await fetchSeries(db, BOND_YIELD_KEY[c.key], sinceFor(BOND_YIELD_FREQ[c.key]))] as const)
+      LIQUIDITY_COUNTRIES.map(async (c) => {
+        const key = BOND_YIELD_KEY[c.key];
+        const freq = BOND_YIELD_FREQ[c.key] ?? "daily";
+        return [c.key, await fetchIfKeyed(db, key, sinceFor(freq))] as const;
+      })
     )
   );
 
   const fxSeries = new Map(
-    await Promise.all(BANKING_COUNTRIES.map(async (c) => [c.key, await fetchSeries(db, FX_KEY[c.key], sinceDaily.toISOString())] as const))
+    await Promise.all(LIQUIDITY_COUNTRIES.map(async (c) => [c.key, await fetchIfKeyed(db, FX_KEY[c.key], sinceDaily.toISOString())] as const))
   );
 
   // Pass 1: structural + market scores per country (contagion needs these
   // first, since it's a breadth measure over the whole tracked set).
-  const prelim = BANKING_COUNTRIES.map((c) => {
+  const prelim = LIQUIDITY_COUNTRIES.map((c) => {
     const cbSeries = cbLiquiditySeries.get(c.key) ?? [];
-    const cbScore = zToRiskScore(zScore(cbSeries, windowForFreq(CENTRAL_BANK_LIQUIDITY_FREQ[c.key])), CENTRAL_BANK_LIQUIDITY_ZDIRECTION[c.key]);
+    const cbScore =
+      cbSeries.length > 0 ? zToRiskScore(zScore(cbSeries, windowForFreq(CENTRAL_BANK_LIQUIDITY_FREQ[c.key] ?? "monthly")), CENTRAL_BANK_LIQUIDITY_ZDIRECTION[c.key] ?? -1) : null;
 
     const repoSeriesForCountry = repoSeries.get(c.key) ?? [];
-    const repoScore = zToRiskScore(zScore(repoSeriesForCountry, windowForFreq("daily")), 1);
+    const repoScore = repoSeriesForCountry.length > 0 ? zToRiskScore(zScore(repoSeriesForCountry, windowForFreq("daily")), 1) : null;
 
     const structParts = [
       cbScore !== null ? { score: cbScore, weight: STRUCTURAL_WEIGHTS.centralBankLiquidity } : null,
@@ -368,10 +437,10 @@ export async function getLiquiditySystemicRiskTable(db: SupabaseClient): Promise
         : null;
 
     const bondSeries = bondYieldSeries.get(c.key) ?? [];
-    const bondVolScore = zToRiskScore(zScore(rollingRealizedVolSeries(bondSeries), windowForFreq(BOND_YIELD_FREQ[c.key])), 1);
+    const bondVolScore = bondSeries.length > 0 ? zToRiskScore(zScore(rollingRealizedVolSeries(bondSeries), windowForFreq(BOND_YIELD_FREQ[c.key] ?? "daily")), 1) : null;
 
     const fxSeriesForCountry = fxSeries.get(c.key) ?? [];
-    const fxVolScore = zToRiskScore(zScore(rollingRealizedVolSeries(fxSeriesForCountry), windowForFreq("daily")), 1);
+    const fxVolScore = fxSeriesForCountry.length > 0 ? zToRiskScore(zScore(rollingRealizedVolSeries(fxSeriesForCountry), windowForFreq("daily")), 1) : null;
 
     const marketParts = [
       bondVolScore !== null ? { score: bondVolScore, weight: MARKET_WEIGHTS.bondVol } : null,
@@ -412,10 +481,7 @@ export async function getLiquiditySystemicRiskTable(db: SupabaseClient): Promise
     const fxLast = latestPoint(rollingRealizedVolSeries(fxSeries.get(c.key) ?? []));
 
     const basis = REPO_BASIS[c.key];
-    const repoBasisLabel =
-      basis.kind === "spread"
-        ? { us: "SOFR − IORB", uk: "SONIA − Bank Rate", germany: "€STR − Deposit Facility Rate", france: "€STR − Deposit Facility Rate", italy: "€STR − Deposit Facility Rate", canada: "CORRA − Target" }[c.key] ?? "Spread"
-        : { japan: "O/N Call Rate (level)", china: "3M Interbank Rate (level)", india: "WACR (level)" }[c.key] ?? "Level";
+    const repoBasisLabel = !basis ? "Unavailable" : basis.kind === "spread" ? SPREAD_LABEL[c.key] ?? "Spread" : basis.label;
 
     const applicableScores = [cbScore, repoScore, bondVolScore, fxVolScore];
     const indicatorsAvailable = applicableScores.filter((v) => v !== null).length;
@@ -427,6 +493,7 @@ export async function getLiquiditySystemicRiskTable(db: SupabaseClient): Promise
 
     return {
       country: c.name,
+      region: c.region,
       centralBankLiquidity: { value: cbLast?.v ?? null, asOf: cbLast?.t ?? null, score: cbScore },
       repoReading: { value: repoLast?.v ?? null, asOf: repoLast?.t ?? null, score: repoScore },
       repoBasisLabel,
@@ -456,10 +523,10 @@ export function liquidityBreadth(rows: CountryLiquidityRow[]): { stressedCount: 
   return { stressedCount, totalWithData };
 }
 
-/** Equal-weighted composite across the nine tracked countries, with the
- * composite stage promoted to 7 when a large share of ALL countries are
- * simultaneously at Stage 6+ — same breadth-driven promotion pattern as
- * every sibling engine's own composite function. */
+/** Equal-weighted composite across all tracked countries, with the composite
+ * stage promoted to 7 when a large share of ALL countries are simultaneously
+ * at Stage 6+ — same breadth-driven promotion pattern as every sibling
+ * engine's own composite function. */
 export function getLiquidityCompositeScore(rows: CountryLiquidityRow[]): { score: number | null; stage: LiquidityStageDef | null } {
   const withData = rows.filter((r) => r.compositeScore !== null);
   if (withData.length === 0) return { score: null, stage: null };

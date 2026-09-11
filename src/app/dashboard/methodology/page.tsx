@@ -977,14 +977,33 @@ export default function MethodologyPage() {
           GFMI vote (the spec&apos;s own &ldquo;Double-Counting Control&rdquo; instruction).
         </p>
         <p className="mb-2">
-          <strong>Country universe:</strong> the same nine countries as Banking and Property
-          (BANKING_COUNTRIES) — deliberately, so the Transmission panel below can join across five engines
-          on one country key. The spec&apos;s own broader ask (G20/ASEAN/CEE/Latin America/Middle
-          East/Africa) is the universe the Banking page&apos;s Central Bank FSR table and the Credit
-          page&apos;s Credit Data Verification table already cover with real per-country data — extending
-          THIS engine&apos;s own domains (below) to those 25 additional countries needs per-country repo/
-          policy-rate and bond-yield series this pass did not find free, live sources for beyond the nine
-          already wired in elsewhere; disclosed as deferred.
+          <strong>Country universe:</strong> starts from the same nine countries as Banking and Property
+          (BANKING_COUNTRIES, so the Transmission panel below can join across five engines on one country
+          key) and was expanded to 22 on request, covering the spec&apos;s own G20/ASEAN/CEE ask: Brazil,
+          Mexico, Indonesia, South Korea, South Africa, Türkiye, Australia (G20/Major EM region bucket, the
+          same grouping used on the Banking/Credit pages&apos; verification tables), Poland, Czech Republic,
+          Hungary (CEE), and Malaysia, Thailand, Philippines (ASEAN). Every addition reuses interbank-rate
+          and FX-cross series already flowing in this app for the Carry Trade/EM Debt engines — verified
+          present before wiring in, no new connectors needed. <strong>Checked and excluded</strong> — no
+          free interbank-rate or FX-cross series exists in this app (a pegged currency or an untracked
+          market, not merely unattempted): Saudi Arabia and the UAE (SAR/AED are hard-pegged to USD),
+          Singapore (SGD untracked), Argentina and Russia (ARS/RUB untracked, Russia&apos;s data additionally
+          disrupted since 2022), plus Chile, Colombia, Israel, Romania, Peru, Egypt, Kenya, Nigeria,
+          Vietnam, Qatar and the major offshore financial centres the spec separately calls out.
+        </p>
+        <p className="mb-2">
+          Two of the four domains below (Central Bank Liquidity, Bond Market Liquidity) remain genuinely
+          nine-country-only — no free FX-reserves connector exists beyond China, and no free 10-year
+          government-bond-yield series was found for any of the 13 additions. The other two (Repo/
+          Money-Market, FX Liquidity) extend to most of the 13: ten have a tracked interbank/discount rate
+          used as a LEVEL series (same disclosed limitation Japan/China/India already have — no free
+          daily policy-rate series to pair it against for a true spread), and all thirteen have a tracked
+          USD cross rate. Malaysia, Thailand and the Philippines have a real FX Liquidity reading but no
+          Repo reading (checked FRED&apos;s OECD-mirrored short-rate families directly — none exist for
+          these three). The engine&apos;s existing weighted-renormalization logic (already built for the
+          original nine, unchanged for this expansion) means a country with only 1-2 of 4 domains still
+          gets an honest score built from what it actually has, reweighting the denominator rather than
+          treating a missing domain as zero or forcing a fabricated stand-in.
         </p>
         <p className="mb-2">
           <strong>Four domains</strong> (the spec&apos;s own multi-dimensional liquidity taxonomy trimmed to

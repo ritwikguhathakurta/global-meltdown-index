@@ -9,7 +9,14 @@ import {
 } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import type { LiquidityRegimeLabel, MomentumLabel, ForecastCell } from "@/lib/engines/liquidityRegime";
-import { LIQUIDITY_STAGES, STRUCTURAL_WEIGHTS, MARKET_WEIGHTS, COMPOSITE_WEIGHTS, type DollarLiquidityReading } from "@/lib/engines/liquiditySystemicRisk";
+import {
+  LIQUIDITY_STAGES,
+  STRUCTURAL_WEIGHTS,
+  MARKET_WEIGHTS,
+  COMPOSITE_WEIGHTS,
+  LIQUIDITY_REGION_ORDER,
+  type DollarLiquidityReading,
+} from "@/lib/engines/liquiditySystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
 
 const REGIME_COLORS: Record<LiquidityRegimeLabel, string> = {
@@ -148,14 +155,19 @@ export default async function LiquidityPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Global Liquidity Systemic Risk</h1>
       <p className="mb-6 max-w-3xl text-sm text-text-dim">
-        Country-level central-bank reserves, money-market/repo spreads, and bond/FX market-liquidity
-        tracking across nine countries (the G7 plus China and India), a separate BIS-sourced global
-        dollar/euro/yen credit index, and an NBFI (non-bank financial intermediation) monitoring panel —
-        plus a Transmission panel showing how a liquidity shock connects to this app&apos;s other systemic-
-        risk engines. This is a new analytical layer; the existing GFMI-weighted &ldquo;Global
-        Liquidity&rdquo; engine and per-bank Ample/Adequate/Deficit classifier further below are unchanged.
-        See the methodology page for exactly what&apos;s built and what (repo volumes, collateral haircuts,
-        margin, country-level NBFI balance sheets) is genuinely unavailable free rather than faked.
+        Central-bank reserves, money-market/repo, and bond/FX market-liquidity tracking across 22 countries
+        (G7 + China/India, plus a G20/ASEAN/CEE expansion — Brazil, Mexico, Indonesia, South Korea, South
+        Africa, Türkiye, Australia, Poland, Czech Republic, Hungary, Malaysia, Thailand, Philippines), a
+        separate BIS-sourced global dollar/euro/yen credit index, and an NBFI (non-bank financial
+        intermediation) monitoring panel — plus a Transmission panel showing how a liquidity shock connects
+        to this app&apos;s other systemic-risk engines. Checked and excluded (no free interbank-rate or FX
+        series found — pegged currencies or untracked markets, not merely unattempted): Saudi Arabia, UAE,
+        Singapore, Argentina, Russia, plus Chile, Colombia, Israel, Romania, Peru, Egypt, Kenya, Nigeria,
+        Vietnam, Qatar and the major offshore financial centres. This is a new analytical layer; the
+        existing GFMI-weighted &ldquo;Global Liquidity&rdquo; engine and per-bank Ample/Adequate/Deficit
+        classifier further below are unchanged. See the methodology page for exactly what&apos;s built and
+        what (repo volumes, collateral haircuts, margin, country-level NBFI balance sheets, FX reserves
+        beyond China, bond yields beyond the original nine) is genuinely unavailable free rather than faked.
       </p>
 
       <section className="gfew-panel mb-8 p-4" id="global-liquidity-systemic-risk">
@@ -282,48 +294,59 @@ export default async function LiquidityPage() {
               </tr>
             </thead>
             <tbody>
-              {ranked.map((r) => (
-                <tr key={r.country} className="border-t border-border align-top">
-                  <td className="px-3 py-2 font-medium">{r.country}</td>
-                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.centralBankLiquidityScore) }}>
-                    {r.centralBankLiquidityScore ?? "—"}
-                  </td>
-                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.repoScore) }} title={r.repoBasisLabel}>
-                    {r.repoScore ?? "—"}
-                    <div className="text-[10px] font-normal text-text-dim">{r.repoBasisLabel}</div>
-                  </td>
-                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.bondVolScore) }}>
-                    {r.bondVolScore ?? "—"}
-                  </td>
-                  <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.fxVolScore) }}>
-                    {r.fxVolScore ?? "—"}
-                  </td>
-                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.structuralScore) }}>
-                    {r.structuralScore ?? "—"}
-                  </td>
-                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.marketScore) }}>
-                    {r.marketScore ?? "—"}
-                  </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{r.contagionScore ?? "—"}</td>
-                  <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.compositeScore) }}>
-                    {r.compositeScore ?? "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.stage !== null ? (
-                      <span
-                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold"
-                        style={{ background: `${stageColor(r.stage).fg}22`, color: stageColor(r.stage).fg }}
-                        title={LIQUIDITY_STAGES[r.stage - 1]?.description}
-                      >
-                        {r.stage} · {r.stageLabel}
-                      </span>
-                    ) : (
-                      <span className="text-text-dim">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-text-dim">{Math.round(r.dataCompleteness * 100)}%</td>
-                </tr>
-              ))}
+              {LIQUIDITY_REGION_ORDER.flatMap((region) => {
+                const entries = countryRows.filter((r) => r.region === region).sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+                if (entries.length === 0) return [];
+                return [
+                  <tr key={`region-${region}`} className="border-t border-border bg-panel-raised">
+                    <td colSpan={11} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-dim">
+                      {region} ({entries.length})
+                    </td>
+                  </tr>,
+                  ...entries.map((r) => (
+                    <tr key={r.country} className="border-t border-border align-top">
+                      <td className="px-3 py-2 font-medium">{r.country}</td>
+                      <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.centralBankLiquidityScore) }}>
+                        {r.centralBankLiquidityScore ?? "—"}
+                      </td>
+                      <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.repoScore) }} title={r.repoBasisLabel}>
+                        {r.repoScore ?? "—"}
+                        <div className="text-[10px] font-normal text-text-dim">{r.repoBasisLabel}</div>
+                      </td>
+                      <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.bondVolScore) }}>
+                        {r.bondVolScore ?? "—"}
+                      </td>
+                      <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.fxVolScore) }}>
+                        {r.fxVolScore ?? "—"}
+                      </td>
+                      <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.structuralScore) }}>
+                        {r.structuralScore ?? "—"}
+                      </td>
+                      <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.marketScore) }}>
+                        {r.marketScore ?? "—"}
+                      </td>
+                      <td className="gfew-mono px-3 py-2 text-text-dim">{r.contagionScore ?? "—"}</td>
+                      <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.compositeScore) }}>
+                        {r.compositeScore ?? "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.stage !== null ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold"
+                            style={{ background: `${stageColor(r.stage).fg}22`, color: stageColor(r.stage).fg }}
+                            title={LIQUIDITY_STAGES[r.stage - 1]?.description}
+                          >
+                            {r.stage} · {r.stageLabel}
+                          </span>
+                        ) : (
+                          <span className="text-text-dim">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-text-dim">{Math.round(r.dataCompleteness * 100)}%</td>
+                    </tr>
+                  )),
+                ];
+              })}
               {countryRows.length === 0 && (
                 <tr>
                   <td colSpan={11} className="px-3 py-6 text-center text-text-dim">
