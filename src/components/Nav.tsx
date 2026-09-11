@@ -8,7 +8,6 @@ const LINKS = [
   { href: "/dashboard/liquidity", label: "Liquidity" },
   { href: "/dashboard/credit", label: "Credit" },
   { href: "/dashboard/treasury", label: "Treasury" },
-  { href: "/dashboard/treasury-risk", label: "Treasury Risk" },
   { href: "/dashboard/g7-debt", label: "G7 Debt" },
   { href: "/dashboard/em-debt", label: "EM Debt" },
   { href: "/dashboard/banking", label: "Banking" },
