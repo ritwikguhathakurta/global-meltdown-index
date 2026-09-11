@@ -108,7 +108,7 @@ type AuctionRow = {
   indirect_bidder_accepted: string | null;
 };
 
-async function fetchLatestCompletedAuction(securityType: "Note" | "Bond", originalTerm: string): Promise<AuctionRow | null> {
+async function fetchLatestCompletedAuction(securityType: "Note" | "Bond" | "Bill", originalTerm: string): Promise<AuctionRow | null> {
   const url = `https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query?filter=security_type:eq:${securityType},original_security_term:eq:${originalTerm}&sort=-auction_date&page%5Bsize%5D=8&fields=auction_date,high_yield,bid_to_cover_ratio,total_accepted,indirect_bidder_accepted`;
   const res = await fetchWithRetry(url);
   const json = (await res.json()) as { data: AuctionRow[] };
@@ -139,6 +139,44 @@ export async function fetchUsAuctionStress(): Promise<MetricPoint[]> {
     const indirect = parseFloat(row.indirect_bidder_accepted ?? "");
     if (!Number.isNaN(total) && total > 0 && !Number.isNaN(indirect)) {
       points.push({ metric_key: `g7.us.auction_${t.key}_indirect_pct`, observed_at: row.auction_date, value: (indirect / total) * 100, unit: "%", source_key: "treasury_fiscal_data", source_tier: 1, frequency: "monthly" });
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return points;
+}
+
+/**
+ * Extended-tenor auction results for the Global Treasury Risk Engine's
+ * Auction Health panel (treasuryRiskEngine.ts) — the same auctions_query
+ * dataset and "walk back to the latest non-null bid-to-cover" logic as
+ * fetchUsAuctionStress above, just covering five more tenors across the
+ * curve (short bills through belly notes) under a separate `treasury.*`
+ * metric-key namespace so it doesn't touch the existing `g7.us.auction_*`
+ * keys g7DebtRegime.ts already reads. Every original_security_term string
+ * below was verified live against the API (e.g. Treasury currently issues
+ * 17-Week bills, not 13-Week, as of this pass) rather than assumed from
+ * older documentation.
+ */
+export async function fetchUsAuctionStressExtended(): Promise<MetricPoint[]> {
+  const points: MetricPoint[] = [];
+  const tenors: { key: string; securityType: "Note" | "Bill"; originalTerm: string }[] = [
+    { key: "17w", securityType: "Bill", originalTerm: "17-Week" },
+    { key: "26w", securityType: "Bill", originalTerm: "26-Week" },
+    { key: "52w", securityType: "Bill", originalTerm: "52-Week" },
+    { key: "2y", securityType: "Note", originalTerm: "2-Year" },
+    { key: "5y", securityType: "Note", originalTerm: "5-Year" },
+  ];
+  for (const t of tenors) {
+    const row = await fetchLatestCompletedAuction(t.securityType, t.originalTerm);
+    if (!row) continue;
+    const btc = parseFloat(row.bid_to_cover_ratio ?? "");
+    if (!Number.isNaN(btc)) {
+      points.push({ metric_key: `treasury.us_auction_${t.key}_bid_to_cover`, observed_at: row.auction_date, value: btc, unit: "x", source_key: "treasury_fiscal_data", source_tier: 1, frequency: "monthly" });
+    }
+    const total = parseFloat(row.total_accepted ?? "");
+    const indirect = parseFloat(row.indirect_bidder_accepted ?? "");
+    if (!Number.isNaN(total) && total > 0 && !Number.isNaN(indirect)) {
+      points.push({ metric_key: `treasury.us_auction_${t.key}_indirect_pct`, observed_at: row.auction_date, value: (indirect / total) * 100, unit: "%", source_key: "treasury_fiscal_data", source_tier: 1, frequency: "monthly" });
     }
     await new Promise((r) => setTimeout(r, 300));
   }
@@ -187,6 +225,11 @@ export async function fetchUsTreasuryLiveData(): Promise<MetricPoint[]> {
     results.push(...(await fetchUsAuctionStress()));
   } catch (e) {
     console.error(`Treasury auction stress: ${(e as Error).message}`);
+  }
+  try {
+    results.push(...(await fetchUsAuctionStressExtended()));
+  } catch (e) {
+    console.error(`Treasury auction stress (extended tenors): ${(e as Error).message}`);
   }
   try {
     results.push(...(await fetchFedSomaTreasuryHoldings()));

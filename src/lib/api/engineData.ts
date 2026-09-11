@@ -24,6 +24,16 @@ import {
   type CountryPropertyRow,
   type PropertyStageDef,
 } from "@/lib/engines/propertySystemicRisk";
+import {
+  getTreasuryRiskTable as computeTreasuryRiskTable,
+  getTreasuryCompositeScore,
+  getUsTreasuryCashPanel as computeUsTreasuryCashPanel,
+  getUsAuctionHealthPanel as computeUsAuctionHealthPanel,
+  type CountryTreasuryRow,
+  type TreasuryStageDef,
+  type UsTreasuryCashPanel,
+  type UsAuctionTenorReading,
+} from "@/lib/engines/treasuryRiskEngine";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -298,6 +308,42 @@ export async function getGlobalDollarLiquidityIndex(): Promise<GlobalLiquidityCu
   try {
     const db = await createServerSupabase();
     return await computeGlobalDollarLiquidityIndex(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
+  }
+}
+
+export async function getTreasuryRiskTable(): Promise<{ rows: CountryTreasuryRow[]; composite: { score: number | null; stage: TreasuryStageDef | null } }> {
+  const empty = { rows: [] as CountryTreasuryRow[], composite: { score: null, stage: null } };
+  if (!isSupabaseConfigured) return empty;
+  try {
+    const db = await createServerSupabase();
+    const rows = await computeTreasuryRiskTable(db);
+    const composite = getTreasuryCompositeScore(rows);
+    return { rows, composite };
+  } catch (e) {
+    console.error((e as Error).message);
+    return empty;
+  }
+}
+
+export async function getUsTreasuryCashPanel(): Promise<UsTreasuryCashPanel | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeUsTreasuryCashPanel(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getUsAuctionHealthPanel(): Promise<UsAuctionTenorReading[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeUsAuctionHealthPanel(db);
   } catch (e) {
     console.error((e as Error).message);
     return [];

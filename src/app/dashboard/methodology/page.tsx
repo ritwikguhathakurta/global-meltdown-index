@@ -1129,6 +1129,91 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="treasury-risk-engine">
+        <h2 className="mb-2 text-base font-semibold text-text">Global Treasury Risk Engine</h2>
+        <p className="mb-2">
+          Built against a 259-section institutional spec covering sovereign cash management, funding/
+          issuance, rollover, auctions, interest-rate/FX portfolio risk, investor base, contingent
+          liabilities, sovereign ALM and market functioning — same discipline as every other deep-dive
+          engine here: checked component by component against what free, verified data genuinely
+          supports, everything else disclosed as deferred rather than faked. Lives at{" "}
+          <a href="/dashboard/treasury-risk" className="text-accent hover:underline">
+            /dashboard/treasury-risk
+          </a>{" "}
+          — deliberately a new route, since the existing &ldquo;Treasury&rdquo; nav label/route is already
+          the GFMI-weighted <code className="gfew-mono">us_treasury_sovereign</code> yield/debt-to-GDP
+          engine (treasury.ts), unchanged by this build.
+        </p>
+        <p className="mb-2">
+          <strong>The core distinction this engine insists on:</strong> it does not re-ask whether a
+          government&apos;s debt is structurally sustainable (the G7 Debt and EM Debt pages already answer
+          that). It asks a different question — can the Treasury actually fund and manage its obligations
+          right now? A country can score fine here with elevated debt/GDP (funded comfortably, deep
+          investor base), or score badly here despite moderate debt (thin real-time funding signals).
+        </p>
+        <p className="mb-2">
+          <strong>Country universe:</strong> the union of the G7 (7) and the 14-country EM Debt universe
+          (which already includes China and India) — 21 Treasuries total, region-grouped the same way as
+          the Banking/Credit/Liquidity pages.
+        </p>
+        <p className="mb-2">
+          <strong>Four country-table domains</strong>, each reusing metric keys already live for other
+          engines rather than re-fetching: <strong>Funding Cost</strong> (each country&apos;s own
+          short-term policy/money-market rate, own-history trend — 18 of 21; Malaysia, Thailand and the
+          Philippines have no free short-rate series found anywhere in this app);{" "}
+          <strong>External/FX Debt</strong> (World Bank external-debt/GNI, short-term-debt/reserves,
+          reserves-months-of-imports — EM-only, cross-sectional among EM peers, already live for
+          emDebtRegime.ts); <strong>Investor Base</strong> (IMF foreign holdings of local-currency debt,
+          own-history trend, declining = risk up — EM-only); <strong>Market Access</strong> (sovereign
+          CDS, Damodaran/NYU Stern, cross-sectional WITHIN each peer group separately — G7-vs-G7 and
+          EM-vs-EM, never mixed, since a shared cross-section would make every G7 country trivially read
+          as &ldquo;safe&rdquo; next to EM&apos;s much wider spreads). Structural = Funding Cost 30% +
+          External Debt 35% + Investor Base 35% (G7: Funding Cost alone, renormalized — honestly thinner
+          for G7, not padded with a fabricated external-debt score). Composite = Structural 40% + Market
+          Access 35% + Contagion 25% (breadth of peers ≥60), the same fixed weighting used everywhere
+          else in this app — the spec&apos;s own adaptive NORMAL/STRESS/CRISIS regime-weight switching is
+          not implemented.
+        </p>
+        <p className="mb-2">
+          <strong>Two US-only real-time panels</strong> — the spec itself singles out the US as the most
+          systemically important case, and no other country has an equivalent free daily feed:
+        </p>
+        <ul className="mb-2 list-inside list-disc space-y-1">
+          <li>
+            <strong>US Treasury Cash &amp; Debt Ceiling:</strong> the Daily Treasury Statement&apos;s own
+            Treasury General Account (TGA) closing balance — the government&apos;s checking-account
+            balance at the Fed — and debt-ceiling headroom, computed as the Statutory Debt Limit minus
+            debt actually subject to it (Debt Held by the Public + Intragovernmental Holdings, minus
+            Other Debt/Unamortized Discount/Federal Financing Bank, plus Guaranteed Debt of Government
+            Agencies — Treasury&apos;s own Table III-C categories). Per the spec&apos;s own explicit
+            instruction (&ldquo;never create unsupported X-date forecasts&rdquo;), this shows only the
+            real, current headroom figure — never a projected exhaustion date.
+          </li>
+          <li>
+            <strong>US Treasury Auction Health:</strong> bid-to-cover ratio and indirect-bidder share
+            (a foreign/overseas-investor demand proxy) across seven tenors — 17-Week, 26-Week and 52-Week
+            bills, 2-Year and 5-Year notes (new this pass), plus the 10-Year note and 30-Year bond
+            (already tracked by the G7 Debt page&apos;s UsTreasuryDetail sidecar, reused here rather than
+            re-fetched).
+          </li>
+        </ul>
+        <p className="mb-2">
+          <strong>Still not built</strong> — checked, no free/reliable source found or out of scope for
+          incremental work on an existing app, disclosed rather than faked: cash-flow forecasting and
+          forecast-error tracking (needs a government&apos;s own internal forecast, not published free
+          anywhere), non-US Treasury cash/TGA-equivalent balances (Japan, UK, Germany, France, Italy and
+          Canada checked directly — no free daily source found for any of the six), non-US auction
+          results beyond the US (Japan MOF, UK DMO, Germany/France/Italy/Canada checked directly, no
+          stable free endpoint verified), any debt-maturity-wall breakdown by tenor bucket for any
+          country, contingent liabilities (government guarantees, SOE debt, PPP guarantees, pension
+          obligations, natural-disaster fiscal exposure — needs each government&apos;s own balance-sheet
+          disclosures, no uniform free source across 21 countries), primary-dealer capacity/inventories,
+          sovereign wealth fund or non-reserve sovereign asset tracking, the full stress-test scenario
+          library and historical backtest suite (the spec&apos;s own §170/210-214), and a daily 8am
+          report/AI Q&amp;A layer.
+        </p>
+      </section>
+
       <section className="mb-8" id="liquidity-g7-china-india">
         <h2 className="mb-2 text-base font-semibold text-text">
           Liquidity: G7 + China, and a separate India Liquidity engine

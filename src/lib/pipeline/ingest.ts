@@ -75,6 +75,7 @@ import { fetchImfFiscalGapFillers } from "../sources/imfFiscalGaps";
 import { fetchQedsExternalDebtGapFillers } from "../sources/qedsExternalDebt";
 import { fetchG7FiscalData } from "../sources/g7Fiscal";
 import { fetchUsTreasuryLiveData } from "../sources/usTreasuryDebt";
+import { fetchUsTreasuryCash } from "../sources/usTreasuryCash";
 import { fetchChinaOfficialReserveAssets } from "../sources/chinaFxReserves";
 import { fetchBankFinancialSoundnessData } from "../sources/bankFinancialSoundness";
 import { fetchAllBankSecFilings } from "../sources/bankSecFilings";
@@ -621,6 +622,19 @@ export async function ingestUsTreasuryLiveData(db: SupabaseClient, runDate: stri
   }
 }
 
+export async function ingestUsTreasuryCash(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchUsTreasuryCash();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_us_treasury_cash", "ok", { points: points.length });
+    return { stage: "ingest_us_treasury_cash", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_us_treasury_cash", "failed", detail);
+    return { stage: "ingest_us_treasury_cash", status: "failed", detail };
+  }
+}
+
 export async function ingestChinaFxReserves(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchChinaOfficialReserveAssets();
@@ -857,6 +871,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_em_debt_qeds_gaps", ingestEmDebtQedsGaps(db, runDate)),
     withTimeout("ingest_g7_fiscal_data", ingestG7FiscalData(db, runDate)),
     withTimeout("ingest_us_treasury_live", ingestUsTreasuryLiveData(db, runDate)),
+    withTimeout("ingest_us_treasury_cash", ingestUsTreasuryCash(db, runDate)),
     withTimeout("ingest_china_fx_reserves", ingestChinaFxReserves(db, runDate)),
     withTimeout("ingest_bank_financial_soundness", ingestBankFinancialSoundness(db, runDate)),
     withTimeout("ingest_bank_sec_filings", ingestBankSecFilings(db, runDate)),
