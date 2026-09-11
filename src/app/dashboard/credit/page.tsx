@@ -70,11 +70,12 @@ function fmt(v: number | null, unit: string): string {
 }
 
 export default async function CreditPage() {
-  const [rows, countryTable, verificationRows] = await Promise.all([
+  const [rows, countryTable, allVerificationRows] = await Promise.all([
     getLatestEngine("credit"),
     getCountryCreditTable(),
     getCreditDataVerificationTable(),
   ]);
+  const verificationRows = allVerificationRows.filter((r) => r.status === "available");
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Credit Markets</h1>
@@ -94,16 +95,18 @@ export default async function CreditPage() {
           </a>
         </div>
         <p className="mb-3 max-w-3xl text-xs text-text-dim">
-          The same 34-country universe as the Banking tab&apos;s Central Bank FSR Verification table.
-          Every reading is the BIS (Bank for International Settlements) Credit-to-GDP Gap — the
-          official Basel III countercyclical-buffer indicator — genuinely ingested from BIS&apos;s
-          free SDMX API, not a curated narrative. There is no separate freshness check to run: the
-          same pipeline stage that already feeds this data to the Banking and Property engines keeps
-          this table current automatically. Six countries (Philippines, Romania, Peru, UAE, Kenya,
-          Egypt) are marked unavailable — checked directly against BIS&apos;s live API, which simply
-          does not cover them; no weaker substitute was used. &ldquo;Δ vs Our Credit Score&rdquo;
-          cross-checks this quantity-side reading against the Credit tab&apos;s own market-spread-based
-          score below, for the countries where this app has one.
+          28 of the same 34-country universe as the Banking tab&apos;s Central Bank FSR Verification
+          table. Every reading is the BIS (Bank for International Settlements) Credit-to-GDP Gap —
+          the official Basel III countercyclical-buffer indicator — genuinely ingested from
+          BIS&apos;s free SDMX API, not a curated narrative. There is no separate freshness check to
+          run: the same pipeline stage that already feeds this data to the Banking and Property
+          engines keeps this table current automatically. Six countries (Philippines, Romania, Peru,
+          UAE, Kenya, Egypt) are omitted from this table — checked directly against BIS&apos;s live
+          API, which simply does not cover them; no weaker substitute was used, and no row is shown
+          rather than showing an empty one (see methodology for the full list and reasoning).
+          &ldquo;Δ vs Our Credit Score&rdquo; cross-checks this quantity-side reading against the
+          Credit tab&apos;s own market-spread-based score below, for the countries where this app has
+          one.
         </p>
         <div className="overflow-x-auto rounded border border-border">
           <table className="w-full text-left text-sm">
@@ -134,15 +137,9 @@ export default async function CreditPage() {
                       <tr key={row.key} className="border-t border-border align-top">
                         <td className="px-3 py-2 font-medium">{row.country}</td>
                         <td className="px-3 py-2">
-                          {row.status === "available" ? (
-                            <a href={row.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-                              BIS Credit-to-GDP Gap
-                            </a>
-                          ) : (
-                            <span className="text-text-dim" title={row.unavailableReason ?? undefined}>
-                              Unavailable
-                            </span>
-                          )}
+                          <a href={row.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                            BIS Credit-to-GDP Gap
+                          </a>
                           {row.supplementalSources.map((s) => (
                             <div key={s.url}>
                               <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline">

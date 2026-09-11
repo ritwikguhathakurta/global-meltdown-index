@@ -1185,8 +1185,10 @@ export default function MethodologyPage() {
           Republic, Hungary, Chile, Colombia, Israel) and were wired into the same
           ingestBisCreditGaps pipeline stage that already feeds Banking and Property. Six returned
           &ldquo;No data for data query&rdquo; from BIS&apos;s own API — Philippines, Romania, Peru,
-          UAE, Kenya, Egypt — and are shown as &ldquo;Unavailable&rdquo; with that reason, rather than
-          backed by a weaker, unverified national proxy.
+          UAE, Kenya, Egypt. These six are omitted from the dashboard table entirely (rather than
+          shown as an empty/unavailable row) — the underlying registry entry still records why
+          (creditDataRegistry.ts), but no row is rendered, and no weaker, unverified national proxy
+          was substituted in their place.
         </p>
         <p className="mb-2">
           <strong>Genuinely automatic updates, no separate check needed:</strong> this is the one
