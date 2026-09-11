@@ -52,6 +52,12 @@ export default function MethodologyPage() {
           market tracking across nine banking systems) similarly sits alongside the GFMI-weighted
           &ldquo;banking&rdquo; engine, which is unchanged — see{" "}
           <a href="#global-banking-systemic-risk" className="text-accent hover:underline">Global Banking Systemic Risk</a>{" "}
+          below. A country-level Global Liquidity Systemic Risk layer (central-bank reserves/repo-spread/
+          bond-and-FX-volatility tracking across the same nine countries), a separate BIS-sourced Global
+          Dollar/Euro/Yen Liquidity Index, an FSB-sourced NBFI monitoring panel, and a cross-engine
+          Liquidity Transmission panel similarly sit alongside the GFMI-weighted &ldquo;global_liquidity&rdquo;
+          engine and its per-bank Ample/Adequate/Deficit classifier, both unchanged — see{" "}
+          <a href="#global-liquidity-systemic-risk" className="text-accent hover:underline">Global Liquidity Systemic Risk</a>{" "}
           below.
           None of these are faked with placeholder scores; they simply don&apos;t appear until real data backs them.
           Two further engines beyond the original 24-engine spec were added on request — India Liquidity and
@@ -953,6 +959,154 @@ export default function MethodologyPage() {
           this project will not work around. Rather than force a stale or fabricated UK figure into the
           engine, this gap is disclosed in the engine&apos;s contradictory-evidence field and here, not
           silently dropped.
+        </p>
+      </section>
+
+      <section className="mb-8" id="global-liquidity-systemic-risk">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Global Liquidity Systemic Risk — a country-level layer, built against a 256-section spec
+        </h2>
+        <p className="mb-2">
+          Checked component-by-component against a full institutional Global Liquidity Systemic Risk Engine
+          spec (funding/market/central-bank/collateral/FX/dollar/repo/margin/NBFI/capital-flows/contagion
+          liquidity, 16 sub-indices, a shock simulator, historical backtests, a daily 8am report) for what
+          free, verified data genuinely supports across a multi-country universe at once — the same
+          discipline already applied to Carry Trade, G7 Debt, EM Debt, Banking and Property. This
+          deliberately does NOT touch the existing GFMI-weighted &ldquo;Global Liquidity&rdquo; engine
+          (below) or its per-bank Ample/Adequate/Deficit classifier — a new analytical layer, not a second
+          GFMI vote (the spec&apos;s own &ldquo;Double-Counting Control&rdquo; instruction).
+        </p>
+        <p className="mb-2">
+          <strong>Country universe:</strong> the same nine countries as Banking and Property
+          (BANKING_COUNTRIES) — deliberately, so the Transmission panel below can join across five engines
+          on one country key. The spec&apos;s own broader ask (G20/ASEAN/CEE/Latin America/Middle
+          East/Africa) is the universe the Banking page&apos;s Central Bank FSR table and the Credit
+          page&apos;s Credit Data Verification table already cover with real per-country data — extending
+          THIS engine&apos;s own domains (below) to those 25 additional countries needs per-country repo/
+          policy-rate and bond-yield series this pass did not find free, live sources for beyond the nine
+          already wired in elsewhere; disclosed as deferred.
+        </p>
+        <p className="mb-2">
+          <strong>Four domains</strong> (the spec&apos;s own multi-dimensional liquidity taxonomy trimmed to
+          what has genuine free daily/weekly data):
+        </p>
+        <ul className="mb-2 list-disc space-y-1 pl-5">
+          <li>
+            <strong>Central Bank Liquidity</strong> — reuses the exact same reserves/balance-sheet series
+            already wired into the Banking engine&apos;s own Liquidity domain (Fed reserve balances, BoE
+            reserves, ECB balance sheet, BoJ balance sheet, BoC assets, China reserves-ex-gold, India&apos;s
+            RBI net liquidity injection), own-history z-scored.
+          </li>
+          <li>
+            <strong>Repo / Money-Market Stress</strong> — the same money-market-rate-vs-policy-rate SPREAD
+            used for the Ample/Adequate/Deficit classification below (SOFR−IORB, SONIA−Bank Rate,
+            €STR−Deposit Facility Rate for Germany/France/Italy, CORRA−Target) — the actual mechanism
+            behind the September 2019 US repo spike. Japan, China and India have no free daily policy-rate
+            series to pair against (same disclosed limitation the classifier below already has for the
+            first two; India&apos;s own WACR has no paired repo-rate series in this app yet), so those
+            three are scored on their own money-market rate&apos;s LEVEL trend instead — a real but weaker
+            signal, labeled per-row, never silently blended in as equivalent to a true spread.
+          </li>
+          <li>
+            <strong>Bond Market Liquidity</strong> — realized volatility of each country&apos;s own 10-year
+            government bond yield (elevated vol = worse). A genuine proxy, not the bid/ask-depth-turnover
+            the spec itself asks for — no free source publishes dealer-level bond-market microstructure
+            data across all nine countries.
+          </li>
+          <li>
+            <strong>FX Liquidity</strong> — realized volatility of each country&apos;s own currency vs USD
+            (the broad trade-weighted dollar index stands in for the US itself, since USD has no bilateral
+            pair against itself), reusing FX series already flowing from the FX connector.
+          </li>
+        </ul>
+        <p className="mb-2">
+          Structural = Central Bank Liquidity 50% + Repo 50%. Market = Bond Vol 50% + FX Vol 50%.
+          Contagion = the fraction of the other eight countries whose preliminary Structural+Market blend
+          is already elevated (≥60) — the same breadth-based reading every sibling engine uses, not yet a
+          true bilateral cross-border-exposure network (would need BIS Locational Banking Statistics
+          bilateral claims data — a real future addition). Composite = Structural 40% + Market 35% +
+          Contagion 25% — this app&apos;s own house convention, applied verbatim rather than the spec&apos;s
+          own regime-dependent 40/35/25→35/40/25→25/40/35 weight-shifting (no other engine in this app
+          implements that regime-switch either, kept consistent rather than making Liquidity a one-off).
+        </p>
+        <p className="mb-2">
+          <strong>Stage model:</strong> the spec&apos;s own 8-stage list (Abundant/Normalization/
+          Tightening/Funding Stress/Market Liquidity Stress/Collateral-Margin Stress/Forced
+          Deleveraging/Systemic Crisis) is compressed to this app&apos;s standard 7-stage convention —
+          deliberately RELABELED, not copied verbatim: this engine has no collateral-haircut or margin-call
+          data, so a stage literally named &ldquo;Collateral/Margin Stress&rdquo; would overclaim what is
+          actually measured. Stage 7 (Systemic Liquidity Contagion) is reserved for the cross-country
+          composite only, promoted by breadth, never assigned to a single country in isolation.
+        </p>
+        <p className="mb-2" id="global-dollar-liquidity-index">
+          <strong>Global Dollar / Euro / Yen Liquidity Index</strong> is a deliberately SEPARATE layer from
+          the country table — the spec&apos;s own &ldquo;BIS Global Liquidity Engine&rdquo; section calls
+          out the BIS&apos;s Global Liquidity Indicators (GLI) by name as a major input, and GLI is compiled
+          by BIS at the CURRENCY/BORROWER-REGION level, not per-country, so folding it into a per-country
+          z-score would misrepresent what the underlying data measures. Verified live directly against BIS&apos;s
+          free, no-key SDMX API (dataflow WS_GLI) before wiring in: BORROWERS_CTY = &ldquo;3P&rdquo;
+          (&ldquo;All countries excluding residents&rdquo;, BIS&apos;s own headline &ldquo;credit to non-bank
+          borrowers outside the issuing jurisdiction&rdquo; aggregate) for USD/EUR/JPY, and
+          &ldquo;4T&rdquo; (&ldquo;Emerging market and developing economies&rdquo;) for the EM-specific USD
+          slice — all four confirmed fresh through 2026-Q1 at the time this was built. The connector fetches
+          the year-on-year GROWTH RATE flavor of this series (UNIT_MEASURE=771), not the level, since a
+          growth rate is already correctly detrended and is exactly what the spec&apos;s own &ldquo;Dollar
+          Credit Growth: YoY&rdquo; and &ldquo;Dollar Liquidity Acceleration&rdquo; (rapid contraction in
+          cross-border credit = early warning) sections ask for directly. EXPANDING/MODERATING/
+          DECELERATING/CONTRACTING labels are this app&apos;s own reading of that growth rate&apos;s level
+          and own-history trend, not a BIS-published classification.
+        </p>
+        <p className="mb-2" id="nbfi-monitoring-methodology">
+          <strong>NBFI Monitoring</strong> treats non-bank financial intermediation as a first-class
+          liquidity amplifier, per the spec&apos;s own framing (&ldquo;Global Monitoring of NBFI... leverage,
+          liquidity mismatch, funding/interconnectedness&rdquo;) and the FSB&apos;s own explicit
+          identification of NBFI growth, leverage, liquidity mismatch, funding/deposit relationships,
+          repo/credit exposures and bank-security holdings as genuine interconnectedness channels — not a
+          footnote. No free source publishes country-level NBFI balance-sheet data this app could ingest as
+          a numeric time series, so this is built the same way the Central Bank FSR registry is: ONE
+          curated, verified entry — the Financial Stability Board&apos;s own annual &ldquo;Global Monitoring
+          Report on Nonbank Financial Intermediation&rdquo; (the only genuinely global, cross-jurisdiction,
+          methodologically-consistent NBFI data source, covering 29 jurisdictions and &gt;90% of global
+          GDP) — with its headline figures (total NBFI assets, share of global financial assets, growth,
+          the FSB&apos;s own &ldquo;narrow measure&rdquo; of entities posing bank-like financial-stability
+          risk) transcribed directly from the report&apos;s own publication-day summary, verified live at
+          fsb.org before being added (2025 edition: $256.8tn total, 51.0% of global financial assets, +9.4%
+          YoY; narrow measure $76.3tn, +12% YoY). The FRESHNESS of that transcription is auto-checked on
+          every pipeline run — a regex anchored to the exact live page text (the 2025 edition&apos;s title
+          drops the hyphen, &ldquo;Nonbank&rdquo; vs. every prior year&apos;s &ldquo;Non-Bank&rdquo; —
+          verified directly against the page&apos;s raw text, not assumed; if a future edition reverts to
+          the hyphenated form the check fails SAFE, reporting &ldquo;needs review&rdquo; rather than
+          silently reporting current). Splitting this into per-jurisdiction entries was considered and
+          rejected: no national regulator publishes a comparably comprehensive NBFI monitoring report, so
+          doing so would mean either fabricating detail this app cannot verify, or mostly-empty rows.
+        </p>
+        <p className="mb-2" id="liquidity-transmission-methodology">
+          <strong>Liquidity Transmission panel</strong> is the direct implementation of this engine&apos;s
+          own design brief: liquidity as a TRANSMISSION mechanism connecting the other systemic-risk
+          engines, not a sixth independent score sitting next to them. Rather than fabricate a new
+          cross-engine correlation model or a bilateral contagion graph (spec §109-111, 210 — needs
+          bilateral exposure data this app doesn&apos;t have), the panel reads each sibling engine&apos;s
+          ALREADY-COMPUTED composite score directly (Banking, Property, G7 Sovereign Debt, EM Debt, Carry
+          Trade) and flags &ldquo;Systemic Liquidity Convergence&rdquo; only when Liquidity itself is
+          elevated (≥60) AND at least two of those other five are too — a real, honest, if simple,
+          engine-granularity implementation of the spec&apos;s own &ldquo;Liquidity Fragility
+          Convergence&rdquo; concept (&ldquo;at least three independent channels deteriorating
+          together&rdquo;). EM Debt has no dedicated composite-score function elsewhere in this app, so an
+          equal-weighted mean of its rows&apos; own vulnerability score is computed for this panel only,
+          identical to how every other engine&apos;s own composite getter already aggregates its rows. This
+          is a genuine convergence READING of real, already-verified numbers — not a forecast, not a
+          simulation of how a shock would actually propagate (spec&apos;s own Root-Shock/Liquidity Shock
+          Simulator, §124-125, 174, 211-213, is not built).
+        </p>
+        <p className="mb-2">
+          <strong>Still not built</strong> — checked, no free/reliable source found or out of scope for
+          incremental work on an existing app, disclosed rather than faked: repo volumes/haircuts/
+          specialness (no free source publishes cross-country repo market depth), collateral availability/
+          concentration/haircut-shock modeling, margin/CCP data, country-level NBFI numeric leverage/
+          redemption series (covered instead, qualitatively and globally only, by the NBFI registry above),
+          capital-flow/reserve-adequacy metrics for non-China EM, a Liquidity Shock Simulator, historical
+          backtesting with lead-time analysis, an interactive bilateral contagion network graph, and a
+          daily 8am report/AI Q&amp;A layer.
         </p>
       </section>
 

@@ -5,6 +5,15 @@ import { getCentralBankLiquidityTable as computeCentralBankLiquidityTable, type 
 import { getCountryCreditTable as computeCountryCreditTable, type CountryCreditRow } from "@/lib/engines/creditRegime";
 import { getCreditDataVerification as computeCreditDataVerification, type CreditVerificationRow } from "@/lib/engines/creditDataVerification";
 import { getCountryEmDebtTable as computeCountryEmDebtTable, type CountryEmDebtRow } from "@/lib/engines/emDebtRegime";
+import {
+  getLiquiditySystemicRiskTable as computeLiquiditySystemicRiskTable,
+  getLiquidityCompositeScore,
+  getGlobalDollarLiquidityIndex as computeGlobalDollarLiquidityIndex,
+  type CountryLiquidityRow,
+  type LiquidityStageDef,
+  type GlobalLiquidityCurrencyRow,
+} from "@/lib/engines/liquiditySystemicRisk";
+import { NBFI_MONITORING_REGISTRY } from "@/lib/data/nbfiRegistry";
 import { getCountryG7DebtTable as computeCountryG7DebtTable, getG7CompositeScore, type CountryG7DebtRow, type G7CrisisStageDef } from "@/lib/engines/g7DebtRegime";
 import { getCarryTradeTable as computeCarryTradeTable, getCarryCompositeScore, type CarryPairRow, type FundingCurrencyRow, type CarryStageDef } from "@/lib/engines/carryTrade";
 import { getBankingSystemicRiskTable as computeBankingSystemicRiskTable, getBankingCompositeScore, type CountryBankingRow, type BankingStageDef } from "@/lib/engines/bankingSystemicRisk";
@@ -267,6 +276,121 @@ export async function getCreditDataVerificationTable(): Promise<CreditVerificati
   } catch (e) {
     console.error((e as Error).message);
     return [];
+  }
+}
+
+export async function getLiquiditySystemicRiskTable(): Promise<{ rows: CountryLiquidityRow[]; composite: { score: number | null; stage: LiquidityStageDef | null } }> {
+  const empty = { rows: [] as CountryLiquidityRow[], composite: { score: null, stage: null } };
+  if (!isSupabaseConfigured) return empty;
+  try {
+    const db = await createServerSupabase();
+    const rows = await computeLiquiditySystemicRiskTable(db);
+    const composite = getLiquidityCompositeScore(rows);
+    return { rows, composite };
+  } catch (e) {
+    console.error((e as Error).message);
+    return empty;
+  }
+}
+
+export async function getGlobalDollarLiquidityIndex(): Promise<GlobalLiquidityCurrencyRow[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeGlobalDollarLiquidityIndex(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
+  }
+}
+
+export type NbfiCheckRow = {
+  key: string;
+  last_checked_at: string | null;
+  check_status: string;
+  note: string | null;
+};
+
+export async function getNbfiChecks(): Promise<NbfiCheckRow[]> {
+  const db = await createServerSupabase();
+  return safe<NbfiCheckRow[]>(() => db.from("nbfi_checks").select("*"), []);
+}
+
+export { NBFI_MONITORING_REGISTRY };
+
+/**
+ * Liquidity Transmission Panel — the "critical design decision" the
+ * Liquidity spec itself calls out: liquidity as the TRANSMISSION layer
+ * connecting the other systemic-risk engines, not just a sixth independent
+ * 0-100 score sitting next to them. This reads each sibling engine's ALREADY
+ * COMPUTED composite score (no new modeling, no fabricated correlation) and
+ * reports which are simultaneously elevated right now — a genuine, if
+ * simple, implementation of spec's own §133 "Liquidity Fragility
+ * Convergence" ("at least three independent channels deteriorating
+ * together"), reframed across ENGINES rather than sub-indicators within one
+ * engine, since that's the level this app's architecture actually computes
+ * independently-sourced scores at.
+ *
+ * EM Debt has no dedicated composite-score getter (emDebtRegime.ts) — an
+ * equal-weighted mean of its rows' own vulnerabilityScore is computed here
+ * for this panel only, exactly the same aggregation every other engine's own
+ * getXCompositeScore already does internally.
+ */
+export type TransmissionEngineRow = {
+  engine: string;
+  score: number | null;
+  elevated: boolean;
+};
+
+export type LiquidityTransmissionPanel = {
+  rows: TransmissionEngineRow[];
+  elevatedCount: number;
+  convergence: boolean;
+};
+
+export async function getLiquidityTransmissionPanel(): Promise<LiquidityTransmissionPanel> {
+  const empty: LiquidityTransmissionPanel = { rows: [], elevatedCount: 0, convergence: false };
+  if (!isSupabaseConfigured) return empty;
+  try {
+    const db = await createServerSupabase();
+    const [liquidityRows, bankingRows, propertyRows, g7Rows, carryData, emDebtRows] = await Promise.all([
+      computeLiquiditySystemicRiskTable(db),
+      computeBankingSystemicRiskTable(db),
+      computePropertySystemicRiskTable(db),
+      computeCountryG7DebtTable(db),
+      computeCarryTradeTable(db),
+      computeCountryEmDebtTable(db),
+    ]);
+
+    const liquidity = getLiquidityCompositeScore(liquidityRows);
+    const banking = getBankingCompositeScore(bankingRows);
+    const property = getPropertyCompositeScore(propertyRows);
+    const g7 = await getG7CompositeScore(db, g7Rows);
+    const { pairs } = carryData;
+    const carry = getCarryCompositeScore(pairs);
+    const emDebtWithData = emDebtRows.filter((r) => r.vulnerabilityScore !== null);
+    const emDebtScore =
+      emDebtWithData.length > 0
+        ? Math.round(emDebtWithData.reduce((a, b) => a + (b.vulnerabilityScore as number), 0) / emDebtWithData.length)
+        : null;
+
+    const rows: TransmissionEngineRow[] = [
+      { engine: "Liquidity", score: liquidity.score, elevated: (liquidity.score ?? 0) >= 60 },
+      { engine: "Banking", score: banking.score, elevated: (banking.score ?? 0) >= 60 },
+      { engine: "Property", score: property.score, elevated: (property.score ?? 0) >= 60 },
+      { engine: "G7 Sovereign Debt", score: g7.score, elevated: (g7.score ?? 0) >= 60 },
+      { engine: "EM Debt", score: emDebtScore, elevated: (emDebtScore ?? 0) >= 60 },
+      { engine: "Carry Trade", score: carry.score, elevated: (carry.score ?? 0) >= 60 },
+    ];
+    const elevatedCount = rows.filter((r) => r.elevated).length;
+    // Convergence requires Liquidity itself elevated PLUS at least two other
+    // engines — the same "3+ independent channels" threshold spec's own
+    // §133 uses, applied at engine granularity.
+    const convergence = rows[0].elevated && elevatedCount >= 3;
+    return { rows, elevatedCount, convergence };
+  } catch (e) {
+    console.error((e as Error).message);
+    return empty;
   }
 }
 
