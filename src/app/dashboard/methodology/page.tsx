@@ -1159,6 +1159,73 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="central-bank-credit-data-verification">
+        <h2 className="mb-2 text-base font-semibold text-text">
+          Central Bank Credit Data Verification — the same 34-country universe as Banking, applied to credit
+        </h2>
+        <p className="mb-2">
+          Same instruction as the Banking tab&apos;s Central Bank FSR table: &ldquo;All the countries
+          which are in banking should be in Credit also.&rdquo; The Credit tab&apos;s{" "}
+          <a href="/dashboard/credit#central-bank-credit-data-verification" className="text-accent hover:underline">
+            /dashboard/credit
+          </a>{" "}
+          page now carries a 34-country table (creditDataRegistry.ts) covering the exact same G7 /
+          G20-major-EM / ASEAN / CEE / Latin America / Middle East / Africa universe as the Banking
+          tab&apos;s FSR registry. Unlike the FSR table, this is not a curated narrative
+          classification — every reading is the BIS (Bank for International Settlements)
+          Credit-to-GDP Gap, the official Basel III countercyclical-buffer indicator, pulled from the
+          same free, no-key SDMX API already used for China/UK/Canada/Japan&apos;s credit-gap rows
+          above (bisCreditGap.ts), now extended to all 34 countries.
+        </p>
+        <p className="mb-2">
+          <strong>Coverage — checked directly, not assumed:</strong> BIS&apos;s Credit-to-GDP Gap
+          dataflow was queried live for all 25 non-original countries before this table was built.
+          19 returned real data (Brazil, Russia, South Korea, Indonesia, Mexico, Saudi Arabia, South
+          Africa, Turkey, Argentina, Australia, Malaysia, Singapore, Thailand, Poland, Czech
+          Republic, Hungary, Chile, Colombia, Israel) and were wired into the same
+          ingestBisCreditGaps pipeline stage that already feeds Banking and Property. Six returned
+          &ldquo;No data for data query&rdquo; from BIS&apos;s own API — Philippines, Romania, Peru,
+          UAE, Kenya, Egypt — and are shown as &ldquo;Unavailable&rdquo; with that reason, rather than
+          backed by a weaker, unverified national proxy.
+        </p>
+        <p className="mb-2">
+          <strong>Genuinely automatic updates, no separate check needed:</strong> this is the one
+          place where the &ldquo;automate updation&rdquo; requirement was structurally easier to
+          satisfy than the FSR table&apos;s HTML/RSS checks — because this data is already numeric and
+          already flows through this app&apos;s normal ingestion pipeline. There is no HTML page to
+          scrape or regex to anchor: the same quarterly BIS refresh that already keeps Banking&apos;s
+          and Property&apos;s credit-gap inputs current keeps this table current too, automatically,
+          every pipeline run. The &ldquo;As Of&rdquo; column is simply the latest point already in
+          metric_series.
+        </p>
+        <p className="mb-2">
+          <strong>Reading</strong> buckets the raw gap value using the Basel Committee&apos;s own
+          materiality threshold — beyond +/-2 percentage points is treated as a genuine deviation
+          from trend, not noise: &gt;+2pp is tagged &ldquo;Expanding (credit boom building)&rdquo;,
+          &lt;-2pp &ldquo;Contracting&rdquo;, otherwise &ldquo;Neutral&rdquo;. This is a mechanical
+          classification of the number itself, not a human-curated judgment call, unlike
+          bankStanceLevel on the FSR registry.
+        </p>
+        <p className="mb-2">
+          <strong>&ldquo;Δ vs Our Credit Score&rdquo;</strong> cross-checks this quantity-side BIS
+          reading against creditRegime.ts&apos;s own market-spread-based Credit tab score, for
+          countries where this app has both: an OAS-based &ldquo;STRESSED&rdquo;/&ldquo;DISLOCATED&rdquo;
+          regime disagreeing with the BIS gap&apos;s &ldquo;Expanding&rdquo; reading is flagged as
+          &ldquo;Credit-gap reads more stress&rdquo; or &ldquo;Spread reads more stress&rdquo; — two
+          genuinely different lenses (a priced risk premium vs a structural quantity signal) that can
+          legitimately disagree; the flag does not claim one is more correct than the other.
+        </p>
+        <p>
+          <strong>Supplemental sources</strong>: the user specifically named two other well-known
+          public credit datasets — the RBI&apos;s Sectoral Bank Credit Deployment data and the New
+          York Fed&apos;s Household Debt and Credit Report. Both are real, freely accessible, and
+          linked directly on India&apos;s and the US&apos;s rows respectively, but building actual
+          ingestion for them (sector-level credit breakdowns / household-level microdata, a
+          different shape of data than a single country-level score) is a distinct, larger task not
+          attempted this pass — surfaced as a direct link rather than claimed as built.
+        </p>
+      </section>
+
       <section className="mb-8" id="em-debt-by-country">
         <h2 className="mb-2 text-base font-semibold text-text">
           Emerging-Market Debt — rebuilt as a structural + market + contagion engine

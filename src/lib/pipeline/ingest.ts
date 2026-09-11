@@ -33,6 +33,25 @@ import {
   fetchFranceCreditGap,
   fetchItalyCreditGap,
   fetchIndiaCreditGap,
+  fetchBrazilCreditGap,
+  fetchRussiaCreditGap,
+  fetchSouthKoreaCreditGap,
+  fetchIndonesiaCreditGap,
+  fetchMexicoCreditGap,
+  fetchSaudiArabiaCreditGap,
+  fetchSouthAfricaCreditGap,
+  fetchTurkeyCreditGap,
+  fetchArgentinaCreditGap,
+  fetchAustraliaCreditGap,
+  fetchMalaysiaCreditGap,
+  fetchSingaporeCreditGap,
+  fetchThailandCreditGap,
+  fetchPolandCreditGap,
+  fetchCzechRepublicCreditGap,
+  fetchHungaryCreditGap,
+  fetchChileCreditGap,
+  fetchColombiaCreditGap,
+  fetchIsraelCreditGap,
 } from "../sources/bisCreditGap";
 import { fetchIndiaPropertyPrices } from "../sources/bisPropertyPrices";
 import { runCentralBankFsrChecks } from "../sources/centralBankFsrCheck";
@@ -448,6 +467,29 @@ export async function ingestBisCreditGaps(db: SupabaseClient, runDate: string): 
     { name: "France", fn: fetchFranceCreditGap },
     { name: "Italy", fn: fetchItalyCreditGap },
     { name: "India", fn: fetchIndiaCreditGap },
+    // Added for the Credit Data Verification table (creditDataRegistry.ts)
+    // — the 19 of 25 non-BANKING_COUNTRIES this BIS dataflow actually
+    // covers (verified live; Philippines/Romania/Peru/UAE/Kenya/Egypt do
+    // not have this series and are disclosed as unavailable instead).
+    { name: "Brazil", fn: fetchBrazilCreditGap },
+    { name: "Russia", fn: fetchRussiaCreditGap },
+    { name: "South Korea", fn: fetchSouthKoreaCreditGap },
+    { name: "Indonesia", fn: fetchIndonesiaCreditGap },
+    { name: "Mexico", fn: fetchMexicoCreditGap },
+    { name: "Saudi Arabia", fn: fetchSaudiArabiaCreditGap },
+    { name: "South Africa", fn: fetchSouthAfricaCreditGap },
+    { name: "Turkey", fn: fetchTurkeyCreditGap },
+    { name: "Argentina", fn: fetchArgentinaCreditGap },
+    { name: "Australia", fn: fetchAustraliaCreditGap },
+    { name: "Malaysia", fn: fetchMalaysiaCreditGap },
+    { name: "Singapore", fn: fetchSingaporeCreditGap },
+    { name: "Thailand", fn: fetchThailandCreditGap },
+    { name: "Poland", fn: fetchPolandCreditGap },
+    { name: "Czech Republic", fn: fetchCzechRepublicCreditGap },
+    { name: "Hungary", fn: fetchHungaryCreditGap },
+    { name: "Chile", fn: fetchChileCreditGap },
+    { name: "Colombia", fn: fetchColombiaCreditGap },
+    { name: "Israel", fn: fetchIsraelCreditGap },
   ];
   let ok = 0;
   let points = 0;

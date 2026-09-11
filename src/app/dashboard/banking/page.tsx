@@ -8,7 +8,7 @@ import {
   type CountryBankingRow,
 } from "@/lib/engines/bankingSystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
-import { CENTRAL_BANK_FSR_REGISTRY, fsrFreshness, ourStanceLevel, compareStance } from "@/lib/data/centralBankFsrRegistry";
+import { CENTRAL_BANK_FSR_REGISTRY, fsrFreshness, ourStanceLevel, compareStance, FSR_REGION_ORDER } from "@/lib/data/centralBankFsrRegistry";
 
 function fmt(v: number | null, unit: string, decimals = 2): string {
   if (v === null) return "—";
@@ -58,8 +58,6 @@ function checkStatusBadge(status: string | undefined): { label: string; color: s
   if (status === "not_automated") return { label: "Not automated", color: "#8b96a8" };
   return { label: "Not yet checked", color: "#5a6472" };
 }
-
-const FSR_REGION_ORDER = ["G7", "G20 / Major EM", "ASEAN", "CEE", "Latin America", "Middle East", "Africa"] as const;
 
 /** Weighted point contribution of one domain score to a parent composite —
  * i.e. what that domain actually added to the final number, not the domain's

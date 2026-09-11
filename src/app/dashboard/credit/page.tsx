@@ -1,6 +1,31 @@
-import { getLatestEngine, getCountryCreditTable } from "@/lib/api/engineData";
+import { getLatestEngine, getCountryCreditTable, getCreditDataVerificationTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import type { CreditRegimeLabel, CreditBasisKind } from "@/lib/engines/creditRegime";
+import type { CreditVerificationRow } from "@/lib/engines/creditDataVerification";
+import { FSR_REGION_ORDER } from "@/lib/data/centralBankFsrRegistry";
+
+function readingColor(reading: string | null): string {
+  if (reading === "expanding") return "#e0793d";
+  if (reading === "contracting") return "#3fa9f5";
+  if (reading === "neutral") return "#34c085";
+  return "#5a6472";
+}
+
+function readingLabel(reading: string | null): string {
+  if (reading === "expanding") return "Expanding (credit boom building)";
+  if (reading === "contracting") return "Contracting";
+  if (reading === "neutral") return "Neutral";
+  return "—";
+}
+
+function regimeGapDelta(row: CreditVerificationRow): { label: string; color: string } | null {
+  if (row.gapValue === null || !row.ourCreditRow || row.ourCreditRow.basisKind !== "spread") return null;
+  const spreadStressed = row.ourCreditRow.regime === "STRESSED" || row.ourCreditRow.regime === "DISLOCATED";
+  const gapStressed = row.reading === "expanding";
+  if (spreadStressed === gapStressed) return { label: "Consistent", color: "#5a6472" };
+  if (gapStressed && !spreadStressed) return { label: "Credit-gap reads more stress", color: "#e0793d" };
+  return { label: "Spread reads more stress", color: "#3fa9f5" };
+}
 
 const REGIME_COLORS: Record<CreditRegimeLabel, string> = {
   COMPRESSED: "#34c085",
@@ -45,7 +70,11 @@ function fmt(v: number | null, unit: string): string {
 }
 
 export default async function CreditPage() {
-  const [rows, countryTable] = await Promise.all([getLatestEngine("credit"), getCountryCreditTable()]);
+  const [rows, countryTable, verificationRows] = await Promise.all([
+    getLatestEngine("credit"),
+    getCountryCreditTable(),
+    getCreditDataVerificationTable(),
+  ]);
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Credit Markets</h1>
@@ -54,6 +83,105 @@ export default async function CreditPage() {
         spread, plus a BIS credit-to-GDP gap for UK/Canada/Japan where no free corporate spread
         index exists — see the methodology page for the full sourcing detail.
       </p>
+
+      <section className="gfew-panel mb-8 p-4" id="central-bank-credit-data-verification">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-dim">
+            Central Bank Credit Data Verification
+          </h3>
+          <a href="/dashboard/methodology#central-bank-credit-data-verification" className="text-xs text-accent hover:underline">
+            Methodology →
+          </a>
+        </div>
+        <p className="mb-3 max-w-3xl text-xs text-text-dim">
+          The same 34-country universe as the Banking tab&apos;s Central Bank FSR Verification table.
+          Every reading is the BIS (Bank for International Settlements) Credit-to-GDP Gap — the
+          official Basel III countercyclical-buffer indicator — genuinely ingested from BIS&apos;s
+          free SDMX API, not a curated narrative. There is no separate freshness check to run: the
+          same pipeline stage that already feeds this data to the Banking and Property engines keeps
+          this table current automatically. Six countries (Philippines, Romania, Peru, UAE, Kenya,
+          Egypt) are marked unavailable — checked directly against BIS&apos;s live API, which simply
+          does not cover them; no weaker substitute was used. &ldquo;Δ vs Our Credit Score&rdquo;
+          cross-checks this quantity-side reading against the Credit tab&apos;s own market-spread-based
+          score below, for the countries where this app has one.
+        </p>
+        <div className="overflow-x-auto rounded border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-panel-raised text-text-dim">
+              <tr>
+                <th className="px-3 py-2 font-medium">Country</th>
+                <th className="px-3 py-2 font-medium">Source</th>
+                <th className="px-3 py-2 font-medium">Credit-to-GDP Gap</th>
+                <th className="px-3 py-2 font-medium">As Of</th>
+                <th className="px-3 py-2 font-medium">Reading</th>
+                <th className="px-3 py-2 font-medium">Our Credit Score</th>
+                <th className="px-3 py-2 font-medium">Δ vs Our Credit Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {FSR_REGION_ORDER.flatMap((region) => {
+                const entries = verificationRows.filter((r) => r.region === region);
+                if (entries.length === 0) return [];
+                return [
+                  <tr key={`region-${region}`} className="border-t border-border bg-panel-raised">
+                    <td colSpan={7} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-dim">
+                      {region} ({entries.length})
+                    </td>
+                  </tr>,
+                  ...entries.map((row) => {
+                    const delta = regimeGapDelta(row);
+                    return (
+                      <tr key={row.key} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium">{row.country}</td>
+                        <td className="px-3 py-2">
+                          {row.status === "available" ? (
+                            <a href={row.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                              BIS Credit-to-GDP Gap
+                            </a>
+                          ) : (
+                            <span className="text-text-dim" title={row.unavailableReason ?? undefined}>
+                              Unavailable
+                            </span>
+                          )}
+                          {row.supplementalSources.map((s) => (
+                            <div key={s.url}>
+                              <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline">
+                                + {s.label}
+                              </a>
+                            </div>
+                          ))}
+                        </td>
+                        <td className="gfew-mono px-3 py-2">
+                          {row.gapValue !== null ? `${row.gapValue > 0 ? "+" : ""}${row.gapValue.toFixed(1)} pp` : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-text-dim">{row.gapAsOf ?? "—"}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
+                            style={{ background: `${readingColor(row.reading)}22`, color: readingColor(row.reading) }}
+                          >
+                            {readingLabel(row.reading)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-text-dim">
+                          {row.ourCreditRow ? (
+                            <RegimePill regime={row.ourCreditRow.regime} />
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {delta ? <span style={{ color: delta.color }}>{delta.label}</span> : <span className="text-text-dim">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  }),
+                ];
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="mb-8">
         <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">

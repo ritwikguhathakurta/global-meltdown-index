@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { computeIndiaSeasonalNotes } from "@/lib/engines/indiaSeasonality";
 import { getCentralBankLiquidityTable as computeCentralBankLiquidityTable, type CentralBankLiquidityRow } from "@/lib/engines/liquidityRegime";
 import { getCountryCreditTable as computeCountryCreditTable, type CountryCreditRow } from "@/lib/engines/creditRegime";
+import { getCreditDataVerification as computeCreditDataVerification, type CreditVerificationRow } from "@/lib/engines/creditDataVerification";
 import { getCountryEmDebtTable as computeCountryEmDebtTable, type CountryEmDebtRow } from "@/lib/engines/emDebtRegime";
 import { getCountryG7DebtTable as computeCountryG7DebtTable, getG7CompositeScore, type CountryG7DebtRow, type G7CrisisStageDef } from "@/lib/engines/g7DebtRegime";
 import { getCarryTradeTable as computeCarryTradeTable, getCarryCompositeScore, type CarryPairRow, type FundingCurrencyRow, type CarryStageDef } from "@/lib/engines/carryTrade";
@@ -255,6 +256,17 @@ export async function getPropertySystemicRiskTable(): Promise<{ rows: CountryPro
   } catch (e) {
     console.error((e as Error).message);
     return empty;
+  }
+}
+
+export async function getCreditDataVerificationTable(): Promise<CreditVerificationRow[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const db = await createServerSupabase();
+    return await computeCreditDataVerification(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return [];
   }
 }
 

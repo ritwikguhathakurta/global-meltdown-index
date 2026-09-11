@@ -66,6 +66,11 @@ export type BankStanceLevel = "calm" | "moderate" | "elevated";
 
 export type FsrRegion = "G7" | "G20 / Major EM" | "ASEAN" | "CEE" | "Latin America" | "Middle East" | "Africa";
 
+/** Canonical display order, shared by the Banking FSR table and the Credit
+ * Data Verification table (creditDataRegistry.ts) so both render the same
+ * 34-country universe in the same grouping. */
+export const FSR_REGION_ORDER: readonly FsrRegion[] = ["G7", "G20 / Major EM", "ASEAN", "CEE", "Latin America", "Middle East", "Africa"];
+
 /** How centralBankFsrCheck.ts automatically re-verifies this row is still
  * current, on every pipeline run:
  *  - "rss": the institution already has a live press-release RSS feed wired

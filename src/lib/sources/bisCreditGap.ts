@@ -52,6 +52,31 @@ const COUNTRY_METRIC_KEYS: Record<string, string> = {
   FR: "credit.france_credit_gap",
   IT: "credit.italy_credit_gap",
   IN: "credit.india_credit_gap",
+  // Added for the Credit Data Verification table (creditDataRegistry.ts) —
+  // verified live directly against this dataflow before adding (19 of the
+  // 25 non-BANKING_COUNTRIES tracked on the Central Bank FSR registry
+  // return real data here; Philippines, Romania, Peru, UAE, Kenya and Egypt
+  // do not — BIS simply doesn't cover them in this dataflow, checked
+  // directly, disclosed rather than substituted with a weaker proxy).
+  BR: "credit.brazil_credit_gap",
+  RU: "credit.russia_credit_gap",
+  KR: "credit.south_korea_credit_gap",
+  ID: "credit.indonesia_credit_gap",
+  MX: "credit.mexico_credit_gap",
+  SA: "credit.saudi_arabia_credit_gap",
+  ZA: "credit.south_africa_credit_gap",
+  TR: "credit.turkey_credit_gap",
+  AR: "credit.argentina_credit_gap",
+  AU: "credit.australia_credit_gap",
+  MY: "credit.malaysia_credit_gap",
+  SG: "credit.singapore_credit_gap",
+  TH: "credit.thailand_credit_gap",
+  PL: "credit.poland_credit_gap",
+  CZ: "credit.czech_republic_credit_gap",
+  HU: "credit.hungary_credit_gap",
+  CL: "credit.chile_credit_gap",
+  CO: "credit.colombia_credit_gap",
+  IL: "credit.israel_credit_gap",
 };
 
 async function fetchCreditGap(countryCode: string): Promise<MetricPoint[]> {
@@ -124,4 +149,80 @@ export async function fetchItalyCreditGap(): Promise<MetricPoint[]> {
 
 export async function fetchIndiaCreditGap(): Promise<MetricPoint[]> {
   return fetchCreditGap("IN");
+}
+
+export async function fetchBrazilCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("BR");
+}
+
+export async function fetchRussiaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("RU");
+}
+
+export async function fetchSouthKoreaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("KR");
+}
+
+export async function fetchIndonesiaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("ID");
+}
+
+export async function fetchMexicoCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("MX");
+}
+
+export async function fetchSaudiArabiaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("SA");
+}
+
+export async function fetchSouthAfricaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("ZA");
+}
+
+export async function fetchTurkeyCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("TR");
+}
+
+export async function fetchArgentinaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("AR");
+}
+
+export async function fetchAustraliaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("AU");
+}
+
+export async function fetchMalaysiaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("MY");
+}
+
+export async function fetchSingaporeCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("SG");
+}
+
+export async function fetchThailandCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("TH");
+}
+
+export async function fetchPolandCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("PL");
+}
+
+export async function fetchCzechRepublicCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("CZ");
+}
+
+export async function fetchHungaryCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("HU");
+}
+
+export async function fetchChileCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("CL");
+}
+
+export async function fetchColombiaCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("CO");
+}
+
+export async function fetchIsraelCreditGap(): Promise<MetricPoint[]> {
+  return fetchCreditGap("IL");
 }
