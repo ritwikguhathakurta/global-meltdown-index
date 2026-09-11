@@ -18,6 +18,7 @@ import {
   type DollarLiquidityReading,
 } from "@/lib/engines/liquiditySystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
+import { TrendIndicator } from "@/components/TrendIndicator";
 
 const REGIME_COLORS: Record<LiquidityRegimeLabel, string> = {
   AMPLE: "#34c085",
@@ -432,6 +433,7 @@ export default async function LiquidityPage() {
               <div className="mb-1 text-xs font-semibold text-text-dim">{r.label}</div>
               <div className="gfew-mono text-2xl font-bold" style={{ color: DOLLAR_READING_COLOR[r.reading] }}>
                 {r.latestYoyPct !== null ? `${r.latestYoyPct > 0 ? "+" : ""}${r.latestYoyPct.toFixed(1)}%` : "—"}
+                <TrendIndicator value={r.latestYoyPct} previous={r.previousYoyPct} />
               </div>
               <div className="mt-1 text-[11px] font-medium uppercase tracking-wide" style={{ color: DOLLAR_READING_COLOR[r.reading] }}>
                 {r.reading.replace("_", " ")}
@@ -575,10 +577,14 @@ export default async function LiquidityPage() {
                   <td className="px-3 py-2">{r.bank}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {r.balanceSheetValue === null ? r.balanceSheetLabel : `${fmt(r.balanceSheetValue, r.balanceSheetUnit)}`}
+                    <TrendIndicator value={r.balanceSheetValue} previous={r.balanceSheetPreviousValue} />
                   </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{r.balanceSheetAsOf ?? "—"}</td>
                   <td className="px-3 py-2 text-text-dim">{r.basisLabel}</td>
-                  <td className="gfew-mono px-3 py-2">{fmt(r.basisValue, r.basisUnit)}</td>
+                  <td className="gfew-mono px-3 py-2">
+                    {fmt(r.basisValue, r.basisUnit)}
+                    <TrendIndicator value={r.basisValue} previous={r.basisPreviousValue} />
+                  </td>
                   <td className="px-3 py-2">
                     <RegimePill regime={r.regime} />
                   </td>

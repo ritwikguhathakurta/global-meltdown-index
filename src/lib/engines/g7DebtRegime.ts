@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries, fetchLatestForKeys } from "../metrics/store";
-import { zScore, zToRiskScore, diffSeriesByMonth, type Point } from "../metrics/stats";
+import { zScore, zToRiskScore, diffSeriesByMonth, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 import { G7_COUNTRIES } from "../sources/g7Fiscal";
 
@@ -217,7 +217,7 @@ const FX_PAIR_LABEL: Record<string, string> = {
   japan: "USD/JPY", germany: "USD/EUR", france: "USD/EUR", italy: "USD/EUR", uk: "USD/GBP", canada: "USD/CAD",
 };
 
-export type G7IndicatorReading = { value: number | null; asOf: string | null; score: number | null };
+export type G7IndicatorReading = { value: number | null; asOf: string | null; score: number | null; previousValue: number | null };
 
 /**
  * US-only live detail (debt-to-the-penny composition, Fed SOMA Treasury
@@ -235,15 +235,19 @@ export type UsTreasuryDetail = {
   debtHeldByPublicUsd: number | null;
   debtIntragovernmentalUsd: number | null;
   debtTotalUsd: number | null;
+  debtTotalPreviousUsd: number | null;
   debtAsOf: string | null;
   fedTreasuryHoldingsUsd: number | null;
+  fedTreasuryHoldingsPreviousUsd: number | null;
   fedHoldingsSharePct: number | null;
   fedHoldingsAsOf: string | null;
   auction10yBidToCover: number | null;
+  auction10yBidToCoverPrevious: number | null;
   auction10yIndirectPct: number | null;
   auction10yHighYield: number | null;
   auction10yAsOf: string | null;
   auction30yBidToCover: number | null;
+  auction30yBidToCoverPrevious: number | null;
   auction30yIndirectPct: number | null;
   auction30yHighYield: number | null;
   auction30yAsOf: string | null;
@@ -261,7 +265,7 @@ export type CountryG7DebtRow = {
   bundSpreadBps: G7IndicatorReading | null;
   sovereignCds: G7IndicatorReading;
   /** Null only for the US — the dollar is the numeraire, so it has no own-currency pair. */
-  fx: { pair: string; value: number | null; asOf: string | null; score: number | null } | null;
+  fx: { pair: string; value: number | null; asOf: string | null; score: number | null; previousValue: number | null } | null;
   structuralScore: number | null;
   marketScore: number | null;
   fundingScore: number | null;
@@ -354,15 +358,19 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
       debtHeldByPublicUsd: latest.get("g7.us.debt_held_by_public_usd")?.v ?? null,
       debtIntragovernmentalUsd: latest.get("g7.us.debt_intragovernmental_usd")?.v ?? null,
       debtTotalUsd: debtTotal?.v ?? null,
+      debtTotalPreviousUsd: debtTotal?.previous?.v ?? null,
       debtAsOf: debtTotal?.t ?? null,
       fedTreasuryHoldingsUsd: fedHoldings?.v ?? null,
+      fedTreasuryHoldingsPreviousUsd: fedHoldings?.previous?.v ?? null,
       fedHoldingsSharePct: fedSharePct,
       fedHoldingsAsOf: fedHoldings?.t ?? null,
       auction10yBidToCover: latest.get("g7.us.auction_10y_bid_to_cover")?.v ?? null,
+      auction10yBidToCoverPrevious: latest.get("g7.us.auction_10y_bid_to_cover")?.previous?.v ?? null,
       auction10yIndirectPct: latest.get("g7.us.auction_10y_indirect_pct")?.v ?? null,
       auction10yHighYield: latest.get("g7.us.auction_10y_high_yield")?.v ?? null,
       auction10yAsOf: latest.get("g7.us.auction_10y_bid_to_cover")?.t ?? null,
       auction30yBidToCover: latest.get("g7.us.auction_30y_bid_to_cover")?.v ?? null,
+      auction30yBidToCoverPrevious: latest.get("g7.us.auction_30y_bid_to_cover")?.previous?.v ?? null,
       auction30yIndirectPct: latest.get("g7.us.auction_30y_indirect_pct")?.v ?? null,
       auction30yHighYield: latest.get("g7.us.auction_30y_high_yield")?.v ?? null,
       auction30yAsOf: latest.get("g7.us.auction_30y_bid_to_cover")?.t ?? null,
@@ -487,14 +495,14 @@ export async function getCountryG7DebtTable(db: SupabaseClient): Promise<Country
       country: c.name,
       currency: c.currency,
       centralBank: c.centralBank,
-      debtToGdp: { value: debtRow?.v ?? null, asOf: debtRow?.t ?? null, score: debtScore },
-      fiscalBalanceToGdp: { value: fiscalRow?.v ?? null, asOf: fiscalRow?.t ?? null, score: fiscalScore },
-      realGdpGrowth: { value: gdpGrowthRow?.v ?? null, asOf: gdpGrowthRow?.t ?? null, score: gdpGrowthScore },
-      currentAccountToGdp: { value: currentAccountRow?.v ?? null, asOf: currentAccountRow?.t ?? null, score: currentAccountScore },
-      yield10y: { value: yieldLast?.v ?? null, asOf: yieldLast?.t ?? null, score: yieldScore },
-      bundSpreadBps: spreadSeries ? { value: spreadLast?.v ?? null, asOf: spreadLast?.t ?? null, score: spreadScore } : null,
-      sovereignCds: { value: cdsRow?.v ?? null, asOf: cdsRow?.t ?? null, score: cdsScore },
-      fx: FX_PAIR_LABEL[c.key] ? { pair: FX_PAIR_LABEL[c.key], value: fxLast?.v ?? null, asOf: fxLast?.t ?? null, score: fxScore } : null,
+      debtToGdp: { value: debtRow?.v ?? null, asOf: debtRow?.t ?? null, score: debtScore, previousValue: debtRow?.previous?.v ?? null },
+      fiscalBalanceToGdp: { value: fiscalRow?.v ?? null, asOf: fiscalRow?.t ?? null, score: fiscalScore, previousValue: fiscalRow?.previous?.v ?? null },
+      realGdpGrowth: { value: gdpGrowthRow?.v ?? null, asOf: gdpGrowthRow?.t ?? null, score: gdpGrowthScore, previousValue: gdpGrowthRow?.previous?.v ?? null },
+      currentAccountToGdp: { value: currentAccountRow?.v ?? null, asOf: currentAccountRow?.t ?? null, score: currentAccountScore, previousValue: currentAccountRow?.previous?.v ?? null },
+      yield10y: { value: yieldLast?.v ?? null, asOf: yieldLast?.t ?? null, score: yieldScore, previousValue: previousOf(yieldSeries)?.v ?? null },
+      bundSpreadBps: spreadSeries ? { value: spreadLast?.v ?? null, asOf: spreadLast?.t ?? null, score: spreadScore, previousValue: previousOf(spreadSeries)?.v ?? null } : null,
+      sovereignCds: { value: cdsRow?.v ?? null, asOf: cdsRow?.t ?? null, score: cdsScore, previousValue: cdsRow?.previous?.v ?? null },
+      fx: FX_PAIR_LABEL[c.key] ? { pair: FX_PAIR_LABEL[c.key], value: fxLast?.v ?? null, asOf: fxLast?.t ?? null, score: fxScore, previousValue: previousOf(fxSeries ?? [])?.v ?? null } : null,
       structuralScore,
       marketScore,
       fundingScore,

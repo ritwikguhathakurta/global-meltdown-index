@@ -3,7 +3,7 @@ import { fetchLatest, fetchSeries } from "../metrics/store";
 import { freshnessFor } from "../quality/freshness";
 import { lookbackDaysFor } from "../metrics/lookback";
 import type { IndicatorRef } from "./types";
-import type { Point } from "../metrics/stats";
+import { previousOf, type Point } from "../metrics/stats";
 
 const SOURCE_TIER_BY_KEY: Record<string, number> = {
   fred: 1,
@@ -74,6 +74,7 @@ export async function buildIndicator(
       sourceKey,
       sourceTier: SOURCE_TIER_BY_KEY[sourceKey] ?? 3,
       asOf: latestPoint?.t ?? null,
+      previousValue: previousOf(series)?.v ?? null,
     },
     series,
   };

@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { subtractSeriesByDate } from "../metrics/stats";
+import { previousOf, subtractSeriesByDate } from "../metrics/stats";
 
 /**
  * Global Liquidity engine, extended from Fed+ECB+BOJ to all of G7+China:
@@ -103,25 +103,25 @@ export async function runGlobalLiquidityEngine(ctx: EngineContext, horizon: Hori
       { ref: fedReserves.ref, series: fedReserves.series, weight: 0.9, zDirection: -1 },
       { ref: callRate.ref, series: callRate.series, weight: 0.4, zDirection: 1 },
       {
-        ref: { key: "liquidity.sofr_iorb_spread", label: "SOFR − IORB Spread (bps, derived)", classification: "leading", value: sofrIorbSpread.at(-1)?.v ?? null, unit: "bps", status: sofr.ref.status, sourceKey: sofr.ref.sourceKey, sourceTier: sofr.ref.sourceTier, asOf: sofrIorbSpread.at(-1)?.t ?? null },
+        ref: { key: "liquidity.sofr_iorb_spread", label: "SOFR − IORB Spread (bps, derived)", classification: "leading", value: sofrIorbSpread.at(-1)?.v ?? null, unit: "bps", status: sofr.ref.status, sourceKey: sofr.ref.sourceKey, sourceTier: sofr.ref.sourceTier, asOf: sofrIorbSpread.at(-1)?.t ?? null, previousValue: previousOf(sofrIorbSpread)?.v ?? null },
         series: sofrIorbSpread,
         weight: 1.1,
         zDirection: 1,
       },
       {
-        ref: { key: "liquidity.sonia_bankrate_spread", label: "SONIA − Bank Rate Spread (bps, derived)", classification: "leading", value: soniaBankRateSpread.at(-1)?.v ?? null, unit: "bps", status: sonia.ref.status, sourceKey: sonia.ref.sourceKey, sourceTier: sonia.ref.sourceTier, asOf: soniaBankRateSpread.at(-1)?.t ?? null },
+        ref: { key: "liquidity.sonia_bankrate_spread", label: "SONIA − Bank Rate Spread (bps, derived)", classification: "leading", value: soniaBankRateSpread.at(-1)?.v ?? null, unit: "bps", status: sonia.ref.status, sourceKey: sonia.ref.sourceKey, sourceTier: sonia.ref.sourceTier, asOf: soniaBankRateSpread.at(-1)?.t ?? null, previousValue: previousOf(soniaBankRateSpread)?.v ?? null },
         series: soniaBankRateSpread,
         weight: 0.6,
         zDirection: 1,
       },
       {
-        ref: { key: "liquidity.estr_dfr_spread", label: "€STR − Deposit Facility Rate Spread (bps, derived)", classification: "leading", value: estrDfrSpread.at(-1)?.v ?? null, unit: "bps", status: estr.ref.status, sourceKey: estr.ref.sourceKey, sourceTier: estr.ref.sourceTier, asOf: estrDfrSpread.at(-1)?.t ?? null },
+        ref: { key: "liquidity.estr_dfr_spread", label: "€STR − Deposit Facility Rate Spread (bps, derived)", classification: "leading", value: estrDfrSpread.at(-1)?.v ?? null, unit: "bps", status: estr.ref.status, sourceKey: estr.ref.sourceKey, sourceTier: estr.ref.sourceTier, asOf: estrDfrSpread.at(-1)?.t ?? null, previousValue: previousOf(estrDfrSpread)?.v ?? null },
         series: estrDfrSpread,
         weight: 0.6,
         zDirection: 1,
       },
       {
-        ref: { key: "liquidity.corra_target_spread", label: "CORRA − Target Rate Spread (bps, derived)", classification: "leading", value: corraTargetSpread.at(-1)?.v ?? null, unit: "bps", status: corra.ref.status, sourceKey: corra.ref.sourceKey, sourceTier: corra.ref.sourceTier, asOf: corraTargetSpread.at(-1)?.t ?? null },
+        ref: { key: "liquidity.corra_target_spread", label: "CORRA − Target Rate Spread (bps, derived)", classification: "leading", value: corraTargetSpread.at(-1)?.v ?? null, unit: "bps", status: corra.ref.status, sourceKey: corra.ref.sourceKey, sourceTier: corra.ref.sourceTier, asOf: corraTargetSpread.at(-1)?.t ?? null, previousValue: previousOf(corraTargetSpread)?.v ?? null },
         series: corraTargetSpread,
         weight: 0.5,
         zDirection: 1,

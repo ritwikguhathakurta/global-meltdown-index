@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { subtractSeriesByDate } from "../metrics/stats";
+import { subtractSeriesByDate, previousOf } from "../metrics/stats";
 
 /**
  * Credit Markets — G7 + China. US (HY/IG OAS) and the Eurozone G7 members
@@ -68,6 +68,7 @@ export async function runCreditEngine(ctx: EngineContext, horizon: Horizon): Pro
           sourceKey: chinaCorpAaa.ref.sourceKey,
           sourceTier: chinaCorpAaa.ref.sourceTier,
           asOf: chinaCorpGovtSpread.at(-1)?.t ?? null,
+          previousValue: previousOf(chinaCorpGovtSpread)?.v ?? null,
         },
         series: chinaCorpGovtSpread,
         weight: 0.7,

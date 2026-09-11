@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries, fetchLatestForKeys } from "../metrics/store";
-import { zScore, zToRiskScore, rollingRealizedVolSeries, type Point } from "../metrics/stats";
+import { zScore, zToRiskScore, rollingRealizedVolSeries, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 import { BANKING_COUNTRIES } from "../sources/bankFinancialSoundness";
 
@@ -309,7 +309,7 @@ function latestPoint(points: Point[]): Point | null {
   return points.reduce((a, b) => (a.t > b.t ? a : b));
 }
 
-export type BankingIndicatorReading = { value: number | null; asOf: string | null; score: number | null };
+export type BankingIndicatorReading = { value: number | null; asOf: string | null; score: number | null; previousValue: number | null };
 
 export type CountryBankingRow = {
   country: string;
@@ -493,11 +493,11 @@ export async function getBankingSystemicRiskTable(db: SupabaseClient): Promise<C
 
     return {
       country: c.name,
-      capitalRatio: { value: capitalRow?.v ?? null, asOf: capitalRow?.t ?? null, score: capitalScore },
-      nplRatio: { value: nplRow?.v ?? null, asOf: nplRow?.t ?? null, score: creditScore },
-      fundingRate: { value: fundingLast?.v ?? null, asOf: fundingLast?.t ?? null, score: fundingScore },
-      liquidityReading: { value: liquidityLast?.v ?? null, asOf: liquidityLast?.t ?? null, score: liquidityScore },
-      marketReading: { value: marketLast?.v ?? null, asOf: marketLast?.t ?? null, score: marketScore },
+      capitalRatio: { value: capitalRow?.v ?? null, asOf: capitalRow?.t ?? null, score: capitalScore, previousValue: capitalRow?.previous?.v ?? null },
+      nplRatio: { value: nplRow?.v ?? null, asOf: nplRow?.t ?? null, score: creditScore, previousValue: nplRow?.previous?.v ?? null },
+      fundingRate: { value: fundingLast?.v ?? null, asOf: fundingLast?.t ?? null, score: fundingScore, previousValue: previousOf(fundingSeriesByCountry.get(c.key) ?? [])?.v ?? null },
+      liquidityReading: { value: liquidityLast?.v ?? null, asOf: liquidityLast?.t ?? null, score: liquidityScore, previousValue: previousOf(liquiditySeriesByCountry.get(c.key) ?? [])?.v ?? null },
+      marketReading: { value: marketLast?.v ?? null, asOf: marketLast?.t ?? null, score: marketScore, previousValue: previousOf(marketSeriesByCountry.get(c.key) ?? [])?.v ?? null },
       capitalScore,
       creditScore,
       fundingScore,

@@ -89,13 +89,15 @@ export async function fetchLatest(
  * per-country indicator keys need their latest value each) where one
  * fetchLatest() round trip per key would be needlessly slow. Rows come back
  * ordered by observed_at descending, so the first row seen per key is its
- * latest.
+ * latest — and since the query has no per-key row limit, the second row seen
+ * per key (the previous reading, for a trend indicator) is already in hand
+ * at zero extra query cost, exposed as `previous`.
  */
 export async function fetchLatestForKeys(
   db: SupabaseClient,
   metricKeys: string[]
-): Promise<Map<string, { t: string; v: number; lastVerifiedAt: string }>> {
-  const result = new Map<string, { t: string; v: number; lastVerifiedAt: string }>();
+): Promise<Map<string, { t: string; v: number; lastVerifiedAt: string; previous: { t: string; v: number } | null }>> {
+  const result = new Map<string, { t: string; v: number; lastVerifiedAt: string; previous: { t: string; v: number } | null }>();
   if (metricKeys.length === 0) return result;
   const { data, error } = await db
     .from("metric_series")
@@ -105,8 +107,11 @@ export async function fetchLatestForKeys(
   if (error) throw new Error(`fetchLatestForKeys: ${error.message}`);
   for (const row of data ?? []) {
     const key = row.metric_key as string;
-    if (!result.has(key)) {
-      result.set(key, { t: row.observed_at as string, v: row.value as number, lastVerifiedAt: row.last_verified_at as string });
+    const existing = result.get(key);
+    if (!existing) {
+      result.set(key, { t: row.observed_at as string, v: row.value as number, lastVerifiedAt: row.last_verified_at as string, previous: null });
+    } else if (!existing.previous) {
+      existing.previous = { t: row.observed_at as string, v: row.value as number };
     }
   }
   return result;

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { zScore, subtractSeriesByDate, type Point } from "../metrics/stats";
+import { zScore, subtractSeriesByDate, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 /**
@@ -62,6 +62,7 @@ export type CountryCreditRow = {
   basisUnit: string;
   basisAsOf: string | null;
   basisKind: CreditBasisKind;
+  basisPreviousValue: number | null;
   regime: CreditRegimeLabel;
   note: string | null;
 };
@@ -87,6 +88,7 @@ function seriesRow(country: string, basisLabel: string, series: Point[], basisUn
     basisUnit,
     basisAsOf: last?.t ?? null,
     basisKind,
+    basisPreviousValue: previousOf(series)?.v ?? null,
     regime,
     note,
   };

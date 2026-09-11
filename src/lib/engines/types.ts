@@ -10,6 +10,10 @@ export type IndicatorRef = {
   sourceKey: string;
   sourceTier: number;
   asOf: string | null;
+  /** The reading immediately before `value` in this same series, for a
+   * tick-over-tick trend indicator (see TrendIndicator.tsx) — null when
+   * there's no prior observation to compare against. */
+  previousValue: number | null;
 };
 
 export type EngineResult = {

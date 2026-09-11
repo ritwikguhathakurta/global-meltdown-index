@@ -1,5 +1,6 @@
 import { getLatestEngine, getCountryCreditTable, getCreditDataVerificationTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
+import { TrendIndicator } from "@/components/TrendIndicator";
 import type { CreditRegimeLabel, CreditBasisKind } from "@/lib/engines/creditRegime";
 import type { CreditVerificationRow } from "@/lib/engines/creditDataVerification";
 import { FSR_REGION_ORDER } from "@/lib/data/centralBankFsrRegistry";
@@ -220,7 +221,10 @@ export default async function CreditPage() {
                     {r.basisLabel}
                     <BasisKindTag kind={r.basisKind} />
                   </td>
-                  <td className="gfew-mono px-3 py-2">{fmt(r.basisValue, r.basisUnit)}</td>
+                  <td className="gfew-mono px-3 py-2">
+                    {fmt(r.basisValue, r.basisUnit)}
+                    <TrendIndicator value={r.basisValue} previous={r.basisPreviousValue} />
+                  </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{r.basisAsOf ?? "—"}</td>
                   <td className="px-3 py-2">
                     <RegimePill regime={r.regime} />

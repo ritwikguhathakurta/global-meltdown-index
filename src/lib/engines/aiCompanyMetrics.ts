@@ -8,7 +8,7 @@ import {
   rollingSum,
   divideByLastKnown,
 } from "../metrics/stats";
-import type { Point } from "../metrics/stats";
+import { previousOf, type Point } from "../metrics/stats";
 import type { IndicatorRef } from "./types";
 
 /**
@@ -152,5 +152,6 @@ export function derivedRef(
     sourceKey: "sec_edgar",
     sourceTier: 1,
     asOf: series.at(-1)?.t ?? null,
+    previousValue: previousOf(series)?.v ?? null,
   };
 }

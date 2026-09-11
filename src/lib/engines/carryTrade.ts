@@ -240,6 +240,7 @@ export type CarryPairRow = {
   targetCode: string;
   targetName: string;
   rateDifferential: number | null;
+  rateDifferentialPrevious: number | null;
   rateAsOf: string | null;
   rateCaveat: string | null;
   fxReturn1y: number | null;
@@ -264,6 +265,7 @@ export type FundingCurrencyRow = {
   code: string;
   name: string;
   rate: number | null;
+  ratePrevious: number | null;
   rateAsOf: string | null;
   rateLabel: string;
   fxTrend1yPct: number | null;
@@ -353,6 +355,7 @@ export async function getCarryTradeTable(db: SupabaseClient): Promise<{ pairs: C
       code: f.code,
       name: f.name,
       rate: rateRow?.v ?? null,
+      ratePrevious: rateRow?.previous?.v ?? null,
       rateAsOf: rateRow?.t ?? null,
       rateLabel: f.rateLabel,
       fxTrend1yPct,
@@ -385,6 +388,10 @@ export async function getCarryTradeTable(db: SupabaseClient): Promise<{ pairs: C
       const targetRateRow = t.rateKey ? rates.get(t.rateKey) : undefined;
       const rateDifferential =
         targetRateRow && fundingRateRow ? Math.round((targetRateRow.v - fundingRateRow.v) * 100) / 100 : null;
+      const rateDifferentialPrevious =
+        targetRateRow?.previous && fundingRateRow?.previous
+          ? Math.round((targetRateRow.previous.v - fundingRateRow.previous.v) * 100) / 100
+          : null;
       const rateAsOf = targetRateRow && fundingRateRow ? (targetRateRow.t < fundingRateRow.t ? targetRateRow.t : fundingRateRow.t) : null;
 
       const fxReturn1y = pctChangeOverDays(crossSeries, 365);
@@ -444,6 +451,7 @@ export async function getCarryTradeTable(db: SupabaseClient): Promise<{ pairs: C
         targetCode: t.code,
         targetName: t.name,
         rateDifferential,
+        rateDifferentialPrevious,
         rateAsOf,
         rateCaveat: t.rateCaveat ?? null,
         fxReturn1y,

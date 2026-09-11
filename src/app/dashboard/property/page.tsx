@@ -8,6 +8,7 @@ import {
   type CountryPropertyRow,
 } from "@/lib/engines/propertySystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
+import { TrendIndicator } from "@/components/TrendIndicator";
 
 function fmt(v: number | null, unit: string, decimals = 2): string {
   if (v === null) return "—";
@@ -379,13 +380,18 @@ export default async function PropertyPage() {
                   <td className="px-3 py-2 font-medium">{r.country}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {fmt(r.valuationReading.value, "", 1)}
+                    <TrendIndicator value={r.valuationReading.value} previous={r.valuationReading.previousValue} />
                     <div className="text-[10px]">{r.valuationReading.asOf?.slice(0, 7) ?? "—"}</div>
                   </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {fmt(r.creditReading.value, "pp", 1)}
+                    <TrendIndicator value={r.creditReading.value} previous={r.creditReading.previousValue} />
                     <div className="text-[10px]">{r.creditReading.asOf?.slice(0, 7) ?? "—"}</div>
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.affordabilityReading.value, "%")}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.affordabilityReading.value, "%")}
+                    <TrendIndicator value={r.affordabilityReading.value} previous={r.affordabilityReading.previousValue} />
+                  </td>
                   <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.marketScore) }}>
                     {r.marketScore ?? "—"}
                   </td>

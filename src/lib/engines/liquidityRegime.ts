@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { zScore, subtractSeriesByDate, mean, stdev, type Point } from "../metrics/stats";
+import { zScore, subtractSeriesByDate, mean, stdev, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 /**
@@ -159,10 +159,12 @@ export type CentralBankLiquidityRow = {
   bank: string;
   balanceSheetLabel: string;
   balanceSheetValue: number | null;
+  balanceSheetPreviousValue: number | null;
   balanceSheetUnit: string;
   balanceSheetAsOf: string | null;
   basisLabel: string;
   basisValue: number | null;
+  basisPreviousValue: number | null;
   basisUnit: string;
   basisAsOf: string | null;
   regime: LiquidityRegimeLabel;
@@ -198,10 +200,12 @@ function spreadRow(
     bank,
     balanceSheetLabel,
     balanceSheetValue: bs?.v ?? null,
+    balanceSheetPreviousValue: previousOf(balanceSheet)?.v ?? null,
     balanceSheetUnit,
     balanceSheetAsOf: bs?.t ?? null,
     basisLabel,
     basisValue: spread?.v ?? null,
+    basisPreviousValue: previousOf(spreadBps)?.v ?? null,
     basisUnit: "bps",
     basisAsOf: spread?.t ?? null,
     regime,
@@ -225,10 +229,12 @@ function levelRow(
     bank,
     balanceSheetLabel,
     balanceSheetValue: bs?.v ?? null,
+    balanceSheetPreviousValue: previousOf(balanceSheet)?.v ?? null,
     balanceSheetUnit,
     balanceSheetAsOf: bs?.t ?? null,
     basisLabel,
     basisValue: r?.v ?? null,
+    basisPreviousValue: previousOf(rate)?.v ?? null,
     basisUnit,
     basisAsOf: r?.t ?? null,
     regime,

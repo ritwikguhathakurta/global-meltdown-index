@@ -8,6 +8,7 @@ import {
   type CountryBankingRow,
 } from "@/lib/engines/bankingSystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
+import { TrendIndicator } from "@/components/TrendIndicator";
 import { CENTRAL_BANK_FSR_REGISTRY, fsrFreshness, ourStanceLevel, compareStance, FSR_REGION_ORDER } from "@/lib/data/centralBankFsrRegistry";
 
 function fmt(v: number | null, unit: string, decimals = 2): string {
@@ -562,13 +563,18 @@ export default async function BankingPage() {
                   <td className="px-3 py-2 font-medium">{r.country}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {fmt(r.capitalRatio.value, "%", 1)}
+                    <TrendIndicator value={r.capitalRatio.value} previous={r.capitalRatio.previousValue} />
                     <div className="text-[10px]">{r.capitalRatio.asOf?.slice(0, 4) ?? "—"}</div>
                   </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {fmt(r.nplRatio.value, "%", 1)}
+                    <TrendIndicator value={r.nplRatio.value} previous={r.nplRatio.previousValue} />
                     <div className="text-[10px]">{r.nplRatio.asOf?.slice(0, 4) ?? "—"}</div>
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.fundingRate.value, "%")}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.fundingRate.value, "%")}
+                    <TrendIndicator value={r.fundingRate.value} previous={r.fundingRate.previousValue} />
+                  </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {r.liquidityReading.score !== null ? (
                       <span style={{ color: scoreColor(r.liquidityScore) }}>{r.liquidityScore}</span>
@@ -710,15 +716,21 @@ export default async function BankingPage() {
                     )}
                     {b.entityName && <div className="text-[10px] font-normal text-text-dim">{b.entityName}</div>}
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsdBn(b.totalAssets.value)}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmtUsdBn(b.totalAssets.value)}
+                    <TrendIndicator value={b.totalAssets.value} previous={b.totalAssets.previousValue} />
+                  </td>
                   <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(b.cet1Score) }}>
                     {fmt(b.cet1Ratio.value, "%", 2)}
+                    <TrendIndicator value={b.cet1Ratio.value} previous={b.cet1Ratio.previousValue} />
                   </td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.tier1LeverageScore) }}>
                     {fmt(b.tier1LeverageRatio.value, "%", 2)}
+                    <TrendIndicator value={b.tier1LeverageRatio.value} previous={b.tier1LeverageRatio.previousValue} />
                   </td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.nplScore) }}>
                     {fmt(b.nplRatio.value, "%", 2)}
+                    <TrendIndicator value={b.nplRatio.value} previous={b.nplRatio.previousValue} />
                   </td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(b.creScore) }}>
                     {fmt(b.creToAssets, "%", 1)}

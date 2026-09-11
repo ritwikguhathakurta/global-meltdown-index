@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { zScore, zToRiskScore, rollingRealizedVolSeries, subtractSeriesByDate, type Point } from "../metrics/stats";
+import { zScore, zToRiskScore, rollingRealizedVolSeries, subtractSeriesByDate, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 import { BANKING_COUNTRIES } from "../sources/bankFinancialSoundness";
 import { type FsrRegion, FSR_REGION_ORDER } from "../data/centralBankFsrRegistry";
@@ -339,7 +339,7 @@ async function fetchIfKeyed(db: SupabaseClient, key: string | undefined, sinceIs
   return key ? fetchSeries(db, key, sinceIso) : [];
 }
 
-export type LiquidityIndicatorReading = { value: number | null; asOf: string | null; score: number | null };
+export type LiquidityIndicatorReading = { value: number | null; asOf: string | null; score: number | null; previousValue: number | null };
 
 export type CountryLiquidityRow = {
   country: string;
@@ -494,11 +494,11 @@ export async function getLiquiditySystemicRiskTable(db: SupabaseClient): Promise
     return {
       country: c.name,
       region: c.region,
-      centralBankLiquidity: { value: cbLast?.v ?? null, asOf: cbLast?.t ?? null, score: cbScore },
-      repoReading: { value: repoLast?.v ?? null, asOf: repoLast?.t ?? null, score: repoScore },
+      centralBankLiquidity: { value: cbLast?.v ?? null, asOf: cbLast?.t ?? null, score: cbScore, previousValue: previousOf(cbLiquiditySeries.get(c.key) ?? [])?.v ?? null },
+      repoReading: { value: repoLast?.v ?? null, asOf: repoLast?.t ?? null, score: repoScore, previousValue: previousOf(repoSeries.get(c.key) ?? [])?.v ?? null },
       repoBasisLabel,
-      bondVolReading: { value: bondLast?.v ?? null, asOf: bondLast?.t ?? null, score: bondVolScore },
-      fxVolReading: { value: fxLast?.v ?? null, asOf: fxLast?.t ?? null, score: fxVolScore },
+      bondVolReading: { value: bondLast?.v ?? null, asOf: bondLast?.t ?? null, score: bondVolScore, previousValue: previousOf(rollingRealizedVolSeries(bondYieldSeries.get(c.key) ?? []))?.v ?? null },
+      fxVolReading: { value: fxLast?.v ?? null, asOf: fxLast?.t ?? null, score: fxVolScore, previousValue: previousOf(rollingRealizedVolSeries(fxSeries.get(c.key) ?? []))?.v ?? null },
       centralBankLiquidityScore: cbScore,
       repoScore,
       bondVolScore,
@@ -563,6 +563,7 @@ export type GlobalLiquidityCurrencyRow = {
   metricKey: string;
   latestYoyPct: number | null;
   asOf: string | null;
+  previousYoyPct: number | null;
   reading: DollarLiquidityReading;
   /** Own-history z-score of the growth rate itself — a rapid deceleration or
    * contraction in cross-border credit growth is spec's own §16 "Dollar
@@ -581,6 +582,7 @@ async function loadGliRow(db: SupabaseClient, label: string, metricKey: string):
     metricKey,
     latestYoyPct: last?.v ?? null,
     asOf: last?.t ?? null,
+    previousYoyPct: previousOf(series)?.v ?? null,
     reading: readingFromGrowth(last?.v ?? null, z),
     accelerationZ: z,
   };

@@ -3,6 +3,7 @@ import { EngineDetail } from "@/components/EngineDetail";
 import { G7_CRISIS_STAGES, g7Breadth } from "@/lib/engines/g7DebtRegime";
 import type { G7DebtRegimeLabel, CountryG7DebtRow } from "@/lib/engines/g7DebtRegime";
 import { gfmiColor } from "@/components/RegimeBadge";
+import { TrendIndicator } from "@/components/TrendIndicator";
 
 const REGIME_COLORS: Record<G7DebtRegimeLabel, string> = {
   WELL_ABSORBED: "#34c085",
@@ -232,14 +233,20 @@ export default async function G7DebtPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <div className="text-[10px] uppercase tracking-wide text-text-dim">Total Public Debt</div>
-              <div className="gfew-mono text-lg font-semibold">{fmtUsd(usDetail.debtTotalUsd)}</div>
+              <div className="gfew-mono text-lg font-semibold">
+                {fmtUsd(usDetail.debtTotalUsd)}
+                <TrendIndicator value={usDetail.debtTotalUsd} previous={usDetail.debtTotalPreviousUsd} />
+              </div>
               <div className="text-[10px] text-text-dim">
                 Held by public {fmtUsd(usDetail.debtHeldByPublicUsd)} · Intragov {fmtUsd(usDetail.debtIntragovernmentalUsd)}
               </div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-text-dim">Fed (SOMA) Treasury Holdings</div>
-              <div className="gfew-mono text-lg font-semibold">{fmtUsd(usDetail.fedTreasuryHoldingsUsd)}</div>
+              <div className="gfew-mono text-lg font-semibold">
+                {fmtUsd(usDetail.fedTreasuryHoldingsUsd)}
+                <TrendIndicator value={usDetail.fedTreasuryHoldingsUsd} previous={usDetail.fedTreasuryHoldingsPreviousUsd} />
+              </div>
               <div className="text-[10px] text-text-dim">
                 {usDetail.fedHoldingsSharePct !== null ? `${usDetail.fedHoldingsSharePct.toFixed(1)}% of total public debt` : "—"}
               </div>
@@ -248,6 +255,7 @@ export default async function G7DebtPage() {
               <div className="text-[10px] uppercase tracking-wide text-text-dim">Latest 10Y Note Auction</div>
               <div className="gfew-mono text-lg font-semibold">
                 {usDetail.auction10yBidToCover !== null ? `${usDetail.auction10yBidToCover.toFixed(2)}x cover` : "—"}
+                <TrendIndicator value={usDetail.auction10yBidToCover} previous={usDetail.auction10yBidToCoverPrevious} />
               </div>
               <div className="text-[10px] text-text-dim">
                 {usDetail.auction10yHighYield !== null ? `${usDetail.auction10yHighYield.toFixed(3)}% high yield` : ""}
@@ -258,6 +266,7 @@ export default async function G7DebtPage() {
               <div className="text-[10px] uppercase tracking-wide text-text-dim">Latest 30Y Bond Auction</div>
               <div className="gfew-mono text-lg font-semibold">
                 {usDetail.auction30yBidToCover !== null ? `${usDetail.auction30yBidToCover.toFixed(2)}x cover` : "—"}
+                <TrendIndicator value={usDetail.auction30yBidToCover} previous={usDetail.auction30yBidToCoverPrevious} />
               </div>
               <div className="text-[10px] text-text-dim">
                 {usDetail.auction30yHighYield !== null ? `${usDetail.auction30yHighYield.toFixed(3)}% high yield` : ""}
@@ -359,21 +368,41 @@ export default async function G7DebtPage() {
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.fundingScore) }}>
                     {fmtScore(r.fundingScore)}
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.debtToGdp.value, "%")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.fiscalBalanceToGdp.value, "%")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.realGdpGrowth.value, "%")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.currentAccountToGdp.value, "%")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.yield10y.value, "%", 2)}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.debtToGdp.value, "%")}
+                    <TrendIndicator value={r.debtToGdp.value} previous={r.debtToGdp.previousValue} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.fiscalBalanceToGdp.value, "%")}
+                    <TrendIndicator value={r.fiscalBalanceToGdp.value} previous={r.fiscalBalanceToGdp.previousValue} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.realGdpGrowth.value, "%")}
+                    <TrendIndicator value={r.realGdpGrowth.value} previous={r.realGdpGrowth.previousValue} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.currentAccountToGdp.value, "%")}
+                    <TrendIndicator value={r.currentAccountToGdp.value} previous={r.currentAccountToGdp.previousValue} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.yield10y.value, "%", 2)}
+                    <TrendIndicator value={r.yield10y.value} previous={r.yield10y.previousValue} />
+                  </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {r.bundSpreadBps ? fmt(r.bundSpreadBps.value, "bps", 0) : "—"}
+                    {r.bundSpreadBps && <TrendIndicator value={r.bundSpreadBps.value} previous={r.bundSpreadBps.previousValue} />}
                   </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {r.sovereignCds.value !== null ? `${Math.round(r.sovereignCds.value)} bps` : "—"}
+                    <TrendIndicator value={r.sovereignCds.value} previous={r.sovereignCds.previousValue} />
                   </td>
                   <td className="px-3 py-2 text-text-dim">
                     {r.fx ? (
                       <>
-                        <div className="gfew-mono">{fmt(r.fx.value, "", 4)}</div>
+                        <div className="gfew-mono">
+                          {fmt(r.fx.value, "", 4)}
+                          <TrendIndicator value={r.fx.value} previous={r.fx.previousValue} />
+                        </div>
                         <div className="text-[10px]">{r.fx.pair}</div>
                       </>
                     ) : (

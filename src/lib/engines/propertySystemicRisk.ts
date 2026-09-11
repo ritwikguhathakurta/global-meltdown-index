@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { zScore, zToRiskScore, rollingRealizedVolSeries, type Point } from "../metrics/stats";
+import { zScore, zToRiskScore, rollingRealizedVolSeries, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 import { BANKING_COUNTRIES } from "../sources/bankFinancialSoundness";
 
@@ -273,7 +273,7 @@ function latestPoint(points: Point[]): Point | null {
   return points.reduce((a, b) => (a.t > b.t ? a : b));
 }
 
-export type PropertyIndicatorReading = { value: number | null; asOf: string | null; score: number | null };
+export type PropertyIndicatorReading = { value: number | null; asOf: string | null; score: number | null; previousValue: number | null };
 
 export type CountryPropertyRow = {
   country: string;
@@ -408,10 +408,10 @@ export async function getPropertySystemicRiskTable(db: SupabaseClient): Promise<
     return {
       country: c.name,
       countryKey: c.key,
-      valuationReading: { value: valuationLast?.v ?? null, asOf: valuationLast?.t ?? null, score: valuationScore },
-      creditReading: { value: creditLast?.v ?? null, asOf: creditLast?.t ?? null, score: creditScore },
-      affordabilityReading: { value: affordabilityLast?.v ?? null, asOf: affordabilityLast?.t ?? null, score: affordabilityScore },
-      marketReading: { value: marketLast?.v ?? null, asOf: marketLast?.t ?? null, score: marketScore },
+      valuationReading: { value: valuationLast?.v ?? null, asOf: valuationLast?.t ?? null, score: valuationScore, previousValue: previousOf(valuationSeriesByCountry.get(c.key) ?? [])?.v ?? null },
+      creditReading: { value: creditLast?.v ?? null, asOf: creditLast?.t ?? null, score: creditScore, previousValue: previousOf(creditGapSeriesByCountry.get(c.key) ?? [])?.v ?? null },
+      affordabilityReading: { value: affordabilityLast?.v ?? null, asOf: affordabilityLast?.t ?? null, score: affordabilityScore, previousValue: previousOf(affordabilitySeriesByCountry.get(c.key) ?? [])?.v ?? null },
+      marketReading: { value: marketLast?.v ?? null, asOf: marketLast?.t ?? null, score: marketScore, previousValue: previousOf(marketSeriesByCountry.get(c.key) ?? [])?.v ?? null },
       valuationScore,
       creditScore,
       affordabilityScore,

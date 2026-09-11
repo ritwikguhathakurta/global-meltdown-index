@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { subtractSeriesByDate, realizedVolAnnualized } from "../metrics/stats";
+import { subtractSeriesByDate, realizedVolAnnualized, previousOf } from "../metrics/stats";
 import type { Point } from "../metrics/stats";
 
 /**
@@ -112,6 +112,7 @@ export async function runYenCarryEngine(ctx: EngineContext, horizon: Horizon): P
           sourceKey: jp10y.ref.sourceKey,
           sourceTier: jp10y.ref.sourceTier,
           asOf: usJpSpread.at(-1)?.t ?? null,
+          previousValue: previousOf(usJpSpread)?.v ?? null,
         },
         series: usJpSpread,
         weight: 0.7,

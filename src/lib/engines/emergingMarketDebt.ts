@@ -148,6 +148,10 @@ export async function runEmergingMarketDebtEngine(ctx: EngineContext, horizon: H
       sourceKey: "world_bank",
       sourceTier: 1,
       asOf: null,
+      // Read-time composite, not a stored time series — no prior snapshot
+      // exists to compare against (see other *SystemicRisk.ts engines' same
+      // disclosed limitation).
+      previousValue: null,
     }));
 
   const structuralCoverage = countryTable.length > 0 ? structuralScores.length / countryTable.length : 0;

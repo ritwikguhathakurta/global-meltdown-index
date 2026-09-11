@@ -3,6 +3,7 @@ import { EngineDetail } from "@/components/EngineDetail";
 import { CRISIS_STAGES, crisisStageFor } from "@/lib/engines/emDebtRegime";
 import type { EmDebtRegimeLabel, CountryEmDebtRow } from "@/lib/engines/emDebtRegime";
 import { gfmiColor } from "@/components/RegimeBadge";
+import { TrendIndicator } from "@/components/TrendIndicator";
 
 const REGIME_COLORS: Record<EmDebtRegimeLabel, string> = {
   AMPLE_ACCESS: "#34c085",
@@ -286,22 +287,44 @@ export default async function EmDebtPage() {
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.marketScore) }}>
                     {fmtScore(r.marketScore)}
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.govt_debt_to_gdp?.value ?? null, "%")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.external_debt_to_gni?.value ?? null, "%")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.short_term_debt_to_reserves?.value ?? null, "%")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.reserves_months_imports?.value ?? null, "mo")}</td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.structural.current_account_to_gdp?.value ?? null, "%")}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.structural.govt_debt_to_gdp?.value ?? null, "%")}
+                    <TrendIndicator value={r.structural.govt_debt_to_gdp?.value ?? null} previous={r.structural.govt_debt_to_gdp?.previousValue ?? null} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.structural.external_debt_to_gni?.value ?? null, "%")}
+                    <TrendIndicator value={r.structural.external_debt_to_gni?.value ?? null} previous={r.structural.external_debt_to_gni?.previousValue ?? null} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.structural.short_term_debt_to_reserves?.value ?? null, "%")}
+                    <TrendIndicator value={r.structural.short_term_debt_to_reserves?.value ?? null} previous={r.structural.short_term_debt_to_reserves?.previousValue ?? null} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.structural.reserves_months_imports?.value ?? null, "mo")}
+                    <TrendIndicator value={r.structural.reserves_months_imports?.value ?? null} previous={r.structural.reserves_months_imports?.previousValue ?? null} />
+                  </td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmt(r.structural.current_account_to_gdp?.value ?? null, "%")}
+                    <TrendIndicator value={r.structural.current_account_to_gdp?.value ?? null} previous={r.structural.current_account_to_gdp?.previousValue ?? null} />
+                  </td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.structural.corporate_fx_debt_to_gdp?.score ?? null) }}>
                     {fmt(r.structural.corporate_fx_debt_to_gdp?.value ?? null, "%")}
+                    <TrendIndicator value={r.structural.corporate_fx_debt_to_gdp?.value ?? null} previous={r.structural.corporate_fx_debt_to_gdp?.previousValue ?? null} />
                   </td>
                   <td className="gfew-mono px-3 py-2" style={{ color: scoreColor(r.structural.foreign_holdings_yoy_pct?.score ?? null) }}>
                     {r.structural.foreign_holdings_yoy_pct?.value != null
                       ? `${r.structural.foreign_holdings_yoy_pct.value > 0 ? "+" : ""}${r.structural.foreign_holdings_yoy_pct.value.toFixed(1)}%`
                       : "—"}
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{r.sovereignCds.value !== null ? `${Math.round(r.sovereignCds.value)} bps` : "—"}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {r.sovereignCds.value !== null ? `${Math.round(r.sovereignCds.value)} bps` : "—"}
+                    <TrendIndicator value={r.sovereignCds.value} previous={r.sovereignCds.previousValue} />
+                  </td>
                   <td className="px-3 py-2 text-text-dim">
-                    <div className="gfew-mono">{fmt(r.fx.value, "", 2)}</div>
+                    <div className="gfew-mono">
+                      {fmt(r.fx.value, "", 2)}
+                      <TrendIndicator value={r.fx.value} previous={r.fx.previousValue} />
+                    </div>
                     <div className="text-[10px]">{r.fx.pair}</div>
                   </td>
                   <td className="px-3 py-2 text-text-dim">{Math.round(r.dataCompleteness * 100)}%</td>

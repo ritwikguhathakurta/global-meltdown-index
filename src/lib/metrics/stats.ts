@@ -11,6 +11,15 @@ export function latest(points: Point[]): Point | null {
   return points.reduce((a, b) => (a.t > b.t ? a : b));
 }
 
+/** The second-most-recent point by date — the "previous reading" a trend
+ * indicator compares the latest value against. Sorts defensively since call
+ * sites don't all guarantee order. */
+export function previousOf(points: Point[]): Point | null {
+  if (points.length < 2) return null;
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  return sorted[sorted.length - 2];
+}
+
 export function mean(xs: number[]): number {
   if (xs.length === 0) return NaN;
   return xs.reduce((a, b) => a + b, 0) / xs.length;

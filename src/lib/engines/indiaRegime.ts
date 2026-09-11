@@ -37,6 +37,7 @@ function unavailableRef(u: (typeof UNAVAILABLE_INDICATORS)[number]): IndicatorRe
     sourceKey: "none",
     sourceTier: 5,
     asOf: null,
+    previousValue: null,
   };
 }
 

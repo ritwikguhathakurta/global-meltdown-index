@@ -1,6 +1,7 @@
 import { RiskBadge, DirectionArrow } from "./RegimeBadge";
 import { StatusPill } from "./StatusPill";
 import { InlineDisclaimer } from "./Disclaimer";
+import { TrendIndicator } from "./TrendIndicator";
 import type { EngineRow, IndicatorRow } from "@/lib/api/types";
 
 function IndicatorTable({ title, rows }: { title: string; rows: IndicatorRow[] }) {
@@ -23,7 +24,10 @@ function IndicatorTable({ title, rows }: { title: string; rows: IndicatorRow[] }
             {rows.map((r) => (
               <tr key={r.key} className="border-t border-border">
                 <td className="px-3 py-2">{r.label}</td>
-                <td className="gfew-mono px-3 py-2">{r.value === null ? "—" : `${r.value}${r.unit ? " " + r.unit : ""}`}</td>
+                <td className="gfew-mono px-3 py-2">
+                  {r.value === null ? "—" : `${r.value}${r.unit ? " " + r.unit : ""}`}
+                  <TrendIndicator value={r.value} previous={r.previousValue} />
+                </td>
                 <td className="gfew-mono px-3 py-2 text-text-dim">{r.asOf ?? "—"}</td>
                 <td className="px-3 py-2">
                   <StatusPill status={r.status} />

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { pctChangeOverDays, rollingSum, zToRiskScore, type Point } from "../metrics/stats";
+import { pctChangeOverDays, rollingSum, zToRiskScore, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 import { BANK_COMPANIES, type BankCompanyDef } from "../sources/bankSecFilings";
 import { BANK_FDIC_CERTS } from "../sources/fdicBankFind";
@@ -62,21 +62,21 @@ export type BankLevelRow = {
   name: string;
   gsib: boolean;
   entityName: string | null;
-  totalAssets: { value: number | null; asOf: string | null };
-  totalEquity: { value: number | null; asOf: string | null };
-  totalDeposits: { value: number | null; asOf: string | null };
-  totalLoans: { value: number | null; asOf: string | null };
+  totalAssets: { value: number | null; asOf: string | null; previousValue: number | null };
+  totalEquity: { value: number | null; asOf: string | null; previousValue: number | null };
+  totalDeposits: { value: number | null; asOf: string | null; previousValue: number | null };
+  totalLoans: { value: number | null; asOf: string | null; previousValue: number | null };
   leverageRatio: number | null; // computed, holding-co (Equity/Assets)
   depositGrowthYoy: number | null;
   depositGrowthScore: number | null;
   roa: number | null;
   roaScore: number | null;
-  cet1Ratio: { value: number | null; asOf: string | null };
+  cet1Ratio: { value: number | null; asOf: string | null; previousValue: number | null };
   cet1Score: number | null;
-  tier1LeverageRatio: { value: number | null; asOf: string | null };
+  tier1LeverageRatio: { value: number | null; asOf: string | null; previousValue: number | null };
   tier1LeverageScore: number | null;
   totalRbcRatio: number | null;
-  nplRatio: { value: number | null; asOf: string | null };
+  nplRatio: { value: number | null; asOf: string | null; previousValue: number | null };
   nplScore: number | null;
   creLoans: number | null;
   creToAssets: number | null;
@@ -185,6 +185,13 @@ export async function getBankLevelTable(db: SupabaseClient): Promise<BankLevelRo
       nplLast,
       creLoansLast,
       creToAssets,
+      assetsSeries: s.assets,
+      equitySeries: s.equity,
+      depositsSeries: s.deposits,
+      loansSeries: s.loans,
+      cet1Series: s.cet1,
+      tier1LeverageSeries: s.tier1Leverage,
+      nplSeries: s.npl,
     };
   });
 
@@ -196,7 +203,29 @@ export async function getBankLevelTable(db: SupabaseClient): Promise<BankLevelRo
   const roaZ = crossSectionalZ(roaValues);
 
   return prelim.map(
-    ({ co, assetsLast, equityLast, depositsLast, loansLast, leverageRatio, depositGrowthYoy, roa, cet1Last, tier1LeverageLast, totalRbcLast, nplLast, creLoansLast, creToAssets }) => {
+    ({
+      co,
+      assetsLast,
+      equityLast,
+      depositsLast,
+      loansLast,
+      leverageRatio,
+      depositGrowthYoy,
+      roa,
+      cet1Last,
+      tier1LeverageLast,
+      totalRbcLast,
+      nplLast,
+      creLoansLast,
+      creToAssets,
+      assetsSeries,
+      equitySeries,
+      depositsSeries,
+      loansSeries,
+      cet1Series,
+      tier1LeverageSeries,
+      nplSeries,
+    }) => {
       const cet1Score = cet1Z.has(co.key) ? zToRiskScore(cet1Z.get(co.key) ?? null, -1) : null;
       const tier1LeverageScore = tier1LeverageZ.has(co.key) ? zToRiskScore(tier1LeverageZ.get(co.key) ?? null, -1) : null;
       const nplScore = nplZ.has(co.key) ? zToRiskScore(nplZ.get(co.key) ?? null, 1) : null;
@@ -230,21 +259,21 @@ export async function getBankLevelTable(db: SupabaseClient): Promise<BankLevelRo
         name: co.name,
         gsib: co.gsib,
         entityName: BANK_FDIC_CERTS[co.key]?.entityName ?? null,
-        totalAssets: { value: assetsLast?.v ?? null, asOf: assetsLast?.t ?? null },
-        totalEquity: { value: equityLast?.v ?? null, asOf: equityLast?.t ?? null },
-        totalDeposits: { value: depositsLast?.v ?? null, asOf: depositsLast?.t ?? null },
-        totalLoans: { value: loansLast?.v ?? null, asOf: loansLast?.t ?? null },
+        totalAssets: { value: assetsLast?.v ?? null, asOf: assetsLast?.t ?? null, previousValue: previousOf(assetsSeries)?.v ?? null },
+        totalEquity: { value: equityLast?.v ?? null, asOf: equityLast?.t ?? null, previousValue: previousOf(equitySeries)?.v ?? null },
+        totalDeposits: { value: depositsLast?.v ?? null, asOf: depositsLast?.t ?? null, previousValue: previousOf(depositsSeries)?.v ?? null },
+        totalLoans: { value: loansLast?.v ?? null, asOf: loansLast?.t ?? null, previousValue: previousOf(loansSeries)?.v ?? null },
         leverageRatio,
         depositGrowthYoy,
         depositGrowthScore,
         roa,
         roaScore,
-        cet1Ratio: { value: cet1Last?.v ?? null, asOf: cet1Last?.t ?? null },
+        cet1Ratio: { value: cet1Last?.v ?? null, asOf: cet1Last?.t ?? null, previousValue: previousOf(cet1Series)?.v ?? null },
         cet1Score,
-        tier1LeverageRatio: { value: tier1LeverageLast?.v ?? null, asOf: tier1LeverageLast?.t ?? null },
+        tier1LeverageRatio: { value: tier1LeverageLast?.v ?? null, asOf: tier1LeverageLast?.t ?? null, previousValue: previousOf(tier1LeverageSeries)?.v ?? null },
         tier1LeverageScore,
         totalRbcRatio: totalRbcLast?.v ?? null,
-        nplRatio: { value: nplLast?.v ?? null, asOf: nplLast?.t ?? null },
+        nplRatio: { value: nplLast?.v ?? null, asOf: nplLast?.t ?? null, previousValue: previousOf(nplSeries)?.v ?? null },
         nplScore,
         creLoans: creLoansLast?.v ?? null,
         creToAssets,

@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { spreadByLastKnown } from "../metrics/stats";
+import { spreadByLastKnown, previousOf } from "../metrics/stats";
 import { currentSeasonalAmplifiers } from "./indiaSeasonality";
 
 /**
@@ -74,6 +74,7 @@ export async function runIndiaYieldCurveEngine(ctx: EngineContext, horizon: Hori
           sourceKey: tbill364.ref.sourceKey,
           sourceTier: tbill364.ref.sourceTier,
           asOf: shortLongSpread.at(-1)?.t ?? null,
+          previousValue: previousOf(shortLongSpread)?.v ?? null,
         },
         series: shortLongSpread,
         weight: 1.2,
@@ -90,6 +91,7 @@ export async function runIndiaYieldCurveEngine(ctx: EngineContext, horizon: Hori
           sourceKey: gsecMedium.ref.sourceKey,
           sourceTier: gsecMedium.ref.sourceTier,
           asOf: shortMediumSpread.at(-1)?.t ?? null,
+          previousValue: previousOf(shortMediumSpread)?.v ?? null,
         },
         series: shortMediumSpread,
         weight: 0.6,
@@ -106,6 +108,7 @@ export async function runIndiaYieldCurveEngine(ctx: EngineContext, horizon: Hori
           sourceKey: gsecLong.ref.sourceKey,
           sourceTier: gsecLong.ref.sourceTier,
           asOf: mediumLongSpread.at(-1)?.t ?? null,
+          previousValue: previousOf(mediumLongSpread)?.v ?? null,
         },
         series: mediumLongSpread,
         weight: 0.6,

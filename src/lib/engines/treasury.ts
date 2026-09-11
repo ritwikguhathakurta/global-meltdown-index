@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { diffSeriesByMonth } from "../metrics/stats";
+import { diffSeriesByMonth, previousOf } from "../metrics/stats";
 
 /**
  * Treasury & Sovereign Debt — G7 + China (V3 §7). Originally US-only, then
@@ -109,7 +109,7 @@ export async function runTreasuryEngine(ctx: EngineContext, horizon: Horizon): P
       { ref: japan10y.ref, series: japan10y.series, weight: 0.5, zDirection: 1 },
       { ref: canada10y.ref, series: canada10y.series, weight: 0.4, zDirection: 1 },
       {
-        ref: { key: "yield.btp_bund_spread", label: "Italy-Germany 10Y Spread (bps, derived)", classification: "leading", value: btpBundSpread.at(-1)?.v ?? null, unit: "bps", status: italy10y.ref.status, sourceKey: italy10y.ref.sourceKey, sourceTier: italy10y.ref.sourceTier, asOf: italy10y.ref.asOf },
+        ref: { key: "yield.btp_bund_spread", label: "Italy-Germany 10Y Spread (bps, derived)", classification: "leading", value: btpBundSpread.at(-1)?.v ?? null, unit: "bps", status: italy10y.ref.status, sourceKey: italy10y.ref.sourceKey, sourceTier: italy10y.ref.sourceTier, asOf: italy10y.ref.asOf, previousValue: previousOf(btpBundSpread)?.v ?? null },
         series: btpBundSpread,
         weight: 0.9,
         zDirection: 1,

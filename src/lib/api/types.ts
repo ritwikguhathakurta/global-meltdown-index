@@ -8,6 +8,7 @@ export type IndicatorRow = {
   sourceKey: string;
   sourceTier: number;
   asOf: string | null;
+  previousValue: number | null;
 };
 
 export type EngineRow = {

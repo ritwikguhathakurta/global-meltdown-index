@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries, fetchLatestForKeys } from "../metrics/store";
-import { zScore, zToRiskScore, type Point } from "../metrics/stats";
+import { zScore, zToRiskScore, previousOf, type Point } from "../metrics/stats";
 import { lookbackDaysFor } from "../metrics/lookback";
 import { EM_DEBT_COUNTRIES } from "../sources/worldBankEmDebt";
 
@@ -217,11 +217,11 @@ const FX_PAIR_LABEL: Record<string, string> = {
   malaysia: "USD/MYR", south_korea: "USD/KRW",
 };
 
-export type IndicatorReading = { value: number | null; asOf: string | null; score: number | null };
+export type IndicatorReading = { value: number | null; asOf: string | null; score: number | null; previousValue: number | null };
 
 export type CountryEmDebtRow = {
   country: string;
-  fx: { pair: string; value: number | null; asOf: string | null; score: number | null };
+  fx: { pair: string; value: number | null; asOf: string | null; score: number | null; previousValue: number | null };
   structural: Record<string, IndicatorReading>;
   sovereignCds: IndicatorReading;
   structuralScore: number | null;
@@ -304,23 +304,26 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
   // World Bank indicators and the 2 computed ones (corporate FX debt/GDP,
   // foreign-holdings YoY) so the rest of this function can score all 10 the
   // same way instead of special-casing the computed ones.
-  const rawValueByIndicator = new Map<string, Map<string, { value: number; asOf: string }>>();
+  const rawValueByIndicator = new Map<string, Map<string, { value: number; asOf: string; previous: number | null }>>();
 
   for (const ind of STRUCTURAL_INDICATORS) {
-    const m = new Map<string, { value: number; asOf: string }>();
+    const m = new Map<string, { value: number; asOf: string; previous: number | null }>();
     for (const c of EM_DEBT_COUNTRIES) {
       const row = latest.get(`emdebt.${c.key}.${ind.suffix}`);
-      if (row) m.set(c.key, { value: row.v, asOf: row.t });
+      if (row) m.set(c.key, { value: row.v, asOf: row.t, previous: row.previous?.v ?? null });
     }
     rawValueByIndicator.set(ind.suffix, m);
   }
 
   {
-    const m = new Map<string, { value: number; asOf: string }>();
+    const m = new Map<string, { value: number; asOf: string; previous: number | null }>();
     for (const c of EM_DEBT_COUNTRIES) {
       const corp = latest.get(`emdebt.${c.key}.corporate_fx_debt_usd`);
       const gdp = latest.get(`emdebt.${c.key}.gdp_current_usd`);
-      if (corp && gdp && gdp.v > 0) m.set(c.key, { value: (corp.v / gdp.v) * 100, asOf: corp.t });
+      if (corp && gdp && gdp.v > 0) {
+        const prevRatio = corp.previous && gdp.previous && gdp.previous.v > 0 ? (corp.previous.v / gdp.previous.v) * 100 : null;
+        m.set(c.key, { value: (corp.v / gdp.v) * 100, asOf: corp.t, previous: prevRatio });
+      }
     }
     rawValueByIndicator.set("corporate_fx_debt_to_gdp", m);
   }
@@ -337,15 +340,22 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
       if (m.has(c.key)) continue;
       const stock = latest.get(`emdebt.${c.key}.external_debt_stock_usd`);
       const gni = latest.get(`emdebt.${c.key}.gni_current_usd`);
-      if (stock && gni && gni.v > 0) m.set(c.key, { value: (stock.v / gni.v) * 100, asOf: stock.t });
+      if (stock && gni && gni.v > 0) {
+        const prevRatio = stock.previous && gni.previous && gni.previous.v > 0 ? (stock.previous.v / gni.previous.v) * 100 : null;
+        m.set(c.key, { value: (stock.v / gni.v) * 100, asOf: stock.t, previous: prevRatio });
+      }
     }
   }
 
   {
-    const m = new Map<string, { value: number; asOf: string }>();
+    const m = new Map<string, { value: number; asOf: string; previous: number | null }>();
     for (const c of EM_DEBT_COUNTRIES) {
       const yoy = latestYoyPct(foreignHoldingsSeriesByCountry.get(c.key) ?? []);
-      if (yoy) m.set(c.key, yoy);
+      // "Previous" here would be last year's own YoY reading (needs a third
+      // annual point one further back) — not computed, this indicator's
+      // series is thin enough (annual, a handful of points) that a second
+      // trend layer on top of an already-derived YoY rate isn't reliable.
+      if (yoy) m.set(c.key, { ...yoy, previous: null });
     }
     rawValueByIndicator.set("foreign_holdings_yoy_pct", m);
   }
@@ -378,7 +388,7 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
       const row = rawValueByIndicator.get(ind.suffix)?.get(c.key) ?? null;
       const z = row ? zByIndicator.get(ind.suffix)?.get(c.key) ?? null : null;
       const score = z !== null && z !== undefined ? zToRiskScore(z, ind.direction) : null;
-      structural[ind.suffix] = { value: row?.value ?? null, asOf: row?.asOf ?? null, score };
+      structural[ind.suffix] = { value: row?.value ?? null, asOf: row?.asOf ?? null, score, previousValue: row?.previous ?? null };
       if (score !== null) {
         structuralScoreSum += score * ind.weight;
         structuralWeightSum += ind.weight;
@@ -410,9 +420,9 @@ export async function getCountryEmDebtTable(db: SupabaseClient): Promise<Country
 
     return {
       country: c.name,
-      fx: { pair: FX_PAIR_LABEL[c.key], value: fxLast?.v ?? null, asOf: fxLast?.t ?? null, score: fxScore },
+      fx: { pair: FX_PAIR_LABEL[c.key], value: fxLast?.v ?? null, asOf: fxLast?.t ?? null, score: fxScore, previousValue: previousOf(fxSeries)?.v ?? null },
       structural,
-      sovereignCds: { value: cdsRow?.v ?? null, asOf: cdsRow?.t ?? null, score: cdsScore },
+      sovereignCds: { value: cdsRow?.v ?? null, asOf: cdsRow?.t ?? null, score: cdsScore, previousValue: cdsRow?.previous?.v ?? null },
       structuralScore,
       marketScore,
       vulnerabilityScore,

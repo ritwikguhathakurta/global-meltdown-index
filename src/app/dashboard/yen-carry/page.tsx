@@ -3,6 +3,7 @@ import { EngineDetail } from "@/components/EngineDetail";
 import { CARRY_STAGES } from "@/lib/engines/carryTrade";
 import type { CarryPairRow } from "@/lib/engines/carryTrade";
 import { gfmiColor } from "@/components/RegimeBadge";
+import { TrendIndicator } from "@/components/TrendIndicator";
 
 function fmtPct(v: number | null, decimals = 2): string {
   if (v === null) return "—";
@@ -213,6 +214,7 @@ export default async function GlobalCarryTradePage() {
                   <td className="px-3 py-2 font-medium">{f.name} ({f.code})</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
                     {fmt(f.rate, "%")}
+                    <TrendIndicator value={f.rate} previous={f.ratePrevious} />
                     <div className="text-[10px]">{f.rateLabel}</div>
                   </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">
@@ -334,7 +336,10 @@ export default async function GlobalCarryTradePage() {
                     )}
                     {p.rateCaveat && <div className="mt-1 text-[10px] text-text-dim">{p.rateCaveat}</div>}
                   </td>
-                  <td className="gfew-mono px-3 py-2 text-text-dim">{fmtPct(p.rateDifferential)}</td>
+                  <td className="gfew-mono px-3 py-2 text-text-dim">
+                    {fmtPct(p.rateDifferential)}
+                    <TrendIndicator value={p.rateDifferential} previous={p.rateDifferentialPrevious} />
+                  </td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmtPct(p.fxReturn1y)}</td>
                   <td className="gfew-mono px-3 py-2 text-text-dim">{fmtPct(p.realizedCarryReturn1y)}</td>
                   <td className="px-3 py-2 text-text-dim">{p.volRegime ? VOL_REGIME_LABEL[p.volRegime] : "—"}</td>

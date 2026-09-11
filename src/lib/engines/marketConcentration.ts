@@ -1,7 +1,7 @@
 import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
-import { ratioSeriesByDate } from "../metrics/stats";
+import { previousOf, ratioSeriesByDate } from "../metrics/stats";
 
 /**
  * Market Concentration engine (V3 §16 of the engine list). No free source
@@ -31,13 +31,13 @@ export async function runMarketConcentrationEngine(ctx: EngineContext, horizon: 
     regimeLabels: ["BROAD", "NORMAL", "NARROWING", "CONCENTRATED", "EXTREME_CONCENTRATION"],
     inputs: [
       {
-        ref: { key: "equity.spy_rsp_ratio", label: "SPY/RSP Ratio (S&P 500 cap-weighted vs equal-weighted, derived)", classification: "leading", value: spyRspRatio.at(-1)?.v ?? null, unit: "ratio", status: spy.ref.status, sourceKey: "yahoo_finance", sourceTier: 3, asOf: spy.ref.asOf },
+        ref: { key: "equity.spy_rsp_ratio", label: "SPY/RSP Ratio (S&P 500 cap-weighted vs equal-weighted, derived)", classification: "leading", value: spyRspRatio.at(-1)?.v ?? null, unit: "ratio", status: spy.ref.status, sourceKey: "yahoo_finance", sourceTier: 3, asOf: spy.ref.asOf, previousValue: previousOf(spyRspRatio)?.v ?? null },
         series: spyRspRatio,
         weight: 1.0,
         zDirection: 1,
       },
       {
-        ref: { key: "equity.qqq_qqqe_ratio", label: "QQQ/QQQE Ratio (Nasdaq 100 cap-weighted vs equal-weighted, derived)", classification: "leading", value: qqqRatio.at(-1)?.v ?? null, unit: "ratio", status: qqq.ref.status, sourceKey: "yahoo_finance", sourceTier: 3, asOf: qqq.ref.asOf },
+        ref: { key: "equity.qqq_qqqe_ratio", label: "QQQ/QQQE Ratio (Nasdaq 100 cap-weighted vs equal-weighted, derived)", classification: "leading", value: qqqRatio.at(-1)?.v ?? null, unit: "ratio", status: qqq.ref.status, sourceKey: "yahoo_finance", sourceTier: 3, asOf: qqq.ref.asOf, previousValue: previousOf(qqqRatio)?.v ?? null },
         series: qqqRatio,
         weight: 0.8,
         zDirection: 1,
