@@ -84,6 +84,7 @@ import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
 import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
+import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -929,6 +930,21 @@ export async function ingestCaisoGrid(db: SupabaseClient, runDate: string): Prom
   }
 }
 
+export async function ingestNyisoGrid(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchNyisoGridSnapshot();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_nyiso_grid", status, detail);
+    return { stage: "ingest_nyiso_grid", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_nyiso_grid", "failed", detail);
+    return { stage: "ingest_nyiso_grid", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -976,6 +992,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_eia_energy", ingestEiaEnergy(db, runDate)),
     withTimeout("ingest_iso_ne_grid", ingestIsoNeGrid(db, runDate)),
     withTimeout("ingest_caiso_grid", ingestCaisoGrid(db, runDate)),
+    withTimeout("ingest_nyiso_grid", ingestNyisoGrid(db, runDate)),
   ]);
   return { runDate, results };
 }

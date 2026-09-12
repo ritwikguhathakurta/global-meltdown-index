@@ -395,6 +395,7 @@ export type GridSnapshot = { gridKey: string; gridLabel: string; loadMw: number 
 const GRID_DEFS: { key: string; label: string }[] = [
   { key: "iso_ne", label: "New England (ISO-NE)" },
   { key: "caiso", label: "California (CAISO)" },
+  { key: "nyiso", label: "New York (NYISO)" },
 ];
 
 export async function getGridSnapshots(): Promise<GridSnapshot[] | null> {

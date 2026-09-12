@@ -46,8 +46,9 @@ export async function fetchCaisoGridSnapshot(): Promise<MetricPoint[]> {
   const observedAt = new Date().toISOString().slice(0, 10);
 
   const currentDemandIdx = demandRows[0]?.indexOf("Current demand") ?? -1;
-  const loadMw = demandLast && currentDemandIdx >= 0 ? parseFloat(demandLast[currentDemandIdx]) : null;
-  if (loadMw !== null && !Number.isNaN(loadMw)) {
+  const loadMwRaw = demandLast && currentDemandIdx >= 0 ? parseFloat(demandLast[currentDemandIdx]) : NaN;
+  const loadMw = Number.isNaN(loadMwRaw) ? null : loadMwRaw; // CAISO's newest row sometimes hasn't populated "Current demand" yet
+  if (loadMw !== null) {
     points.push({ metric_key: "energy.grid.caiso.load_mw", observed_at: observedAt, value: loadMw, unit: "MW", source_key: "caiso_outlook", source_tier: 1, frequency: "daily" });
   }
 
