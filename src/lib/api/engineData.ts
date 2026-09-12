@@ -45,6 +45,7 @@ import { getSoybeanCountryBalances as computeSoybeanCountryBalances, type Soybea
 import { getSoybeanCrushMargin as computeSoybeanCrushMargin, type CrushMarginResult } from "@/lib/engines/oilseedsCrush";
 import { getVegetableOilSpreads as computeVegetableOilSpreads, type OilSpreadRow } from "@/lib/engines/oilseedsSpreads";
 import { getOilseedPositioning as computeOilseedPositioning, type OilseedPositioningRow } from "@/lib/engines/oilseedsPositioning";
+import { getSeAsiaPalmBalances as computeSeAsiaPalmBalances, type SeAsiaPalmResult } from "@/lib/engines/oilseedsSeAsia";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -494,10 +495,22 @@ export async function getOilseedPositioning(): Promise<OilseedPositioningRow[] |
   }
 }
 
+export async function getSeAsiaPalmBalances(): Promise<SeAsiaPalmResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeSeAsiaPalmBalances(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
 export type OilseedsHistoryResult = {
   prices: { slug: string; label: string; unit: string; points: { t: string; v: number }[] }[];
   balances: { slug: string; label: string; unit: string; attribute: string; points: { t: string; v: number }[] }[];
   countryBalances: { slug: string; label: string; attribute: string; points: { t: string; v: number }[] }[];
+  seAsia: { slug: string; label: string; points: { t: string; v: number }[] }[];
 };
 
 export async function getOilseedsHistory(): Promise<OilseedsHistoryResult | null> {
@@ -565,7 +578,27 @@ export async function getOilseedsHistory(): Promise<OilseedsHistoryResult | null
       )
     ).filter((b) => b.points.length > 0);
 
-    return { prices, balances, countryBalances };
+    const seAsiaSeries: { slug: string; label: string }[] = [
+      { slug: "commodity.palm_oil.indonesia.production", label: "Indonesia — Oil Palm (CPO, all ownership, annual)" },
+      { slug: "commodity.palm_oil.indonesia.production_monthly_large_estate", label: "Indonesia — Oil Palm, Large Estates Only (monthly)" },
+      { slug: "commodity.coconut.indonesia.production", label: "Indonesia — Coconut, all ownership (annual)" },
+      { slug: "commodity.palm_oil.malaysia.export.cpo", label: "Malaysia — CPO Exports (monthly)" },
+      { slug: "commodity.palm_oil.malaysia.export.palm_oil", label: "Malaysia — Palm Oil Exports, total (monthly)" },
+      { slug: "commodity.palm_oil.malaysia.export.palm_kernel_oil", label: "Malaysia — Palm Kernel Oil Exports, total (monthly)" },
+      { slug: "commodity.palm_oil.malaysia.export.biodiesel", label: "Malaysia — Biodiesel Exports (monthly)" },
+      { slug: "commodity.palm_oil.malaysia.export.total", label: "Malaysia — Oil Palm Products Exports, TOTAL (monthly)" },
+    ];
+    const seAsia = (
+      await Promise.all(
+        seAsiaSeries.map(async (s) => ({
+          slug: s.slug,
+          label: s.label,
+          points: await fetchSeries(db, s.slug, sinceIso),
+        }))
+      )
+    ).filter((s) => s.points.length > 0);
+
+    return { prices, balances, countryBalances, seAsia };
   } catch (e) {
     console.error((e as Error).message);
     return null;

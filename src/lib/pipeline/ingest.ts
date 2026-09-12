@@ -90,6 +90,8 @@ import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals"
 import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances } from "../sources/usdaPsd";
 import { fetchFaostatProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
+import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
+import { fetchMpobMalaysiaExports } from "../sources/mpobMalaysia";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1139,6 +1141,41 @@ export async function ingestEiaWorldEnergy(db: SupabaseClient, runDate: string):
   }
 }
 
+export async function ingestBpsIndonesia(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const apiKey = process.env.BPS_API_KEY;
+  if (!apiKey) {
+    await logRun(db, runDate, "ingest_bps_indonesia", "warning", { reason: "BPS_API_KEY not set" });
+    return { stage: "ingest_bps_indonesia", status: "warning", detail: { reason: "BPS_API_KEY not set" } };
+  }
+  try {
+    const points = await fetchBpsIndonesiaBalances(apiKey);
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_bps_indonesia", status, detail);
+    return { stage: "ingest_bps_indonesia", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_bps_indonesia", "failed", detail);
+    return { stage: "ingest_bps_indonesia", status: "failed", detail };
+  }
+}
+
+export async function ingestMpobMalaysia(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchMpobMalaysiaExports();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_mpob_malaysia", status, detail);
+    return { stage: "ingest_mpob_malaysia", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_mpob_malaysia", "failed", detail);
+    return { stage: "ingest_mpob_malaysia", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1197,6 +1234,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_usda_psd_soybean_countries", ingestUsdaPsdSoybeanCountries(db, runDate)),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
+    withTimeout("ingest_bps_indonesia", ingestBpsIndonesia(db, runDate)),
+    withTimeout("ingest_mpob_malaysia", ingestMpobMalaysia(db, runDate)),
   ]);
   return { runDate, results };
 }

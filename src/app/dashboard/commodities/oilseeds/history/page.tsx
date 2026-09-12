@@ -72,6 +72,18 @@ export default async function OilseedsHistoryPage() {
               <SeriesTable key={`${s.slug}-${s.attribute}`} label={s.label} unit="million MT" points={s.points} />
             ))}
           </section>
+
+          <section className="mb-8">
+            <h2 className="mb-3 text-lg font-semibold">Malaysia &amp; Indonesia — Palm Oil Complex</h2>
+            <p className="mb-3 max-w-2xl text-sm text-text-dim">
+              Indonesia (BPS) is annual national totals plus a large-estate-only monthly indicator; Malaysia
+              (MPOB) is monthly export volumes and genuinely only goes back to 2024 — see the disclosure on the
+              Oilseeds page for why.
+            </p>
+            {history.seAsia.map((s) => (
+              <SeriesTable key={s.slug} label={s.label} unit="million MT" points={s.points} />
+            ))}
+          </section>
         </>
       )}
     </div>

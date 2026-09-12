@@ -6,6 +6,7 @@ import {
   getSoybeanCrushMargin,
   getVegetableOilSpreads,
   getOilseedPositioning,
+  getSeAsiaPalmBalances,
 } from "@/lib/api/engineData";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
 
@@ -56,13 +57,14 @@ function pctColor(v: number | null): string {
 }
 
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning] = await Promise.all([
+  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia] = await Promise.all([
     getCommodityHeatmap(),
     getCommodityBalances(),
     getSoybeanCountryBalances(),
     getSoybeanCrushMargin(),
     getVegetableOilSpreads(),
     getOilseedPositioning(),
+    getSeAsiaPalmBalances(),
   ]);
 
   const priceRows = (heatmap?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
@@ -277,6 +279,73 @@ export default async function OilseedsPage() {
         </section>
       )}
 
+      {seAsia && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Malaysia &amp; Indonesia — Palm Oil Complex</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            Indonesia via BPS (Statistics Indonesia), Malaysia via MPOB (Malaysian Palm Oil Board) — the two
+            countries that together produce roughly 85% of the world&apos;s palm oil.
+          </p>
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {[seAsia.indonesiaOilPalm, seAsia.indonesiaCoconut].map((row) => (
+              <div key={row.label} className="gfew-panel p-4">
+                <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">Indonesia — {row.label}</div>
+                <div className="mb-2 flex items-baseline gap-3">
+                  <span className="gfew-mono text-xl font-semibold">{fmt(row.latestAnnual)} Mt</span>
+                  <span className="text-xs text-text-dim">{row.latestAnnualYear ?? "—"} (annual, all ownership)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs text-text-dim">
+                  <div>
+                    <div className="uppercase tracking-wide">YoY</div>
+                    <div className="gfew-mono font-semibold" style={{ color: pctColor(row.annualYoy) }}>
+                      {fmtPct(row.annualYoy)}
+                    </div>
+                  </div>
+                  {row.latestMonthlyLargeEstate !== null && (
+                    <div>
+                      <div className="uppercase tracking-wide">Latest Month (large estates only)</div>
+                      <div className="gfew-mono font-semibold text-text">
+                        {fmt(row.latestMonthlyLargeEstate)} Mt <span className="text-text-dim">({row.latestMonthlyLargeEstateDate?.slice(0, 7)})</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {seAsia.malaysiaExports.length > 0 && (
+            <>
+              <p className="mb-3 text-sm text-text-dim">Malaysia — monthly exports of oil palm products (MPOB), by product.</p>
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-panel-raised text-text-dim">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Product</th>
+                      <th className="px-3 py-2 font-medium">Latest Month</th>
+                      <th className="px-3 py-2 font-medium">Exports (Mt)</th>
+                      <th className="px-3 py-2 font-medium">YoY</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seAsia.malaysiaExports.map((r) => (
+                      <tr key={r.slug} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium">{r.label}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{r.latestDate?.slice(0, 7) ?? "—"}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.latestValue, 3)}</td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(r.yoy) }}>
+                          {fmtPct(r.yoy)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
       <section className="gfew-panel p-4 text-xs text-text-dim">
         <strong className="text-text">What&apos;s real here</strong>: World Bank Pink Sheet prices for
         Soybeans/Soybean Oil/Soybean Meal/Rapeseed Oil/Sunflower Oil/Palm Oil/Palm Kernel Oil/Coconut Oil (monthly
@@ -284,8 +353,11 @@ export default async function OilseedsPage() {
         Russia, Ukraine, EU) production/crush/imports/exports/ending-stocks for Soybeans, plus world balances for
         Rapeseed and Sunflower seed; a genuine soybean crush margin computed from the three Pink Sheet legs using
         disclosed (not hidden) standard industry extraction ratios; live CFTC non-commercial futures positioning
-        for Soybeans, Soybean Oil, Soybean Meal, and Canola; and a vegetable-oil relative-value matrix computed
-        directly from existing prices.
+        for Soybeans, Soybean Oil, Soybean Meal, and Canola; a vegetable-oil relative-value matrix computed
+        directly from existing prices; Indonesia&apos;s national annual oil palm (CPO) and coconut production, all
+        ownership combined, via BPS&apos;s Web API (registered key), plus a large-estates-only monthly palm
+        indicator (the only higher-than-annual frequency BPS publishes); and Malaysia&apos;s monthly oil-palm
+        product export volumes (CPO, PKO, biodiesel, oleochemicals, etc.) via MPOB.
         <br />
         <br />
         <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a CFTC-reportable
@@ -293,7 +365,15 @@ export default async function OilseedsPage() {
         aggregate for oilseeds (that convenience is EIA-specific — USDA PSD requires the EU bloc/member
         resolution logic documented on the parent Commodities page instead); raw seed and meal price series for
         Rapeseed and Sunflower (only their oils are priced in the Pink Sheet/IMF PCPS), so no crush margin is
-        computed for those two — shown as unavailable, not approximated.
+        computed for those two — shown as unavailable, not approximated; Malaysia&apos;s official crop-statistics
+        API (OpenDOSM/data.gov.my) — real and live, but checked live to contain zero oil palm/soybean/groundnut
+        rows (it only covers smallholder cash/fruit/vegetable/spice crops, not the plantation-scale industrial
+        crops MPOB tracks separately), so it isn&apos;t used here; MPOB production, stocks, and FFB/CPO price data
+        — MPOB has no documented API and its own report catalogue is access-restricted (HTTP 401), so only the one
+        confirmed-working export report was built, and Malaysia&apos;s export history above genuinely starts in
+        2024 (the report code scheme doesn&apos;t resolve to real data before that year); and Indonesia
+        soybean/groundnut production — BPS&apos;s own dynamic series for these stopped updating in 2015 per its
+        own published notes, with no replacement table found, so it isn&apos;t shown as a live figure.
         <br />
         <br />
         <strong className="text-text">Not built</strong>, and why: weather/ENSO yield-risk modeling and crop

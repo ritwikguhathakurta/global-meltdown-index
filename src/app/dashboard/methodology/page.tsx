@@ -2080,6 +2080,39 @@ export default function MethodologyPage() {
           those two.
         </p>
         <p className="mb-2">
+          <strong>Malaysia &amp; Indonesia palm oil complex (shipped)</strong> — the two countries produce roughly
+          85% of world palm oil, so this got its own connectors rather than relying on the spot-price series
+          alone. Indonesia: BPS&apos;s (Statistics Indonesia) dynamic Web API, via a free registered key, requires
+          a browser-like User-Agent header or its own WAF blocks the request (a WAF quirk, not an auth problem —
+          confirmed by the identical request succeeding once the header was added). Its table structure
+          (subject → variable → vertical/derived-variable dimensions) was mapped live via <code className="gfew-mono">model=subject</code>,{" "}
+          <code className="gfew-mono">model=var</code>, <code className="gfew-mono">model=vervar</code>, and{" "}
+          <code className="gfew-mono">model=turvar</code> calls, not guessed. This yields national annual oil palm
+          (CPO, all ownership combined — the figure matches published ~47Mt Indonesian CPO output almost exactly)
+          and coconut production, plus a large-estates-only monthly palm indicator (BPS&apos;s only
+          higher-than-annual-frequency series for palm). BPS caps its year-range parameter at 3 years per request,
+          so annual series are fetched one year at a time; the monthly endpoint returns an undocumented composite
+          key per month, decoded via the longest common prefix shared across each response&apos;s own keys
+          (verified by checking the decoded annual-total key against the exact sum of that year&apos;s 12 decoded
+          monthly values). Malaysia: MPOB (Malaysian Palm Oil Board) publishes monthly oil-palm product export
+          volumes (CPO, PPO, CPKO, PPKO, palm kernel cake, oleochemicals, finished products, biodiesel) as a plain
+          HTML report, parsed directly — MPOB has no REST/JSON API.
+        </p>
+        <p className="mb-2">
+          <strong>Checked and confirmed genuinely unavailable</strong> for Malaysia/Indonesia: Malaysia&apos;s
+          official crop-statistics API (OpenDOSM/data.gov.my) — real, live, and free, but its actual data (checked
+          row-by-row) covers only smallholder cash/fruit/vegetable/spice crops, with zero oil palm, soybean, or
+          groundnut rows; those plantation-scale crops are tracked by MPOB separately, so this source doesn&apos;t
+          apply here despite initially looking like a fit. MPOB production, stocks, and FFB/CPO price data — MPOB
+          has no documented report-code catalogue (its own <code className="gfew-mono">/stat/</code> index returns
+          HTTP 401 Access Restricted), so only the one confirmed-working monthly-exports report was built; the
+          export history genuinely starts in 2024 (checked directly — the report&apos;s year-encoded URL scheme
+          returns nothing before that year). Indonesia soybean/groundnut production via BPS&apos;s dynamic API —
+          that series stops at 2015 per BPS&apos;s own published notes (a 2016-17 methodology moratorium with
+          continuation tables published for rice/corn only), and no replacement table was found after checking
+          both pages of the relevant subject&apos;s variable list.
+        </p>
+        <p className="mb-2">
           <strong>Not built</strong> from the Oilseeds spec, and why: weather/ENSO yield-risk modeling and crop
           calendars (needs a paid or complex agromet integration and a validated yield model — a shallow version
           risked more harm than a clear gap); futures term structure/basis/carry beyond spot positioning (needs a
