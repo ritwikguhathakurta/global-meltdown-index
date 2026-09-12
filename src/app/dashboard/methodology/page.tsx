@@ -1222,9 +1222,36 @@ export default function MethodologyPage() {
         <p className="mb-2">
           <strong>Phase 2 (credentials requested, build in progress)</strong>: deeper 5-minute-resolution
           PJM and ERCOT data, pending each operator&apos;s own registration approval (PJM Tools Account +
-          Customer Account Manager sign-off; ERCOT developer-portal client ID); European grid reserve-margin
-          and blackout-risk data via ENTSO-E, pending a ~3-business-day API access request; MISO and
-          SPP&apos;s own deeper data feeds via MISO Data Exchange, pending registration.
+          Customer Account Manager sign-off; ERCOT developer-portal client ID) — checked whether the
+          open-source{" "}
+          <a href="https://github.com/kmax12/gridstatus" target="_blank" rel="noreferrer" className="text-accent hover:underline">
+            gridstatus
+          </a>{" "}
+          library&apos;s PJM module offers a free path around this: it doesn&apos;t — its real-time
+          load/fuel-mix/LMP calls all require the same registered subscription key (verified live:{" "}
+          <span className="gfew-mono">api.pjm.com</span> returns 403 without one). European grid
+          reserve-margin and blackout-risk data via ENTSO-E, pending a ~3-business-day API access request;
+          MISO and SPP&apos;s own deeper data feeds via MISO Data Exchange, pending registration. In the
+          meantime, PJM&apos;s regulatory and market-oversight context (not ingested into the pipeline —
+          narrative/PDF documents, not time-series data) is available directly from{" "}
+          <a href="https://www.ferc.gov/industries-data/electric/electric-power-markets/pjm" target="_blank" rel="noreferrer" className="text-accent hover:underline">
+            FERC&apos;s PJM market oversight page
+          </a>{" "}
+          and PJM&apos;s Independent Market Monitor,{" "}
+          <a href="https://www.monitoringanalytics.com/" target="_blank" rel="noreferrer" className="text-accent hover:underline">
+            Monitoring Analytics
+          </a>
+          , whose &ldquo;State of the Market&rdquo; reports audit PJM&apos;s own pricing/transactional
+          compliance (e.g. its{" "}
+          <a
+            href="https://www.pjm.com/-/media/DotCom/library/reports-notices/state-of-the-market/20250811-pjm-response-to-the-2024-state-of-the-market-report.pdf"
+            target="_blank"
+            rel="noreferrer"
+            className="text-accent hover:underline"
+          >
+            2024 State of the Market response
+          </a>
+          ).
         </p>
         <p className="mb-2">
           <strong>Genuine gaps — checked, no free source exists, disclosed rather than faked</strong>:
