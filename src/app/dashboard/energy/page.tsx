@@ -313,9 +313,12 @@ export default async function EnergyPage() {
               <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Grid Snapshots (US ISOs)</h2>
               <p className="mb-3 max-w-3xl text-xs text-text-dim">
                 Live grid-operator data for the Electricity/Grid engine (spec &sect;23-25). Margin is
-                generation minus load from real-time data, not each ISO&apos;s own forward-looking
-                planning reserve margin. PJM, ERCOT, MISO, NYISO and SPP follow as their registrations
-                complete.
+                generation minus load. ISO-NE, CAISO and NYISO come from each operator&apos;s own
+                5-minute real-time feed; MISO, PJM, ERCOT and SPP come from EIA-930 (Form EIA-930
+                Hourly Electric Grid Monitor) since each operator&apos;s own real-time API either has no
+                free public data (ERCOT, PJM — both need their own registration for deeper access) or was
+                confirmed deprecated with no free replacement during this build (MISO). EIA-930 is real
+                official same-day data (1-3hr publication lag), not a proxy.
               </p>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {gridSnapshots.map((g) => (
@@ -381,11 +384,14 @@ export default async function EnergyPage() {
             <strong className="text-text">Phased build against the full spec:</strong> a real chokepoint-
             throughput system now runs live on IMF PortWatch AIS data, and country-level oil production/
             consumption plus US natural gas storage now run live on a registered EIA API v2 key (see the
-            Country Energy Balance section below). Still not built — checked against real free sources,
-            disclosed rather than faked: producer-level effective spare capacity, OPEC+ quota/compliance
-            tracking, a genuine futures-curve/backwardation signal (needs a paid futures-chain feed),
-            electricity/grid reserve-margin and blackout-risk data (ENTSO-E/PJM/ERCOT/CAISO/MISO all
-            confirmed live, each needs its own registration), nuclear reactor-level outage tracking (IAEA
+            Country Energy Balance section below), and all seven major US grid operators (ISO-NE, CAISO,
+            NYISO, MISO, PJM, ERCOT, SPP) now have live load/generation data — the last four via EIA-930
+            since their own real-time APIs are either registration-gated or (MISO) confirmed deprecated.
+            Still not built — checked against real free sources, disclosed rather than faked: deeper
+            5-minute-resolution PJM/ERCOT data (pending each operator&apos;s own registration approval),
+            ENTSO-E European grid data (pending transparency@entsoe.eu access request), producer-level
+            effective spare capacity, OPEC+ quota/compliance tracking, a genuine futures-curve/backwardation
+            signal (needs a paid futures-chain feed), nuclear reactor-level outage tracking (IAEA
             PRIS has no public API), renewable capacity/generation by country (IRENA IRENASTAT confirmed
             free, not yet integrated), critical-mineral mining/refining concentration breakdowns, a
             global energy trade network graph, a scenario library with a policy simulator, historical

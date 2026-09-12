@@ -396,6 +396,10 @@ const GRID_DEFS: { key: string; label: string }[] = [
   { key: "iso_ne", label: "New England (ISO-NE)" },
   { key: "caiso", label: "California (CAISO)" },
   { key: "nyiso", label: "New York (NYISO)" },
+  { key: "miso", label: "Midcontinent (MISO)" },
+  { key: "pjm", label: "Mid-Atlantic (PJM)" },
+  { key: "ercot", label: "Texas (ERCOT)" },
+  { key: "spp", label: "Southwest Power Pool (SPP)" },
 ];
 
 export async function getGridSnapshots(): Promise<GridSnapshot[] | null> {
