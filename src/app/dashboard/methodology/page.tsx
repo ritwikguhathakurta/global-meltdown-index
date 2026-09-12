@@ -1204,9 +1204,14 @@ export default function MethodologyPage() {
           and NYISO from each operator&apos;s own real-time feed, and MISO, PJM, ERCOT and SPP from EIA-930
           (Form EIA-930 Hourly Electric Grid Monitor, same-day official data with a 1-3hr lag) after MISO&apos;s
           own public data broker was confirmed deprecated with no free replacement, and PJM/ERCOT&apos;s
-          deeper real-time feeds were confirmed registration-gated; and renewable/non-renewable electricity
+          deeper real-time feeds were confirmed registration-gated; renewable/non-renewable electricity
           capacity and generation by country via IRENA IRENASTAT (free PxWeb statistical API, no key) —
-          capacity published annually in March, generation in July with a longer lag.
+          capacity published annually in March, generation in July with a longer lag; a 20-scenario
+          stress-test library with a policy simulator, applying fixed shocks to today&apos;s live domain
+          scores through the exact same composite weighting the engine itself uses (not a parallel model);
+          and a global energy trade network graph built on real bilateral crude-oil and petroleum-gas
+          export values from UN Comtrade (free, no key), with node centrality computed via Brandes&apos;
+          algorithm (degree, weighted strength, and betweenness centrality), not a hand-picked score.
         </p>
         <p className="mb-2">
           <strong>Phase 2 (credentials requested, build in progress)</strong>: deeper 5-minute-resolution
@@ -1225,9 +1230,11 @@ export default function MethodologyPage() {
           mining/refining/manufacturing concentration breakdowns, a cyber risk score (spec explicitly
           calls for &ldquo;aggregated risk intelligence,&rdquo; and no free aggregator exists — no
           placeholder number is shown), producer fiscal-breakeven tracking (analyst estimates, not a free
-          official series), a global energy trade network graph with node-centrality analysis, a
-          20-scenario stress-test library with a policy simulator, historical backtesting with lead-time/
-          AUC/Brier-score validation, and a daily 8am IST report/AI Q&amp;A layer.
+          official series), full multi-domain historical backtesting to 1973 with lead-time/AUC/Brier-score
+          validation (GESRI&apos;s own structural inputs — chokepoint transit data, EIA country balances —
+          only exist from ~2019 onward; a fabricated retroactive history would violate this project&apos;s
+          own data-integrity rule), and a daily 8am IST report/AI Q&amp;A layer (needs an LLM API key;
+          deferred by request rather than built without one).
         </p>
       </section>
 

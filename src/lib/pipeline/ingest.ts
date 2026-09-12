@@ -84,6 +84,7 @@ import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
 import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
+import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -993,6 +994,21 @@ export async function ingestIrenaRenewables(db: SupabaseClient, runDate: string)
   return { stage: "ingest_irena_renewables", status, detail };
 }
 
+export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchUnComtradeEnergyFlows();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_un_comtrade_energy_flows", status, detail);
+    return { stage: "ingest_un_comtrade_energy_flows", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_un_comtrade_energy_flows", "failed", detail);
+    return { stage: "ingest_un_comtrade_energy_flows", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1043,6 +1059,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_nyiso_grid", ingestNyisoGrid(db, runDate)),
     withTimeout("ingest_eia_grid_monitor", ingestEiaGridMonitor(db, runDate)),
     withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
+    withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
   ]);
   return { runDate, results };
 }

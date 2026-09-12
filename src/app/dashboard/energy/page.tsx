@@ -1,4 +1,5 @@
-import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getCountryRenewablesTable, getGridSnapshots } from "@/lib/api/engineData";
+import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getCountryRenewablesTable, getGridSnapshots, getEnergyTradeNetworkGraph } from "@/lib/api/engineData";
+import type { EnergyTradeNetworkResult } from "@/lib/engines/energyTradeNetwork";
 import { EngineDetail } from "@/components/EngineDetail";
 import { ENERGY_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type EnergyRegimeLabel } from "@/lib/engines/energySystemicRisk";
 import { ENERGY_SCENARIOS, runAllEnergyScenarios, type EnergyScenarioResult } from "@/lib/engines/energyScenarios";
@@ -93,13 +94,126 @@ function renewableShareColor(pct: number | null): string {
   return "#e0793d";
 }
 
+function fmtUsd(v: number): string {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+const COMMODITY_COLORS: Record<string, string> = { oil: "#34c085", gas: "#e0b93d" };
+
+function TradeNetworkSection({ network }: { network: EnergyTradeNetworkResult }) {
+  const size = 520;
+  const center = size / 2;
+  const nodeRadius = 190;
+  const labelRadius = 225;
+  const activeSlugs = network.nodes.filter((n) => n.degree > 0).map((n) => n.slug);
+  const angleFor = (slug: string) => {
+    const idx = activeSlugs.indexOf(slug);
+    return idx === -1 ? 0 : (idx / activeSlugs.length) * 2 * Math.PI - Math.PI / 2;
+  };
+  const posFor = (slug: string, r: number) => {
+    const a = angleFor(slug);
+    return { x: center + r * Math.cos(a), y: center + r * Math.sin(a) };
+  };
+  const maxEdgeValue = Math.max(1, ...network.edges.map((e) => e.valueUsd));
+  const maxBetweenness = Math.max(1, ...network.nodes.map((n) => n.betweenness));
+
+  return (
+    <section className="mb-8">
+      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Global Energy Trade Network</h2>
+      <p className="mb-3 max-w-3xl text-xs text-text-dim">
+        Real bilateral crude-oil and petroleum-gas export values from UN Comtrade (free, no key), among the
+        same 16-country universe used elsewhere on this page. Line thickness scales with trade value; node
+        size and color scale with betweenness centrality — computed with Brandes&apos; algorithm on the
+        actual trade graph, i.e. how often a country sits on the shortest connective path between two other
+        countries in this network, not a hand-picked score.
+      </p>
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <div className="flex justify-center rounded border border-border bg-panel-raised p-2 lg:w-1/2">
+          <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[520px]">
+            {network.edges.map((e, i) => {
+              const from = posFor(e.fromSlug, nodeRadius);
+              const to = posFor(e.toSlug, nodeRadius);
+              const strokeWidth = 0.5 + (Math.log10(1 + e.valueUsd) / Math.log10(1 + maxEdgeValue)) * 4;
+              return (
+                <line
+                  key={`${e.commodity}-${e.fromSlug}-${e.toSlug}-${i}`}
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke={COMMODITY_COLORS[e.commodity] ?? "#8b96a8"}
+                  strokeOpacity={0.45}
+                  strokeWidth={strokeWidth}
+                />
+              );
+            })}
+            {activeSlugs.map((slug) => {
+              const node = network.nodes.find((n) => n.slug === slug);
+              if (!node) return null;
+              const pos = posFor(slug, nodeRadius);
+              const labelPos = posFor(slug, labelRadius);
+              const r = 4 + (node.betweenness / maxBetweenness) * 10;
+              return (
+                <g key={slug}>
+                  <circle cx={pos.x} cy={pos.y} r={r} fill={gfmiColor(Math.min(100, node.betweenness)).bg} stroke={gfmiColor(Math.min(100, node.betweenness)).fg} strokeWidth={1} />
+                  <text x={labelPos.x} y={labelPos.y} fontSize={10} fill="#8b96a8" textAnchor="middle" dominantBaseline="middle">
+                    {node.label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+        <div className="overflow-x-auto rounded border border-border lg:w-1/2">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-panel-raised text-text-dim">
+              <tr>
+                <th className="px-3 py-2 font-medium">Country</th>
+                <th className="px-3 py-2 font-medium">Degree</th>
+                <th className="px-3 py-2 font-medium">Betweenness</th>
+                <th className="px-3 py-2 font-medium">Exports</th>
+                <th className="px-3 py-2 font-medium">Imports*</th>
+              </tr>
+            </thead>
+            <tbody>
+              {network.nodes
+                .filter((n) => n.degree > 0)
+                .map((n) => (
+                  <tr key={n.slug} className="border-t border-border align-top">
+                    <td className="px-3 py-2 font-medium">{n.label}</td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">{n.degree}</td>
+                    <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(n.betweenness) }}>
+                      {n.betweenness}
+                    </td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsd(n.exportValueUsd)}</td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">{fmtUsd(n.importValueUsd)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p className="mt-2 text-[10px] text-text-dim">
+        {network.edges.length} bilateral trade edges across {network.nodes.filter((n) => n.degree > 0).length} countries, as of{" "}
+        {network.asOf?.slice(0, 4) ?? "—"}. *Imports are mirror statistics (partners&apos; own declared exports to this country), the standard
+        convention when direct import-side reporting isn&apos;t independently pulled. Green = oil (HS 2709), amber = petroleum gas incl. LNG
+        (HS 2711).
+      </p>
+    </section>
+  );
+}
+
 export default async function EnergyPage({ searchParams }: { searchParams: Promise<{ scenario?: string }> }) {
-  const [rows, gesri, countryBalance, countryRenewables, gridSnapshots] = await Promise.all([
+  const [rows, gesri, countryBalance, countryRenewables, gridSnapshots, tradeNetwork] = await Promise.all([
     getLatestEngine("energy"),
     getEnergySystemicRiskResult(),
     getCountryEnergyBalanceTable(),
     getCountryRenewablesTable(),
     getGridSnapshots(),
+    getEnergyTradeNetworkGraph(),
   ]);
   const selectedScenarioId = (await searchParams).scenario ?? null;
 
@@ -373,6 +487,8 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
             </section>
           )}
 
+          {tradeNetwork && tradeNetwork.edges.length > 0 && <TradeNetworkSection network={tradeNetwork} />}
+
           {gridSnapshots && gridSnapshots.length > 0 && (
             <section className="mb-8">
               <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Grid Snapshots (US ISOs)</h2>
@@ -534,17 +650,19 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
             NYISO, MISO, PJM, ERCOT, SPP) now have live load/generation data — the last four via EIA-930
             since their own real-time APIs are either registration-gated or (MISO) confirmed deprecated.
             Renewable/non-renewable electricity capacity and generation by country now run live on IRENA
-            IRENASTAT (see the Renewable Energy Mix section above), and a 20-scenario stress-test library
-            with a policy simulator now runs against the live composite (see Scenario Library above) —
-            deterministic shocks applied through the real engine weighting, not a separate model. Still
-            not built — checked against real free sources, disclosed rather than faked: deeper
-            5-minute-resolution PJM/ERCOT data (pending each operator&apos;s own registration approval),
-            ENTSO-E European grid data (pending transparency@entsoe.eu access request), producer-level
-            effective spare capacity, OPEC+ quota/compliance tracking, a genuine futures-curve/backwardation
-            signal (needs a paid futures-chain feed), nuclear reactor-level outage tracking (IAEA PRIS has
-            no public API), critical-mineral mining/refining concentration breakdowns, a global energy
-            trade network graph, historical backtesting, and a daily report/AI Q&amp;A layer (deferred by
-            request — no LLM API key configured). See the{" "}
+            IRENASTAT (see the Renewable Energy Mix section above), a 20-scenario stress-test library with
+            a policy simulator now runs against the live composite (see Scenario Library above) —
+            deterministic shocks applied through the real engine weighting, not a separate model — and a
+            global energy trade network graph now runs on real bilateral UN Comtrade export values, with
+            node centrality computed via Brandes&apos; algorithm, not a hand-picked score (see Global Energy
+            Trade Network above). Still not built — checked against real free sources, disclosed rather
+            than faked: deeper 5-minute-resolution PJM/ERCOT data (pending each operator&apos;s own
+            registration approval), ENTSO-E European grid data (pending transparency@entsoe.eu access
+            request), producer-level effective spare capacity, OPEC+ quota/compliance tracking, a genuine
+            futures-curve/backwardation signal (needs a paid futures-chain feed), nuclear reactor-level
+            outage tracking (IAEA PRIS has no public API), critical-mineral mining/refining concentration
+            breakdowns, historical backtesting, and a daily report/AI Q&amp;A layer (deferred by request —
+            no LLM API key configured). See the{" "}
             <a href="/dashboard/methodology#energy-systemic-risk" className="text-accent hover:underline">
               methodology page
             </a>{" "}
