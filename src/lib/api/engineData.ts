@@ -387,18 +387,35 @@ export async function getCountryEnergyBalanceTable(): Promise<CountryEnergyBalan
   }
 }
 
-export type GridSnapshot = { loadMw: number | null; generationMw: number | null; marginMw: number | null; asOf: string | null };
+export type GridSnapshot = { gridKey: string; gridLabel: string; loadMw: number | null; generationMw: number | null; marginMw: number | null; asOf: string | null };
 
-export async function getIsoNeGridSnapshot(): Promise<GridSnapshot | null> {
+// Each entry here is one live US/regional grid-operator connector wired into
+// ingest.ts (isoNe.ts, caisoOutlook.ts, ...). Adding a new ISO only needs a
+// new entry here plus its own source file — no page/rendering changes.
+const GRID_DEFS: { key: string; label: string }[] = [
+  { key: "iso_ne", label: "New England (ISO-NE)" },
+  { key: "caiso", label: "California (CAISO)" },
+];
+
+export async function getGridSnapshots(): Promise<GridSnapshot[] | null> {
   if (!isSupabaseConfigured) return null;
   try {
     const db = await createServerSupabase();
-    const latest = await fetchLatestForKeys(db, ["energy.grid.iso_ne.load_mw", "energy.grid.iso_ne.generation_mw", "energy.grid.iso_ne.margin_mw"]);
-    const load = latest.get("energy.grid.iso_ne.load_mw");
-    const gen = latest.get("energy.grid.iso_ne.generation_mw");
-    const margin = latest.get("energy.grid.iso_ne.margin_mw");
-    if (!load && !gen && !margin) return null;
-    return { loadMw: load?.v ?? null, generationMw: gen?.v ?? null, marginMw: margin?.v ?? null, asOf: load?.t ?? gen?.t ?? margin?.t ?? null };
+    const keys = GRID_DEFS.flatMap((g) => [`energy.grid.${g.key}.load_mw`, `energy.grid.${g.key}.generation_mw`, `energy.grid.${g.key}.margin_mw`]);
+    const latest = await fetchLatestForKeys(db, keys);
+    return GRID_DEFS.map((g) => {
+      const load = latest.get(`energy.grid.${g.key}.load_mw`);
+      const gen = latest.get(`energy.grid.${g.key}.generation_mw`);
+      const margin = latest.get(`energy.grid.${g.key}.margin_mw`);
+      return {
+        gridKey: g.key,
+        gridLabel: g.label,
+        loadMw: load?.v ?? null,
+        generationMw: gen?.v ?? null,
+        marginMw: margin?.v ?? null,
+        asOf: load?.t ?? gen?.t ?? margin?.t ?? null,
+      };
+    }).filter((g) => g.loadMw !== null || g.generationMw !== null);
   } catch (e) {
     console.error((e as Error).message);
     return null;

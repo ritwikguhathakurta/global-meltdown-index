@@ -1,4 +1,4 @@
-import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getIsoNeGridSnapshot } from "@/lib/api/engineData";
+import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getGridSnapshots } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import { ENERGY_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type EnergyRegimeLabel } from "@/lib/engines/energySystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
@@ -85,11 +85,11 @@ function pctColor(pct: number | null): string {
 }
 
 export default async function EnergyPage() {
-  const [rows, gesri, countryBalance, isoNeGrid] = await Promise.all([
+  const [rows, gesri, countryBalance, gridSnapshots] = await Promise.all([
     getLatestEngine("energy"),
     getEnergySystemicRiskResult(),
     getCountryEnergyBalanceTable(),
-    getIsoNeGridSnapshot(),
+    getGridSnapshots(),
   ]);
 
   return (
@@ -308,30 +308,37 @@ export default async function EnergyPage() {
             </section>
           )}
 
-          {isoNeGrid && (isoNeGrid.loadMw !== null || isoNeGrid.generationMw !== null) && (
+          {gridSnapshots && gridSnapshots.length > 0 && (
             <section className="mb-8">
-              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Grid Snapshot — New England (ISO-NE)</h2>
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Grid Snapshots (US ISOs)</h2>
               <p className="mb-3 max-w-3xl text-xs text-text-dim">
-                First of the US ISOs being wired in for the Electricity/Grid engine (spec &sect;23-25).
-                Live system load and generation fuel mix; margin is generation minus load from live data,
-                not ISO-NE&apos;s own forward-looking reserve-margin calculation. PJM, ERCOT, CAISO, MISO,
-                NYISO and SPP follow as their registrations complete.
+                Live grid-operator data for the Electricity/Grid engine (spec &sect;23-25). Margin is
+                generation minus load from real-time data, not each ISO&apos;s own forward-looking
+                planning reserve margin. PJM, ERCOT, MISO, NYISO and SPP follow as their registrations
+                complete.
               </p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="gfew-panel p-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">System Load</div>
-                  <div className="gfew-mono text-lg font-semibold">{fmt(isoNeGrid.loadMw, "MW", 0)}</div>
-                </div>
-                <div className="gfew-panel p-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Generation</div>
-                  <div className="gfew-mono text-lg font-semibold">{fmt(isoNeGrid.generationMw, "MW", 0)}</div>
-                </div>
-                <div className="gfew-panel p-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Margin</div>
-                  <div className="gfew-mono text-lg font-semibold">{fmt(isoNeGrid.marginMw, "MW", 0)}</div>
-                </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {gridSnapshots.map((g) => (
+                  <div key={g.gridKey} className="gfew-panel p-3">
+                    <div className="mb-2 text-xs font-semibold text-text">{g.gridLabel}</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Load</div>
+                        <div className="gfew-mono text-base font-semibold">{fmt(g.loadMw, "MW", 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Generation</div>
+                        <div className="gfew-mono text-base font-semibold">{fmt(g.generationMw, "MW", 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Margin</div>
+                        <div className="gfew-mono text-base font-semibold">{fmt(g.marginMw, "MW", 0)}</div>
+                      </div>
+                    </div>
+                    {g.asOf && <p className="mt-2 text-[10px] text-text-dim">As of {g.asOf}</p>}
+                  </div>
+                ))}
               </div>
-              {isoNeGrid.asOf && <p className="mt-2 text-[10px] text-text-dim">As of {isoNeGrid.asOf}</p>}
             </section>
           )}
 
