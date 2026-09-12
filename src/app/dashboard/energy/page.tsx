@@ -1,4 +1,4 @@
-import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable } from "@/lib/api/engineData";
+import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getIsoNeGridSnapshot } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import { ENERGY_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type EnergyRegimeLabel } from "@/lib/engines/energySystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
@@ -85,10 +85,11 @@ function pctColor(pct: number | null): string {
 }
 
 export default async function EnergyPage() {
-  const [rows, gesri, countryBalance] = await Promise.all([
+  const [rows, gesri, countryBalance, isoNeGrid] = await Promise.all([
     getLatestEngine("energy"),
     getEnergySystemicRiskResult(),
     getCountryEnergyBalanceTable(),
+    getIsoNeGridSnapshot(),
   ]);
 
   return (
@@ -304,6 +305,33 @@ export default async function EnergyPage() {
                 </table>
               </div>
               {countryBalance[0]?.asOf && <p className="mt-2 text-[10px] text-text-dim">Latest reporting month: {countryBalance[0].asOf.slice(0, 7)}</p>}
+            </section>
+          )}
+
+          {isoNeGrid && (isoNeGrid.loadMw !== null || isoNeGrid.generationMw !== null) && (
+            <section className="mb-8">
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Grid Snapshot — New England (ISO-NE)</h2>
+              <p className="mb-3 max-w-3xl text-xs text-text-dim">
+                First of the US ISOs being wired in for the Electricity/Grid engine (spec &sect;23-25).
+                Live system load and generation fuel mix; margin is generation minus load from live data,
+                not ISO-NE&apos;s own forward-looking reserve-margin calculation. PJM, ERCOT, CAISO, MISO,
+                NYISO and SPP follow as their registrations complete.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="gfew-panel p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">System Load</div>
+                  <div className="gfew-mono text-lg font-semibold">{fmt(isoNeGrid.loadMw, "MW", 0)}</div>
+                </div>
+                <div className="gfew-panel p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Generation</div>
+                  <div className="gfew-mono text-lg font-semibold">{fmt(isoNeGrid.generationMw, "MW", 0)}</div>
+                </div>
+                <div className="gfew-panel p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Margin</div>
+                  <div className="gfew-mono text-lg font-semibold">{fmt(isoNeGrid.marginMw, "MW", 0)}</div>
+                </div>
+              </div>
+              {isoNeGrid.asOf && <p className="mt-2 text-[10px] text-text-dim">As of {isoNeGrid.asOf}</p>}
             </section>
           )}
 

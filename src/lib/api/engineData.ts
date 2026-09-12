@@ -37,6 +37,7 @@ import {
 import { getChinaSystemicRiskResult as computeChinaSystemicRiskResult, type ChinaSystemicRiskResult } from "@/lib/engines/chinaSystemicRisk";
 import { getEnergySystemicRiskResult as computeEnergySystemicRiskResult, type EnergySystemicRiskResult } from "@/lib/engines/energySystemicRisk";
 import { getCountryEnergyBalanceTable as computeCountryEnergyBalanceTable, type CountryEnergyBalanceRow } from "@/lib/engines/energyCountryBalance";
+import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
 export type GfmiRow = {
@@ -380,6 +381,24 @@ export async function getCountryEnergyBalanceTable(): Promise<CountryEnergyBalan
   try {
     const db = await createServerSupabase();
     return await computeCountryEnergyBalanceTable(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export type GridSnapshot = { loadMw: number | null; generationMw: number | null; marginMw: number | null; asOf: string | null };
+
+export async function getIsoNeGridSnapshot(): Promise<GridSnapshot | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    const latest = await fetchLatestForKeys(db, ["energy.grid.iso_ne.load_mw", "energy.grid.iso_ne.generation_mw", "energy.grid.iso_ne.margin_mw"]);
+    const load = latest.get("energy.grid.iso_ne.load_mw");
+    const gen = latest.get("energy.grid.iso_ne.generation_mw");
+    const margin = latest.get("energy.grid.iso_ne.margin_mw");
+    if (!load && !gen && !margin) return null;
+    return { loadMw: load?.v ?? null, generationMw: gen?.v ?? null, marginMw: margin?.v ?? null, asOf: load?.t ?? gen?.t ?? margin?.t ?? null };
   } catch (e) {
     console.error((e as Error).message);
     return null;

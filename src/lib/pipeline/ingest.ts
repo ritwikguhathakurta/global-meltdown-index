@@ -82,6 +82,7 @@ import { fetchAllBankSecFilings } from "../sources/bankSecFilings";
 import { fetchAllBankFdicMetrics } from "../sources/fdicBankFind";
 import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
 import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
+import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -892,6 +893,26 @@ export async function ingestEiaEnergy(db: SupabaseClient, runDate: string): Prom
   return { stage: "ingest_eia_energy", status, detail };
 }
 
+export async function ingestIsoNeGrid(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const username = process.env.ISO_NE_USERNAME;
+  if (!username) {
+    await logRun(db, runDate, "ingest_iso_ne_grid", "warning", { reason: "ISO_NE_USERNAME/ISO_NE_PASSWORD not set" });
+    return { stage: "ingest_iso_ne_grid", status: "warning", detail: { reason: "ISO_NE_USERNAME/ISO_NE_PASSWORD not set" } };
+  }
+  try {
+    const points = await fetchIsoNeGridSnapshot();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_iso_ne_grid", status, detail);
+    return { stage: "ingest_iso_ne_grid", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_iso_ne_grid", "failed", detail);
+    return { stage: "ingest_iso_ne_grid", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -937,6 +958,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_nbfi_checks", ingestNbfiChecks(db, runDate)),
     withTimeout("ingest_energy_chokepoints", ingestEnergyChokepoints(db, runDate)),
     withTimeout("ingest_eia_energy", ingestEiaEnergy(db, runDate)),
+    withTimeout("ingest_iso_ne_grid", ingestIsoNeGrid(db, runDate)),
   ]);
   return { runDate, results };
 }
