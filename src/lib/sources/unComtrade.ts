@@ -50,7 +50,7 @@ export const TRADE_COMMODITIES: { hsCode: string; slug: string; label: string }[
   { hsCode: "2711", slug: "gas", label: "Petroleum Gases (incl. LNG)" },
 ];
 
-type ComtradeRow = { reporterCode: number; partnerCode: number; flowCode: string; period: string; primaryValue: number | null };
+type ComtradeRow = { reporterCode: number; partnerCode: number; flowCode: string; period: string; primaryValue: number | null; motCode: number; partner2Code: number };
 type ComtradeResponse = { data?: ComtradeRow[] };
 
 function delay(ms: number): Promise<void> {
@@ -82,7 +82,7 @@ async function findLatestAvailableYear(cmdCode: string): Promise<string> {
   const currentYear = new Date().getUTCFullYear();
   for (let y = currentYear - 1; y >= currentYear - 4; y--) {
     const rows = await comtradeQuery({ reporterCode: "842", partnerCode: "0", period: String(y), cmdCode });
-    if (rows.some((r) => r.flowCode === "X" && r.primaryValue !== null)) return String(y);
+    if (rows.some((r) => r.flowCode === "X" && r.motCode === 0 && r.partner2Code === 0 && r.primaryValue !== null)) return String(y);
     await delay(1500);
   }
   throw new Error(`UN Comtrade: no export data found for cmdCode ${cmdCode} in the last 4 years`);
@@ -105,21 +105,27 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
     const REPORTER_CHUNK_SIZE = 4;
     // Comtrade can report more than one "X" (export) row for the same
     // reporter/partner pair — split by customs procedure or mode of
-    // transport — so pair values are summed here before ever becoming a
-    // MetricPoint, or upsertMetrics' single-batch upsert would try to
-    // touch the same (metric_key, observed_at, source_id) row twice and
-    // Postgres rejects that outright.
+    // transport (motCode) AND cross-tabbed again by a secondary-partner
+    // dimension (partner2Code) — both are already-included subsets of the
+    // canonical grand total, so summing every "X" row (as an earlier
+    // version of this connector did) silently ~4x'd every trade value.
+    // motCode===0 && partner2Code===0 is Comtrade's own "all modes, no
+    // secondary partner" grand-total row — exactly one per reporter/partner
+    // pair, which is also what keeps upsertMetrics' single-batch upsert
+    // from ever touching the same (metric_key, observed_at, source_id) row
+    // twice in one call.
     const valueByPair = new Map<string, number>();
     for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
       const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
       const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
       for (const row of rows) {
-        if (row.flowCode !== "X" || row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
+        if (row.flowCode !== "X" || row.motCode !== 0 || row.partner2Code !== 0) continue;
+        if (row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
         const reporterSlug = slugByCode.get(String(row.reporterCode));
         const partnerSlug = slugByCode.get(String(row.partnerCode));
         if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
         const pairKey = `${reporterSlug}_to_${partnerSlug}`;
-        valueByPair.set(pairKey, (valueByPair.get(pairKey) ?? 0) + row.primaryValue);
+        valueByPair.set(pairKey, row.primaryValue);
       }
       await delay(2000);
     }
