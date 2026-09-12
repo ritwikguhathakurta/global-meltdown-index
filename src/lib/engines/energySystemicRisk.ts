@@ -174,6 +174,62 @@ export function energyStageFor(compositeScore: number | null, hiddenRisk: boolea
 export const STRUCTURAL_WEIGHTS = { oil: 0.35, gas: 0.25, minerals: 0.2, shipping: 0.2 };
 export const COMPOSITE_WEIGHTS = { structural: 0.4, market: 0.35, convergence: 0.25 };
 
+export type EnergyDomainScores = { oilScore: number | null; gasScore: number | null; mineralsScore: number | null; shippingScore: number | null; marketScore: number | null };
+
+export type EnergyComposite = {
+  structuralScore: number | null;
+  convergenceScore: number | null;
+  compositeScore: number | null;
+  regime: EnergyRegimeLabel;
+  hiddenRisk: boolean;
+  marketLedWarning: boolean;
+  stage: number | null;
+  stageLabel: string;
+};
+
+// The same structural/composite weighting and stage logic used by
+// getEnergySystemicRiskResult below, pulled out as a pure function so the
+// scenario simulator (energyScenarios.ts) can apply a hypothetical shock to
+// today's domain scores and get back a result computed by the identical
+// production methodology — not a parallel reimplementation of it.
+export function composeEnergyComposite(domains: EnergyDomainScores): EnergyComposite {
+  const { oilScore, gasScore, mineralsScore, shippingScore, marketScore } = domains;
+  const structuralParts = [
+    oilScore !== null ? { score: oilScore, weight: STRUCTURAL_WEIGHTS.oil } : null,
+    gasScore !== null ? { score: gasScore, weight: STRUCTURAL_WEIGHTS.gas } : null,
+    mineralsScore !== null ? { score: mineralsScore, weight: STRUCTURAL_WEIGHTS.minerals } : null,
+    shippingScore !== null ? { score: shippingScore, weight: STRUCTURAL_WEIGHTS.shipping } : null,
+  ].filter((p): p is { score: number; weight: number } => p !== null);
+  const structuralScore = structuralParts.length > 0 ? Math.round(structuralParts.reduce((a, b) => a + b.score * b.weight, 0) / structuralParts.reduce((a, b) => a + b.weight, 0)) : null;
+
+  const domainScores = [oilScore, gasScore, mineralsScore, shippingScore];
+  const domainsWithData = domainScores.filter((v) => v !== null) as number[];
+  const domainsStressed = domainsWithData.filter((v) => v >= 60).length;
+  const convergenceScore = domainsWithData.length >= 3 ? Math.round((domainsStressed / domainsWithData.length) * 100) : null;
+
+  const compositeParts = [
+    structuralScore !== null ? { score: structuralScore, weight: COMPOSITE_WEIGHTS.structural } : null,
+    marketScore !== null ? { score: marketScore, weight: COMPOSITE_WEIGHTS.market } : null,
+    convergenceScore !== null ? { score: convergenceScore, weight: COMPOSITE_WEIGHTS.convergence } : null,
+  ].filter((p): p is { score: number; weight: number } => p !== null);
+  const compositeScore = compositeParts.length > 0 ? Math.round(compositeParts.reduce((a, b) => a + b.score * b.weight, 0) / compositeParts.reduce((a, b) => a + b.weight, 0)) : null;
+
+  const hiddenRisk = structuralScore !== null && marketScore !== null && structuralScore >= 55 && marketScore < 40;
+  const marketLedWarning = structuralScore !== null && marketScore !== null && marketScore >= 55 && marketScore - structuralScore >= 20;
+  const stageDef = energyStageFor(compositeScore, hiddenRisk, marketLedWarning, convergenceScore);
+
+  return {
+    structuralScore,
+    convergenceScore,
+    compositeScore,
+    regime: labelFromScore(compositeScore),
+    hiddenRisk,
+    marketLedWarning,
+    stage: stageDef?.stage ?? null,
+    stageLabel: stageDef?.shortLabel ?? "—",
+  };
+}
+
 const BRENT_KEY = "commodity.brent";
 const WTI_KEY = "commodity.wti";
 const OVX_KEY = "energy.oil_volatility_ovx";
@@ -298,14 +354,6 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   ].filter((p): p is { score: number; weight: number } => p !== null);
   const shippingScore = shippingParts.length > 0 ? Math.round(shippingParts.reduce((a, b) => a + b.score * b.weight, 0) / shippingParts.reduce((a, b) => a + b.weight, 0)) : null;
 
-  const structuralParts = [
-    oilScore !== null ? { score: oilScore, weight: STRUCTURAL_WEIGHTS.oil } : null,
-    gasScore !== null ? { score: gasScore, weight: STRUCTURAL_WEIGHTS.gas } : null,
-    mineralsScore !== null ? { score: mineralsScore, weight: STRUCTURAL_WEIGHTS.minerals } : null,
-    shippingScore !== null ? { score: shippingScore, weight: STRUCTURAL_WEIGHTS.shipping } : null,
-  ].filter((p): p is { score: number; weight: number } => p !== null);
-  const structuralScore = structuralParts.length > 0 ? Math.round(structuralParts.reduce((a, b) => a + b.score * b.weight, 0) / structuralParts.reduce((a, b) => a + b.weight, 0)) : null;
-
   // Market domain: XLE price (below trend = stress) + realized vol.
   const xlePriceScore = zToRiskScore(zScore(xleSeries, DAILY_WINDOW), -1);
   const xleVolScore = zToRiskScore(zScore(rollingRealizedVolSeries(xleSeries), DAILY_WINDOW), 1);
@@ -315,22 +363,13 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   ].filter((p): p is { score: number; weight: number } => p !== null);
   const marketScore = marketParts.length > 0 ? Math.round(marketParts.reduce((a, b) => a + b.score * b.weight, 0) / marketParts.reduce((a, b) => a + b.weight, 0)) : null;
 
-  // Convergence: fraction of the four structural domains independently >=60.
-  const domainScores = [oilScore, gasScore, mineralsScore, shippingScore];
-  const domainsWithData = domainScores.filter((v) => v !== null) as number[];
-  const domainsStressed = domainsWithData.filter((v) => v >= 60).length;
-  const convergenceScore = domainsWithData.length >= 3 ? Math.round((domainsStressed / domainsWithData.length) * 100) : null;
-
-  const compositeParts = [
-    structuralScore !== null ? { score: structuralScore, weight: COMPOSITE_WEIGHTS.structural } : null,
-    marketScore !== null ? { score: marketScore, weight: COMPOSITE_WEIGHTS.market } : null,
-    convergenceScore !== null ? { score: convergenceScore, weight: COMPOSITE_WEIGHTS.convergence } : null,
-  ].filter((p): p is { score: number; weight: number } => p !== null);
-  const compositeScore = compositeParts.length > 0 ? Math.round(compositeParts.reduce((a, b) => a + b.score * b.weight, 0) / compositeParts.reduce((a, b) => a + b.weight, 0)) : null;
-
-  const hiddenRisk = structuralScore !== null && marketScore !== null && structuralScore >= 55 && marketScore < 40;
-  const marketLedWarning = structuralScore !== null && marketScore !== null && marketScore >= 55 && marketScore - structuralScore >= 20;
-  const stageDef = energyStageFor(compositeScore, hiddenRisk, marketLedWarning, convergenceScore);
+  const { structuralScore, convergenceScore, compositeScore, regime, hiddenRisk, marketLedWarning, stage, stageLabel } = composeEnergyComposite({
+    oilScore,
+    gasScore,
+    mineralsScore,
+    shippingScore,
+    marketScore,
+  });
 
   const brentLast = latestPoint(brentSeries);
   const wtiLast = latestPoint(wtiSeries);
@@ -375,11 +414,11 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
     structuralScore,
     convergenceScore,
     compositeScore,
-    regime: labelFromScore(compositeScore),
+    regime,
     hiddenRisk,
     marketLedWarning,
     dataCompleteness,
-    stage: stageDef?.stage ?? null,
-    stageLabel: stageDef?.shortLabel ?? "—",
+    stage,
+    stageLabel,
   };
 }

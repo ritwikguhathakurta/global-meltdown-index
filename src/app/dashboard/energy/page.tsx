@@ -1,6 +1,7 @@
 import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getCountryRenewablesTable, getGridSnapshots } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import { ENERGY_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type EnergyRegimeLabel } from "@/lib/engines/energySystemicRisk";
+import { ENERGY_SCENARIOS, runAllEnergyScenarios, type EnergyScenarioResult } from "@/lib/engines/energyScenarios";
 import { gfmiColor } from "@/components/RegimeBadge";
 import { TrendIndicator } from "@/components/TrendIndicator";
 
@@ -92,7 +93,7 @@ function renewableShareColor(pct: number | null): string {
   return "#e0793d";
 }
 
-export default async function EnergyPage() {
+export default async function EnergyPage({ searchParams }: { searchParams: Promise<{ scenario?: string }> }) {
   const [rows, gesri, countryBalance, countryRenewables, gridSnapshots] = await Promise.all([
     getLatestEngine("energy"),
     getEnergySystemicRiskResult(),
@@ -100,6 +101,18 @@ export default async function EnergyPage() {
     getCountryRenewablesTable(),
     getGridSnapshots(),
   ]);
+  const selectedScenarioId = (await searchParams).scenario ?? null;
+
+  const scenarioResults: EnergyScenarioResult[] | null = gesri
+    ? runAllEnergyScenarios({
+        oilScore: gesri.oilScore,
+        gasScore: gesri.gasScore,
+        mineralsScore: gesri.mineralsScore,
+        shippingScore: gesri.shippingScore,
+        marketScore: gesri.marketScore,
+      })
+    : null;
+  const selectedScenario = scenarioResults?.find((r) => r.scenario.id === selectedScenarioId) ?? null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -432,6 +445,87 @@ export default async function EnergyPage() {
             </div>
           </section>
 
+          {scenarioResults && (
+            <section className="mb-8">
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Scenario Library &amp; Policy Simulator</h2>
+              <p className="mb-3 max-w-3xl text-xs text-text-dim">
+                20 stress scenarios, each applying a fixed shock to today&apos;s live domain scores and
+                recomputing the composite through the exact same weighting the engine above uses. Shock
+                sizes are illustrative judgment calls loosely calibrated to the named historical
+                analogue&apos;s rough direction and scale &mdash; not a statistical fit, not a probability
+                estimate, and not a claim that this engine existed during the named event. Click a scenario
+                for its full rationale.
+              </p>
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-panel-raised text-text-dim">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Scenario</th>
+                      <th className="px-3 py-2 font-medium">Category</th>
+                      <th className="px-3 py-2 font-medium">Composite (baseline &rarr; scenario)</th>
+                      <th className="px-3 py-2 font-medium">Regime</th>
+                      <th className="px-3 py-2 font-medium">Stage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scenarioResults
+                      .slice()
+                      .sort((a, b) => (b.compositeScore ?? -Infinity) - (a.compositeScore ?? -Infinity))
+                      .map((r) => (
+                        <tr key={r.scenario.id} className={`border-t border-border align-top ${r.scenario.id === selectedScenarioId ? "bg-panel-raised" : ""}`}>
+                          <td className="px-3 py-2 font-medium">
+                            <a href={`?scenario=${r.scenario.id}#scenario-detail`} className="text-accent hover:underline">
+                              {r.scenario.label}
+                            </a>
+                          </td>
+                          <td className="px-3 py-2 text-text-dim">{r.scenario.category}</td>
+                          <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(r.compositeScore) }}>
+                            {gesri?.compositeScore ?? "—"} &rarr; {r.compositeScore ?? "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            <RegimePill regime={r.regime} />
+                          </td>
+                          <td className="px-3 py-2 text-text-dim">{r.stageLabel}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {selectedScenario && (
+                <div id="scenario-detail" className="gfew-panel mt-4 scroll-mt-4 p-4">
+                  <div className="mb-1 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-text">{selectedScenario.scenario.label}</h3>
+                    <a href="#" className="text-xs text-accent hover:underline">
+                      Clear
+                    </a>
+                  </div>
+                  <p className="mb-2 text-xs text-text-dim">{selectedScenario.scenario.description}</p>
+                  <p className="mb-3 text-[10px] italic text-text-dim">Historical analogue: {selectedScenario.scenario.historicalAnalogue}</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                    {(
+                      [
+                        ["Oil", selectedScenario.baseline.oilScore, selectedScenario.shocked.oilScore],
+                        ["Natural Gas", selectedScenario.baseline.gasScore, selectedScenario.shocked.gasScore],
+                        ["Minerals", selectedScenario.baseline.mineralsScore, selectedScenario.shocked.mineralsScore],
+                        ["Shipping", selectedScenario.baseline.shippingScore, selectedScenario.shocked.shippingScore],
+                        ["Market", selectedScenario.baseline.marketScore, selectedScenario.shocked.marketScore],
+                      ] as const
+                    ).map(([label, before, after]) => (
+                      <div key={label}>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">{label}</div>
+                        <div className="gfew-mono text-sm font-semibold" style={{ color: scoreColor(after) }}>
+                          {before ?? "—"} &rarr; {after ?? "—"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 text-[10px] text-text-dim">{ENERGY_SCENARIOS.length} scenarios modeled against today&apos;s live baseline (composite {gesri?.compositeScore ?? "—"}).</p>
+            </section>
+          )}
+
           <section className="gfew-panel p-4 text-xs text-text-dim">
             <strong className="text-text">Phased build against the full spec:</strong> a real chokepoint-
             throughput system now runs live on IMF PortWatch AIS data, and country-level oil production/
@@ -440,15 +534,17 @@ export default async function EnergyPage() {
             NYISO, MISO, PJM, ERCOT, SPP) now have live load/generation data — the last four via EIA-930
             since their own real-time APIs are either registration-gated or (MISO) confirmed deprecated.
             Renewable/non-renewable electricity capacity and generation by country now run live on IRENA
-            IRENASTAT (see the Renewable Energy Mix section above). Still not built — checked against
-            real free sources, disclosed rather than faked: deeper 5-minute-resolution PJM/ERCOT data
-            (pending each operator&apos;s own registration approval), ENTSO-E European grid data (pending
-            transparency@entsoe.eu access request), producer-level effective spare capacity, OPEC+ quota/
-            compliance tracking, a genuine futures-curve/backwardation signal (needs a paid futures-chain
-            feed), nuclear reactor-level outage tracking (IAEA PRIS has no public API), critical-mineral
-            mining/refining concentration breakdowns, a global energy trade network graph, a scenario
-            library with a policy simulator, historical backtesting, and a daily report/AI Q&amp;A layer.
-            See the{" "}
+            IRENASTAT (see the Renewable Energy Mix section above), and a 20-scenario stress-test library
+            with a policy simulator now runs against the live composite (see Scenario Library above) —
+            deterministic shocks applied through the real engine weighting, not a separate model. Still
+            not built — checked against real free sources, disclosed rather than faked: deeper
+            5-minute-resolution PJM/ERCOT data (pending each operator&apos;s own registration approval),
+            ENTSO-E European grid data (pending transparency@entsoe.eu access request), producer-level
+            effective spare capacity, OPEC+ quota/compliance tracking, a genuine futures-curve/backwardation
+            signal (needs a paid futures-chain feed), nuclear reactor-level outage tracking (IAEA PRIS has
+            no public API), critical-mineral mining/refining concentration breakdowns, a global energy
+            trade network graph, historical backtesting, and a daily report/AI Q&amp;A layer (deferred by
+            request — no LLM API key configured). See the{" "}
             <a href="/dashboard/methodology#energy-systemic-risk" className="text-accent hover:underline">
               methodology page
             </a>{" "}
