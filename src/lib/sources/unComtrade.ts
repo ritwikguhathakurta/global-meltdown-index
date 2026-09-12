@@ -96,15 +96,21 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
   for (const commodity of TRADE_COMMODITIES) {
     const year = await findLatestAvailableYear(commodity.hsCode);
     await delay(1500);
-    for (const reporterSlug of EIA_COUNTRIES.map((c) => c.slug)) {
-      const reporterCode = UN_COMTRADE_CODES[reporterSlug];
-      if (!reporterCode) continue;
-      const partnerCodes = allCodes.filter((c) => c !== reporterCode);
-      const rows = await comtradeQuery({ reporterCode, partnerCode: partnerCodes.join(","), period: year, cmdCode: commodity.hsCode });
+    // Batch reporters in groups of 4 (both dimensions accept comma-separated
+    // codes) rather than one call per reporter — cuts ~16 calls down to ~4
+    // per commodity, which is what keeps this stage inside its 150s budget
+    // given the preview endpoint's aggressive per-request rate limiting.
+    // Each group stays comfortably under the endpoint's 500-record cap
+    // (4 reporters * 16 partners * a handful of flow-code variants).
+    const REPORTER_CHUNK_SIZE = 4;
+    for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
+      const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
+      const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
       for (const row of rows) {
         if (row.flowCode !== "X" || row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
+        const reporterSlug = slugByCode.get(String(row.reporterCode));
         const partnerSlug = slugByCode.get(String(row.partnerCode));
-        if (!partnerSlug) continue;
+        if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
         points.push({
           metric_key: `energy.trade.${commodity.slug}.${reporterSlug}_to_${partnerSlug}`,
           observed_at: `${year}-12-31`,
@@ -115,7 +121,7 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
           frequency: "annual",
         });
       }
-      await delay(1500);
+      await delay(2000);
     }
   }
   return points;
