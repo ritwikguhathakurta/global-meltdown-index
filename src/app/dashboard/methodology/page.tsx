@@ -1129,6 +1129,81 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="energy-systemic-risk">
+        <h2 className="mb-2 text-base font-semibold text-text">Global Energy Systemic Risk (GESRI)</h2>
+        <p className="mb-2">
+          Built against a 171-section institutional spec covering oil/gas/LNG/coal/electricity/grid/
+          nuclear/renewables/critical-minerals/shipping/chokepoints/geopolitics/weather/transition risk
+          across a 30-secondary-score index, a 250+-signal library, a global energy trade network graph,
+          a 20-scenario stress library with a policy simulator, historical backtesting to the 1973 oil
+          crisis, a daily 8am IST report and a full AI Q&amp;A layer. Same discipline as every other
+          deep-dive engine here: checked domain by domain against what free, verified data genuinely
+          supports for an incremental addition to an existing app rather than a from-scratch commodity-
+          intelligence platform, everything else disclosed as deferred rather than faked. Lives on the
+          existing{" "}
+          <a href="/dashboard/energy" className="text-accent hover:underline">
+            Energy
+          </a>{" "}
+          page, below the pre-existing flat, GFMI-weighted &ldquo;Energy&rdquo; composite (Brent/WTI/
+          Henry Hub spot levels only), which is unchanged by this addition (same &ldquo;new analytical
+          layer, not a second vote&rdquo; pattern as every other Systemic Risk engine here).
+        </p>
+        <p className="mb-2">
+          <strong>Four structural domains</strong>: Oil (Brent+WTI spot levels, already tracked by the
+          flat engine, blended with CBOE&apos;s Crude Oil ETF Volatility Index — OVX, a real
+          options-implied-volatility &ldquo;market stress&rdquo; signal for oil, the same concept as VIX
+          for equities); Natural Gas (Henry Hub spot plus its own realized volatility — a genuine US
+          storage series was checked and requires a keyed EIA API registration this app does not have
+          configured, not used); Critical Minerals/Nuclear Fuel (Copper and Uranium, both IMF-sourced
+          &ldquo;Global price of...&rdquo; series, scored on |z| — extreme moves in either direction
+          count as risk, since both a bottleneck-driven spike and a demand-collapse crash are genuine
+          hazards; Lithium was checked and has no free equivalent series); and Shipping/Supply Chain
+          (the NY Fed&apos;s Global Supply Chain Pressure Index, already ingested for the Supply Chains
+          engine and reused here rather than re-fetched — no free source publishes vessel-level tanker/
+          LNG-carrier fleet data or per-chokepoint transit volumes).
+        </p>
+        <p className="mb-2">
+          Market = the Energy Select Sector SPDR (XLE) own-history price z-score (60%) blended with
+          realized-volatility z-score (40%) — no free cross-country energy-equity index exists, so XLE
+          serves as a liquid, real-time proxy for producer/company financial stress, the same
+          &ldquo;sector ETF as market domain&rdquo; pattern already used for REITs and bank equities
+          elsewhere in this app. Structural = Oil 35% + Natural Gas 25% + Critical Minerals/Nuclear Fuel
+          20% + Shipping 20% (weighted toward oil&apos;s outsized share of global energy trade value).
+          Composite = Structural 40% + Market 35% + Convergence 25% — this app&apos;s standard split.
+        </p>
+        <p className="mb-2">
+          <strong>Convergence, not cross-country contagion</strong>: because this is a single global
+          entity rather than a peer-country table, the cross-country breadth pattern every other
+          Systemic Risk engine here uses cannot apply directly. The spec&apos;s own &ldquo;Energy Supply
+          Chain Convergence&rdquo; concept (raise risk when independent stress appears simultaneously
+          across commodities, not simply summing correlated variables) supplies the single-entity
+          substitute used instead: the fraction of this engine&apos;s own four structural domains that
+          are independently elevated (≥60) at the same time.
+        </p>
+        <p className="mb-2">
+          <strong>Stage model</strong>: the spec&apos;s own 9-stage Energy Crisis Clock (Stage 0 Normal
+          through Stage 8 Global Energy Crisis) compressed to this app&apos;s standard 7-stage
+          convention. Hidden Energy Risk (structural elevated, market still calm) and a market-led
+          warning (market deteriorating well ahead of structural) promote the stage floor, never demote
+          it. Stage 7 is reserved for a genuinely high Convergence reading alongside an already-high
+          composite, rather than any single commodity in isolation.
+        </p>
+        <p className="mb-2">
+          <strong>Still not built</strong> — checked, no free/reliable no-key source found, or genuinely
+          out of scope for incremental work on an existing app, disclosed rather than faked: country-
+          level energy balances/import-dependency/spare-capacity accounting (needs licensed IEA/EIA bulk
+          data), OPEC+ quota/compliance tracking, a genuine futures-curve/backwardation signal (needs a
+          paid futures-chain feed), natural gas storage levels, electricity/grid reserve-margin and
+          blackout-risk data, nuclear reactor-level outage tracking, renewable capacity/generation by
+          country (IRENA&apos;s own datasets not yet integrated), a real chokepoint-throughput/vessel-
+          tracking system, critical-mineral mining/refining/manufacturing concentration breakdowns, a
+          global energy trade network graph with node-centrality analysis, a 20-scenario stress-test
+          library with a user-facing policy simulator, producer fiscal-breakeven tracking (these are
+          analyst estimates, not a free official series), historical backtesting with lead-time/AUC/
+          Brier-score validation, and a daily 8am IST report/AI Q&amp;A layer.
+        </p>
+      </section>
+
       <section className="mb-8" id="china-systemic-risk">
         <h2 className="mb-2 text-base font-semibold text-text">China Systemic Risk</h2>
         <p className="mb-2">

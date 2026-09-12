@@ -28,6 +28,13 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "equity.rsp_equal_weighted", symbol: "RSP", unit: "USD" },
   { metricKey: "equity.qqq_cap_weighted", symbol: "QQQ", unit: "USD" },
   { metricKey: "equity.qqqe_equal_weighted", symbol: "QQQE", unit: "USD" },
+  // Energy Systemic Risk engine — Energy Select Sector SPDR (XLE) as the
+  // energy-sector market-pricing/financing-stress proxy (see
+  // energySystemicRisk.ts): no free cross-country energy-equity index exists,
+  // but XLE is a liquid, real-time proxy for how markets are pricing
+  // producer/company financial stress, the same "sector ETF as market
+  // domain" pattern already used for REITs and bank equities elsewhere here.
+  { metricKey: "energy.xle_price", symbol: "XLE", unit: "USD" },
   // Private Credit engine — publicly-traded BDCs as a market-based stress proxy
   { metricKey: "privatecredit.bdc_arcc", symbol: "ARCC", unit: "USD" },
   { metricKey: "privatecredit.bdc_main", symbol: "MAIN", unit: "USD" },

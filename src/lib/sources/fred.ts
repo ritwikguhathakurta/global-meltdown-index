@@ -46,6 +46,19 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "commodity.wti", seriesId: "DCOILWTICO", frequency: "daily", unit: "USD/bbl" },
   { metricKey: "commodity.natgas_henry_hub", seriesId: "DHHNGSP", frequency: "daily", unit: "USD/MMBtu" },
 
+  // Energy Systemic Risk engine — genuinely new free series verified live before
+  // use (see energySystemicRisk.ts for the full domain design). CBOE's Crude
+  // Oil ETF Volatility Index (OVX) is a real options-implied-volatility
+  // "market stress" signal for oil, the same concept as VIX for equities, not
+  // something we compute ourselves. Copper and Uranium are IMF-sourced
+  // "Global price of ..." series FRED already mirrors monthly — used here as
+  // free, official proxies for critical-mineral/nuclear-fuel bottleneck
+  // stress (a genuine lithium series was checked and does not exist on
+  // FRED/OECD MEI, disclosed as a gap rather than substituted).
+  { metricKey: "energy.oil_volatility_ovx", seriesId: "OVXCLS", frequency: "daily", unit: "index" },
+  { metricKey: "energy.copper_price", seriesId: "PCOPPUSDM", frequency: "monthly", unit: "USD/tonne" },
+  { metricKey: "energy.uranium_price", seriesId: "PURANUSDM", frequency: "monthly", unit: "USD/lb" },
+
   // Banking engine (V3 §22) — Fed H.8 weekly release + delinquency/charge-off series
   { metricKey: "banking.deposits_total", seriesId: "DPSACBW027SBOG", frequency: "weekly", unit: "USD bn" },
   { metricKey: "banking.delinquency_rate_all_loans", seriesId: "DRALACBS", frequency: "quarterly", unit: "%" },
