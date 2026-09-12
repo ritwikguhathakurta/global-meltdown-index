@@ -1136,11 +1136,11 @@ export default function MethodologyPage() {
           nuclear/renewables/critical-minerals/shipping/chokepoints/geopolitics/weather/transition risk
           across a 30-secondary-score index, a 250+-signal library, a global energy trade network graph,
           a 20-scenario stress library with a policy simulator, historical backtesting to the 1973 oil
-          crisis, a daily 8am IST report and a full AI Q&amp;A layer. Same discipline as every other
-          deep-dive engine here: checked domain by domain against what free, verified data genuinely
-          supports for an incremental addition to an existing app rather than a from-scratch commodity-
-          intelligence platform, everything else disclosed as deferred rather than faked. Lives on the
-          existing{" "}
+          crisis, a daily 8am IST report and a full AI Q&amp;A layer. This is a genuinely large build
+          (dozens of new tables and connectors, not a single-engine addition), and is proceeding in
+          phases rather than one shot: each domain is checked against real free/official sources before
+          being wired in, work lands incrementally, and everything not yet built is disclosed here rather
+          than faked or silently skipped. Lives on the existing{" "}
           <a href="/dashboard/energy" className="text-accent hover:underline">
             Energy
           </a>{" "}
@@ -1157,10 +1157,18 @@ export default function MethodologyPage() {
           configured, not used); Critical Minerals/Nuclear Fuel (Copper and Uranium, both IMF-sourced
           &ldquo;Global price of...&rdquo; series, scored on |z| — extreme moves in either direction
           count as risk, since both a bottleneck-driven spike and a demand-collapse crash are genuine
-          hazards; Lithium was checked and has no free equivalent series); and Shipping/Supply Chain
-          (the NY Fed&apos;s Global Supply Chain Pressure Index, already ingested for the Supply Chains
-          engine and reused here rather than re-fetched — no free source publishes vessel-level tanker/
-          LNG-carrier fleet data or per-chokepoint transit volumes).
+          hazards; Lithium was checked and has no free equivalent series); and Shipping/Supply Chain (the
+          NY Fed&apos;s Global Supply Chain Pressure Index, already ingested for the Supply Chains engine
+          and reused here rather than re-fetched, blended 55/45 with a genuine tanker-transit chokepoint
+          signal from{" "}
+          <a href="https://portwatch.imf.org/pages/data-and-methodology" target="_blank" rel="noreferrer" className="text-accent hover:underline">
+            IMF PortWatch
+          </a>
+          : free, official, AIS-derived daily vessel counts for all 28 tracked global chokepoints. Hormuz,
+          Bab el-Mandeb, Suez and Malacca — the four through which most seaborne oil/LNG physically
+          moves — feed this domain directly; a drop in tanker transits below a chokepoint&apos;s own
+          trailing norm scores as risk. This supersedes the original build&apos;s assumption that no free
+          chokepoint-level data existed.
         </p>
         <p className="mb-2">
           Market = the Energy Select Sector SPDR (XLE) own-history price z-score (60%) blended with
@@ -1189,18 +1197,31 @@ export default function MethodologyPage() {
           composite, rather than any single commodity in isolation.
         </p>
         <p className="mb-2">
-          <strong>Still not built</strong> — checked, no free/reliable no-key source found, or genuinely
-          out of scope for incremental work on an existing app, disclosed rather than faked: country-
-          level energy balances/import-dependency/spare-capacity accounting (needs licensed IEA/EIA bulk
-          data), OPEC+ quota/compliance tracking, a genuine futures-curve/backwardation signal (needs a
-          paid futures-chain feed), natural gas storage levels, electricity/grid reserve-margin and
-          blackout-risk data, nuclear reactor-level outage tracking, renewable capacity/generation by
-          country (IRENA&apos;s own datasets not yet integrated), a real chokepoint-throughput/vessel-
-          tracking system, critical-mineral mining/refining/manufacturing concentration breakdowns, a
-          global energy trade network graph with node-centrality analysis, a 20-scenario stress-test
-          library with a user-facing policy simulator, producer fiscal-breakeven tracking (these are
-          analyst estimates, not a free official series), historical backtesting with lead-time/AUC/
-          Brier-score validation, and a daily 8am IST report/AI Q&amp;A layer.
+          <strong>Phase 1 (shipped)</strong>: the four structural domains and Market/Convergence layer
+          above, now including real chokepoint-transit data from IMF PortWatch.
+        </p>
+        <p className="mb-2">
+          <strong>Phase 2 (credentials requested, build in progress)</strong>: country-level energy
+          balances, import-dependency, spare-capacity accounting, and natural gas storage levels — all
+          confirmed free via EIA API v2, pending a registered API key; renewable capacity/generation by
+          country via IRENA IRENASTAT (confirmed free, no key needed, integration pending); electricity/
+          grid reserve-margin and blackout-risk data via ENTSO-E (EU, needs a ~3-business-day API access
+          request) and PJM/ERCOT/CAISO/MISO/ISO-NE/NYISO/SPP (US ISOs, each needs its own registration —
+          CAISO and parts of MISO/NYISO are already registration-free and will land first).
+        </p>
+        <p className="mb-2">
+          <strong>Genuine gaps — checked, no free source exists, disclosed rather than faked</strong>:
+          OPEC+ quota/compliance tracking (EIA publishes OPEC production estimates for free, but
+          compliance-vs-quota is analyst judgment, not a series), a full futures curve/backwardation/
+          options-skew signal (needs a paid CME/ICE feed — front-month spot is used instead), Baltic
+          Exchange freight rates (licensed; GSCPI + PortWatch chokepoint volumes are used as the free
+          proxy), nuclear reactor-level outage tracking (IAEA PRIS has no public API), critical-mineral
+          mining/refining/manufacturing concentration breakdowns, a cyber risk score (spec explicitly
+          calls for &ldquo;aggregated risk intelligence,&rdquo; and no free aggregator exists — no
+          placeholder number is shown), producer fiscal-breakeven tracking (analyst estimates, not a free
+          official series), a global energy trade network graph with node-centrality analysis, a
+          20-scenario stress-test library with a policy simulator, historical backtesting with lead-time/
+          AUC/Brier-score validation, and a daily 8am IST report/AI Q&amp;A layer.
         </p>
       </section>
 

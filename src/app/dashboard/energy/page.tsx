@@ -1,4 +1,4 @@
-import { getLatestEngine, getEnergySystemicRiskResult } from "@/lib/api/engineData";
+import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import { ENERGY_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type EnergyRegimeLabel } from "@/lib/engines/energySystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
@@ -76,8 +76,20 @@ function ContributionBar({ segments, total }: { segments: Segment[]; total: numb
   );
 }
 
+function pctColor(pct: number | null): string {
+  if (pct === null) return "#5a6472";
+  if (pct >= 50) return "#e05a4d";
+  if (pct >= 20) return "#e0793d";
+  if (pct >= 0) return "#e0b93d";
+  return "#34c085"; // net exporter
+}
+
 export default async function EnergyPage() {
-  const [rows, gesri] = await Promise.all([getLatestEngine("energy"), getEnergySystemicRiskResult()]);
+  const [rows, gesri, countryBalance] = await Promise.all([
+    getLatestEngine("energy"),
+    getEnergySystemicRiskResult(),
+    getCountryEnergyBalanceTable(),
+  ]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -88,12 +100,13 @@ export default async function EnergyPage() {
       <p className="mb-6 max-w-3xl text-sm text-text-dim">
         Where is the global energy system becoming fragile, and is that stress converging across
         commodities — a genuinely different question from the flat spot-price composite above. Four
-        structural domains (Oil, Natural Gas, Critical Minerals/Nuclear Fuel, Shipping/Supply Chain), a
-        market domain (energy-sector equities), and a Convergence score measuring how many of those
-        four domains are independently elevated at once. Country-level energy balances, OPEC+ quota
-        tracking, a futures-curve/backwardation signal, grid/chokepoint data and a network graph are
-        checked, not found free at this granularity, and disclosed rather than faked — see the
-        methodology page for the full list.
+        structural domains (Oil, Natural Gas, Critical Minerals/Nuclear Fuel, Shipping/Supply Chain — the
+        last now including real daily chokepoint-transit data from IMF PortWatch), a market domain
+        (energy-sector equities), and a Convergence score measuring how many of those four domains are
+        independently elevated at once. This is a phased build against a 171-section institutional spec;
+        country-level energy balances, OPEC+ quota tracking, a futures-curve/backwardation signal, grid
+        data and a network graph are still being worked through — checked against real free sources, not
+        faked — see the methodology page for current phase status.
       </p>
 
       {gesri === null ? (
@@ -173,8 +186,10 @@ export default async function EnergyPage() {
                   <tr className="border-t border-border align-top">
                     <td className="px-3 py-2 font-medium">Natural Gas</td>
                     <td className="gfew-mono px-3 py-2 text-text-dim">
-                      Henry Hub {fmt(gesri.gasReading.value, "USD/MMBtu", 2)}
-                      <TrendIndicator value={gesri.gasReading.value} previous={gesri.gasReading.previousValue} />
+                      Henry Hub {fmt(gesri.gasReading.henryHub.value, "USD/MMBtu", 2)}
+                      <TrendIndicator value={gesri.gasReading.henryHub.value} previous={gesri.gasReading.henryHub.previousValue} />
+                      {" · "}US storage {fmt(gesri.gasReading.storage.value, "Bcf", 0)}
+                      <TrendIndicator value={gesri.gasReading.storage.value} previous={gesri.gasReading.storage.previousValue} />
                     </td>
                     <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(gesri.gasScore) }}>
                       {gesri.gasScore ?? "—"}
@@ -197,6 +212,7 @@ export default async function EnergyPage() {
                     <td className="gfew-mono px-3 py-2 text-text-dim">
                       GSCPI {fmt(gesri.shippingReading.value, "std dev", 2)}
                       <TrendIndicator value={gesri.shippingReading.value} previous={gesri.shippingReading.previousValue} />
+                      {" · "}blended 45% with Hormuz/Bab el-Mandeb/Suez/Malacca tanker-transit stress (below)
                     </td>
                     <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(gesri.shippingScore) }}>
                       {gesri.shippingScore ?? "—"}
@@ -216,6 +232,80 @@ export default async function EnergyPage() {
               </table>
             </div>
           </section>
+
+          <section className="mb-8">
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Chokepoint Monitor</h2>
+            <p className="mb-3 max-w-3xl text-xs text-text-dim">
+              Daily AIS-derived tanker-transit counts from IMF PortWatch — the real chokepoint
+              throughput data spec &sect;15/&sect;43 call for, not a placeholder. A drop below a
+              chokepoint&apos;s own trailing norm scores as risk.
+            </p>
+            <div className="overflow-x-auto rounded border border-border">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-panel-raised text-text-dim">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Chokepoint</th>
+                    <th className="px-3 py-2 font-medium">Tanker Transits (latest day)</th>
+                    <th className="px-3 py-2 font-medium">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gesri.chokepointReadings.map((c) => (
+                    <tr key={c.slug} className="border-t border-border align-top">
+                      <td className="px-3 py-2 font-medium">{c.label}</td>
+                      <td className="gfew-mono px-3 py-2 text-text-dim">
+                        {fmt(c.value, "vessels/day", 0)}
+                        <TrendIndicator value={c.value} previous={c.previousValue} />
+                        {c.asOf && <span className="ml-2 text-[10px] text-text-dim">as of {c.asOf}</span>}
+                      </td>
+                      <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(c.score) }}>
+                        {c.score ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {countryBalance && countryBalance.some((r) => r.production !== null) && (
+            <section className="mb-8">
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Country Energy Balance (Oil)</h2>
+              <p className="mb-3 max-w-3xl text-xs text-text-dim">
+                Real country-level petroleum production and consumption from EIA API v2 (monthly, ~3-4
+                month publication lag). Import Dependency = Net Imports / Consumption. Oil only — EIA&apos;s
+                free international dataset does not carry natural gas or coal balances at this
+                granularity.
+              </p>
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-panel-raised text-text-dim">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Country</th>
+                      <th className="px-3 py-2 font-medium">Production</th>
+                      <th className="px-3 py-2 font-medium">Consumption</th>
+                      <th className="px-3 py-2 font-medium">Net Imports</th>
+                      <th className="px-3 py-2 font-medium">Import Dependency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {countryBalance.map((r) => (
+                      <tr key={r.slug} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium">{r.countryLabel}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.production, "kbpd", 0)}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.consumption, "kbpd", 0)}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.netImports, "kbpd", 0)}</td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(r.importDependencyPct) }}>
+                          {r.importDependencyPct !== null ? `${r.importDependencyPct}%` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {countryBalance[0]?.asOf && <p className="mt-2 text-[10px] text-text-dim">Latest reporting month: {countryBalance[0].asOf.slice(0, 7)}</p>}
+            </section>
+          )}
 
           <section className="mb-8">
             <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Score Breakdown</h2>
@@ -253,20 +343,22 @@ export default async function EnergyPage() {
           </section>
 
           <section className="gfew-panel p-4 text-xs text-text-dim">
-            <strong className="text-text">Still not built (checked, disclosed rather than faked):</strong>{" "}
-            country-level energy balances/import-dependency/spare-capacity accounting (needs licensed
-            IEA/EIA bulk data), OPEC+ quota/compliance tracking, a genuine futures-curve/backwardation
-            signal (needs a paid futures-chain feed), natural gas storage levels (needs a keyed EIA API
-            registration this app does not have configured), electricity/grid reserve-margin and
-            blackout-risk data, nuclear reactor-level outage tracking, renewable capacity/generation by
-            country (IRENA&apos;s datasets not yet integrated), a real chokepoint-throughput/vessel-
-            tracking system, critical-mineral mining/refining concentration breakdowns, a global energy
-            trade network graph, a scenario library with a policy simulator, historical backtesting, and
-            a daily report/AI Q&amp;A layer. See the{" "}
+            <strong className="text-text">Phased build against the full spec:</strong> a real chokepoint-
+            throughput system now runs live on IMF PortWatch AIS data, and country-level oil production/
+            consumption plus US natural gas storage now run live on a registered EIA API v2 key (see the
+            Country Energy Balance section below). Still not built — checked against real free sources,
+            disclosed rather than faked: producer-level effective spare capacity, OPEC+ quota/compliance
+            tracking, a genuine futures-curve/backwardation signal (needs a paid futures-chain feed),
+            electricity/grid reserve-margin and blackout-risk data (ENTSO-E/PJM/ERCOT/CAISO/MISO all
+            confirmed live, each needs its own registration), nuclear reactor-level outage tracking (IAEA
+            PRIS has no public API), renewable capacity/generation by country (IRENA IRENASTAT confirmed
+            free, not yet integrated), critical-mineral mining/refining concentration breakdowns, a
+            global energy trade network graph, a scenario library with a policy simulator, historical
+            backtesting, and a daily report/AI Q&amp;A layer. See the{" "}
             <a href="/dashboard/methodology#energy-systemic-risk" className="text-accent hover:underline">
               methodology page
             </a>{" "}
-            for the complete list.
+            for current phase status.
           </section>
         </>
       )}

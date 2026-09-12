@@ -38,11 +38,10 @@ import { lookbackDaysFor } from "../metrics/lookback";
  *    (backwardation/contango, spec's own preferred signal) needs a paid
  *    futures-chain feed — checked, not found free, disclosed below.
  *  - NATURAL GAS: Henry Hub spot (already tracked) plus its own realized
- *    volatility (computed the same way as every other engine's Market
- *    domain here) — genuine US natural gas storage levels (spec §19, "Gas
- *    Storage Adequacy") require a keyed EIA API registration this app does
- *    not have configured; checked FRED and OECD MEI directly, no free
- *    no-key storage series found, disclosed rather than faked.
+ *    volatility, blended with real US Lower-48 natural gas working
+ *    underground storage from EIA API v2 (energy.us_natgas_storage, weekly,
+ *    BCF) — the genuine "Gas Storage Adequacy" signal spec §19 calls for,
+ *    scored against its own 5-year seasonal range (below norm = risk).
  *  - CRITICAL MINERALS / NUCLEAR FUEL: Copper and Uranium — both IMF-sourced
  *    "Global price of ..." series FRED already mirrors monthly. Scored on
  *    |z| (extreme moves in EITHER direction count as risk), not a signed
@@ -54,15 +53,17 @@ import { lookbackDaysFor } from "../metrics/lookback";
  *    literally spec's own Hidden Energy Risk example, §78). Lithium was
  *    checked directly against FRED/OECD MEI and has no equivalent
  *    already-computed free series — disclosed as a gap.
- *  - SHIPPING / SUPPLY CHAIN: the NY Fed's Global Supply Chain Pressure
- *    Index (GSCPI, supplychain.gscpi), already ingested for the Supply
- *    Chains engine — reused here (not re-fetched) as the free, official,
- *    already-computed stand-in for spec's Energy Shipping Engine (§42) and
- *    Maritime Chokepoint Engine (§43): no free source publishes vessel-level
- *    tanker/LNG-carrier fleet data or per-chokepoint transit volumes, but
- *    GSCPI is explicitly constructed from shipping costs and delivery times
- *    and is the closest genuine, live, cross-checked proxy for global
- *    shipping-driven energy-supply-chain stress.
+ *  - SHIPPING / SUPPLY CHAIN: blends the NY Fed's Global Supply Chain
+ *    Pressure Index (GSCPI, supplychain.gscpi, already ingested for the
+ *    Supply Chains engine, reused not re-fetched) with a genuine chokepoint
+ *    signal from IMF PortWatch (imfPortwatch.ts) — free, official, AIS-derived
+ *    daily tanker-transit counts for Hormuz, Bab el-Mandeb, Suez and Malacca,
+ *    the four chokepoints through which the large majority of seaborne oil
+ *    and LNG physically moves. A drop in tanker transits below the
+ *    chokepoint's own trailing norm scores as risk (direction -1) — this is
+ *    the real vessel-level throughput signal spec's Maritime Chokepoint
+ *    Engine (§43) and Oil Chokepoint Engine (§15) call for, superseding the
+ *    original build's "no free chokepoint data exists" assumption.
  *
  * MARKET: the Energy Select Sector SPDR (XLE, energy.xle_price) own-history
  * price z-score (60%, price below trend = stress) blended with realized-
@@ -100,23 +101,23 @@ import { lookbackDaysFor } from "../metrics/lookback";
  *
  * STILL NOT built — checked, no free/reliable no-key source found, or
  * genuinely out of scope for incremental work on an existing app, disclosed
- * rather than faked: country-level energy balances/import-dependency/spare-
- * capacity accounting (spec §6, 10-11 — needs IEA/EIA licensed bulk data),
- * OPEC+ quota/compliance tracking (§49), a genuine futures curve/backwardation
- * signal (§13, needs a paid futures-chain feed), natural gas storage levels
- * (§19, needs a keyed EIA API registration), electricity/grid reserve-margin
- * and blackout-risk data (§23-25, 69, no free cross-country grid-operator
- * feed), nuclear reactor-level outage tracking (§28), renewable capacity/
- * generation by country (§30-32, IRENA's own datasets were not integrated
- * this pass), a real chokepoint-throughput/vessel-tracking system (§15, 43,
- * needs AIS vessel-tracking data), critical-mineral mining/refining/
+ * rather than faked: country-level spare-capacity accounting (spec §11 — no
+ * free source publishes producer-level effective spare capacity), OPEC+
+ * quota/compliance tracking (§49), a genuine futures curve/backwardation
+ * signal (§13, needs a paid futures-chain feed), electricity/grid reserve-margin
+ * and blackout-risk data (§23-25, 69 — ENTSO-E/PJM/ERCOT/CAISO/MISO all
+ * checked live; each needs its own registration this deployment does not yet
+ * have), nuclear reactor-level outage tracking (§28, IAEA PRIS has no public
+ * API), renewable capacity/generation by country (§30-32, IRENA IRENASTAT
+ * confirmed free but not yet integrated), critical-mineral mining/refining/
  * manufacturing concentration breakdowns (§34-35), a global energy trade
  * network graph with node centrality (§82-84, 122-123), a 20-scenario
  * stress-test library with a user-facing policy simulator (§85-86), producer
  * fiscal-breakeven tracking (§50, 95 — these are analyst estimates, not a
  * free official series), historical backtesting with lead-time/AUC/Brier-
  * score validation (§142-145), and a daily 8am IST report/AI Q&A layer
- * (§136-139, 162-164).
+ * (§136-139, 162-164). This is being built out in phases, not abandoned —
+ * see /dashboard/methodology#energy-systemic-risk for current phase status.
  */
 
 export type EnergyRegimeLabel = "AMPLE_SUPPLY" | "BALANCED" | "TIGHTENING" | "SHOCK_RISK" | "ACTIVE_CRISIS" | "INSUFFICIENT_DATA";
@@ -177,10 +178,20 @@ const BRENT_KEY = "commodity.brent";
 const WTI_KEY = "commodity.wti";
 const OVX_KEY = "energy.oil_volatility_ovx";
 const HENRY_HUB_KEY = "commodity.natgas_henry_hub";
+const US_NATGAS_STORAGE_KEY = "energy.us_natgas_storage";
 const COPPER_KEY = "energy.copper_price";
 const URANIUM_KEY = "energy.uranium_price";
 const GSCPI_KEY = "supplychain.gscpi";
 const XLE_KEY = "energy.xle_price";
+
+// The four chokepoints through which most seaborne oil/LNG physically moves
+// — see imfPortwatch.ts. A drop in tanker transits below trend scores as risk.
+const CHOKEPOINT_TANKER_KEYS = [
+  { slug: "hormuz", label: "Strait of Hormuz" },
+  { slug: "bab_el_mandeb", label: "Bab el-Mandeb" },
+  { slug: "suez_canal", label: "Suez Canal" },
+  { slug: "malacca_strait", label: "Malacca Strait" },
+] as const;
 
 const DAILY_WINDOW = 252;
 const MONTHLY_WINDOW = 36;
@@ -195,12 +206,13 @@ export type EnergyIndicatorReading = { value: number | null; asOf: string | null
 export type EnergySystemicRiskResult = {
   oilReading: { brent: EnergyIndicatorReading; wti: EnergyIndicatorReading; ovx: EnergyIndicatorReading };
   oilScore: number | null;
-  gasReading: EnergyIndicatorReading;
+  gasReading: { henryHub: EnergyIndicatorReading; storage: EnergyIndicatorReading };
   gasScore: number | null;
   mineralsReading: { copper: EnergyIndicatorReading; uranium: EnergyIndicatorReading };
   mineralsScore: number | null;
   shippingReading: EnergyIndicatorReading;
   shippingScore: number | null;
+  chokepointReadings: { slug: string; label: string; value: number | null; asOf: string | null; score: number | null; previousValue: number | null }[];
   marketReading: EnergyIndicatorReading;
   marketScore: number | null;
   structuralScore: number | null;
@@ -219,16 +231,22 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   sinceDaily.setUTCDate(sinceDaily.getUTCDate() - lookbackDaysFor("daily"));
   const sinceMonthly = new Date();
   sinceMonthly.setUTCDate(sinceMonthly.getUTCDate() - lookbackDaysFor("monthly"));
+  // 5-year window so the storage z-score captures true seasonal (winter
+  // drawdown / summer injection) variation, not just a recent slice.
+  const sinceStorage = new Date();
+  sinceStorage.setUTCFullYear(sinceStorage.getUTCFullYear() - 5);
 
-  const [brentSeries, wtiSeries, ovxSeries, henryHubSeries, copperSeries, uraniumSeries, gscpiSeries, xleSeries] = await Promise.all([
+  const [brentSeries, wtiSeries, ovxSeries, henryHubSeries, storageSeries, copperSeries, uraniumSeries, gscpiSeries, xleSeries, chokepointSeriesList] = await Promise.all([
     fetchSeries(db, BRENT_KEY, sinceDaily.toISOString()),
     fetchSeries(db, WTI_KEY, sinceDaily.toISOString()),
     fetchSeries(db, OVX_KEY, sinceDaily.toISOString()),
     fetchSeries(db, HENRY_HUB_KEY, sinceDaily.toISOString()),
+    fetchSeries(db, US_NATGAS_STORAGE_KEY, sinceStorage.toISOString()),
     fetchSeries(db, COPPER_KEY, sinceMonthly.toISOString()),
     fetchSeries(db, URANIUM_KEY, sinceMonthly.toISOString()),
     fetchSeries(db, GSCPI_KEY, sinceMonthly.toISOString()),
     fetchSeries(db, XLE_KEY, sinceDaily.toISOString()),
+    Promise.all(CHOKEPOINT_TANKER_KEYS.map((c) => fetchSeries(db, `energy.chokepoint.${c.slug}.transits_tanker`, sinceDaily.toISOString()))),
   ]);
 
   // Oil domain: Brent + WTI level (rising price = risk) blended with OVX
@@ -243,12 +261,15 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   ].filter((p): p is { score: number; weight: number } => p !== null);
   const oilScore = oilParts.length > 0 ? Math.round(oilParts.reduce((a, b) => a + b.score * b.weight, 0) / oilParts.reduce((a, b) => a + b.weight, 0)) : null;
 
-  // Natural gas domain: Henry Hub level + its own realized volatility.
+  // Natural gas domain: Henry Hub level + its own realized volatility + US
+  // storage adequacy (below the 5-year seasonal norm = risk, spec §19).
   const gasPriceScore = zToRiskScore(zScore(henryHubSeries, DAILY_WINDOW), 1);
   const gasVolScore = zToRiskScore(zScore(rollingRealizedVolSeries(henryHubSeries), DAILY_WINDOW), 1);
+  const storageScore = zToRiskScore(zScore(storageSeries, 260), -1);
   const gasParts = [
-    gasPriceScore !== null ? { score: gasPriceScore, weight: 0.6 } : null,
-    gasVolScore !== null ? { score: gasVolScore, weight: 0.4 } : null,
+    gasPriceScore !== null ? { score: gasPriceScore, weight: 0.45 } : null,
+    gasVolScore !== null ? { score: gasVolScore, weight: 0.25 } : null,
+    storageScore !== null ? { score: storageScore, weight: 0.3 } : null,
   ].filter((p): p is { score: number; weight: number } => p !== null);
   const gasScore = gasParts.length > 0 ? Math.round(gasParts.reduce((a, b) => a + b.score * b.weight, 0) / gasParts.reduce((a, b) => a + b.weight, 0)) : null;
 
@@ -264,8 +285,18 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   ].filter((p): p is { score: number; weight: number } => p !== null);
   const mineralsScore = mineralsParts.length > 0 ? Math.round(mineralsParts.reduce((a, b) => a + b.score * b.weight, 0) / mineralsParts.reduce((a, b) => a + b.weight, 0)) : null;
 
-  // Shipping / supply chain domain: GSCPI, own-history z (rising pressure = risk).
-  const shippingScore = zToRiskScore(zScore(gscpiSeries, MONTHLY_WINDOW), 1);
+  // Shipping / supply chain domain: GSCPI (rising pressure = risk) blended
+  // with tanker-transit chokepoint stress (falling transits = risk).
+  const gscpiScore = zToRiskScore(zScore(gscpiSeries, MONTHLY_WINDOW), 1);
+  const chokepointScores = CHOKEPOINT_TANKER_KEYS.map((c, i) => zToRiskScore(zScore(chokepointSeriesList[i], DAILY_WINDOW), -1));
+  const chokepointScoresWithData = chokepointScores.filter((v): v is number => v !== null);
+  const chokepointCompositeScore =
+    chokepointScoresWithData.length > 0 ? Math.round(chokepointScoresWithData.reduce((a, b) => a + b, 0) / chokepointScoresWithData.length) : null;
+  const shippingParts = [
+    gscpiScore !== null ? { score: gscpiScore, weight: 0.55 } : null,
+    chokepointCompositeScore !== null ? { score: chokepointCompositeScore, weight: 0.45 } : null,
+  ].filter((p): p is { score: number; weight: number } => p !== null);
+  const shippingScore = shippingParts.length > 0 ? Math.round(shippingParts.reduce((a, b) => a + b.score * b.weight, 0) / shippingParts.reduce((a, b) => a + b.weight, 0)) : null;
 
   const structuralParts = [
     oilScore !== null ? { score: oilScore, weight: STRUCTURAL_WEIGHTS.oil } : null,
@@ -305,6 +336,7 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   const wtiLast = latestPoint(wtiSeries);
   const ovxLast = latestPoint(ovxSeries);
   const henryHubLast = latestPoint(henryHubSeries);
+  const storageLast = latestPoint(storageSeries);
   const copperLast = latestPoint(copperSeries);
   const uraniumLast = latestPoint(uraniumSeries);
   const gscpiLast = latestPoint(gscpiSeries);
@@ -321,15 +353,23 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
       ovx: { value: ovxLast?.v ?? null, asOf: ovxLast?.t ?? null, score: ovxScore, previousValue: previousOf(ovxSeries)?.v ?? null },
     },
     oilScore,
-    gasReading: { value: henryHubLast?.v ?? null, asOf: henryHubLast?.t ?? null, score: gasScore, previousValue: previousOf(henryHubSeries)?.v ?? null },
+    gasReading: {
+      henryHub: { value: henryHubLast?.v ?? null, asOf: henryHubLast?.t ?? null, score: gasPriceScore, previousValue: previousOf(henryHubSeries)?.v ?? null },
+      storage: { value: storageLast?.v ?? null, asOf: storageLast?.t ?? null, score: storageScore, previousValue: previousOf(storageSeries)?.v ?? null },
+    },
     gasScore,
     mineralsReading: {
       copper: { value: copperLast?.v ?? null, asOf: copperLast?.t ?? null, score: copperScore, previousValue: previousOf(copperSeries)?.v ?? null },
       uranium: { value: uraniumLast?.v ?? null, asOf: uraniumLast?.t ?? null, score: uraniumScore, previousValue: previousOf(uraniumSeries)?.v ?? null },
     },
     mineralsScore,
-    shippingReading: { value: gscpiLast?.v ?? null, asOf: gscpiLast?.t ?? null, score: shippingScore, previousValue: previousOf(gscpiSeries)?.v ?? null },
+    shippingReading: { value: gscpiLast?.v ?? null, asOf: gscpiLast?.t ?? null, score: gscpiScore, previousValue: previousOf(gscpiSeries)?.v ?? null },
     shippingScore,
+    chokepointReadings: CHOKEPOINT_TANKER_KEYS.map((c, i) => {
+      const series = chokepointSeriesList[i];
+      const last = latestPoint(series);
+      return { slug: c.slug, label: c.label, value: last?.v ?? null, asOf: last?.t ?? null, score: chokepointScores[i], previousValue: previousOf(series)?.v ?? null };
+    }),
     marketReading: { value: xleLast?.v ?? null, asOf: xleLast?.t ?? null, score: marketScore, previousValue: previousOf(xleSeries)?.v ?? null },
     marketScore,
     structuralScore,

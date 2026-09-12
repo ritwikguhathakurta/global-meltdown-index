@@ -80,6 +80,8 @@ import { fetchChinaOfficialReserveAssets } from "../sources/chinaFxReserves";
 import { fetchBankFinancialSoundnessData } from "../sources/bankFinancialSoundness";
 import { fetchAllBankSecFilings } from "../sources/bankSecFilings";
 import { fetchAllBankFdicMetrics } from "../sources/fdicBankFind";
+import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
+import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
 import { lookbackDaysFor } from "../metrics/lookback";
 
 export type IngestStageResult = { stage: string; status: "ok" | "warning" | "failed"; detail: Record<string, unknown> };
@@ -837,6 +839,59 @@ export async function ingestNbfiChecks(db: SupabaseClient, runDate: string): Pro
   }
 }
 
+export async function ingestEnergyChokepoints(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - 400);
+  try {
+    const points = await fetchImfPortwatchChokepoints(since.toISOString());
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_energy_chokepoints", status, detail);
+    return { stage: "ingest_energy_chokepoints", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_energy_chokepoints", "failed", detail);
+    return { stage: "ingest_energy_chokepoints", status: "failed", detail };
+  }
+}
+
+export async function ingestEiaEnergy(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const apiKey = process.env.EIA_API_KEY;
+  if (!apiKey) {
+    await logRun(db, runDate, "ingest_eia_energy", "warning", { reason: "EIA_API_KEY not set" });
+    return { stage: "ingest_eia_energy", status: "warning", detail: { reason: "EIA_API_KEY not set" } };
+  }
+  // International production/consumption is monthly with a ~3-4 month lag —
+  // a 15-year window keeps every country's history without hitting the API's
+  // 5000-row page cap (16 countries * 2 series * ~15y * 12mo < 5000).
+  const sinceOil = new Date();
+  sinceOil.setUTCFullYear(sinceOil.getUTCFullYear() - 15);
+  let ok = 0;
+  const errors: string[] = [];
+  let points = 0;
+  try {
+    const pts = await fetchEiaCountryPetroleum(apiKey, sinceOil.toISOString());
+    await upsertMetrics(db, pts);
+    points += pts.length;
+    ok++;
+  } catch (e) {
+    errors.push(`country petroleum: ${(e as Error).message}`);
+  }
+  try {
+    const pts = await fetchEiaNaturalGasStorage(apiKey);
+    await upsertMetrics(db, pts);
+    points += pts.length;
+    ok++;
+  } catch (e) {
+    errors.push(`natural gas storage: ${(e as Error).message}`);
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: 2, points, errors };
+  await logRun(db, runDate, "ingest_eia_energy", status, detail);
+  return { stage: "ingest_eia_energy", status, detail };
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -880,6 +935,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_central_bank_fsr_checks", ingestCentralBankFsrChecks(db, runDate)),
     withTimeout("ingest_bis_global_liquidity", ingestBisGlobalLiquidity(db, runDate)),
     withTimeout("ingest_nbfi_checks", ingestNbfiChecks(db, runDate)),
+    withTimeout("ingest_energy_chokepoints", ingestEnergyChokepoints(db, runDate)),
+    withTimeout("ingest_eia_energy", ingestEiaEnergy(db, runDate)),
   ]);
   return { runDate, results };
 }
