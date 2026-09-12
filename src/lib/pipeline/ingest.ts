@@ -87,7 +87,7 @@ import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "..
 import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
-import { fetchUsdaPsdBalances } from "../sources/usdaPsd";
+import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances } from "../sources/usdaPsd";
 import { fetchFaostatProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
@@ -1089,6 +1089,21 @@ export async function ingestUsdaPsdBalances(db: SupabaseClient, runDate: string)
   }
 }
 
+export async function ingestUsdaPsdSoybeanCountries(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchUsdaPsdSoybeanCountryBalances();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_usda_psd_soybean_countries", status, detail);
+    return { stage: "ingest_usda_psd_soybean_countries", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_usda_psd_soybean_countries", "failed", detail);
+    return { stage: "ingest_usda_psd_soybean_countries", status: "failed", detail };
+  }
+}
+
 export async function ingestFaostatProduction(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchFaostatProduction();
@@ -1179,6 +1194,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_world_bank_commodities", ingestWorldBankCommodities(db, runDate)),
     withTimeout("ingest_critical_minerals", ingestCriticalMinerals(db, runDate)),
     withTimeout("ingest_usda_psd_balances", ingestUsdaPsdBalances(db, runDate)),
+    withTimeout("ingest_usda_psd_soybean_countries", ingestUsdaPsdSoybeanCountries(db, runDate)),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
   ]);

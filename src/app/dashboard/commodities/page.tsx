@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getCommodityHeatmap, getCommodityBalances } from "@/lib/api/engineData";
 import { COMMODITY_CATEGORIES } from "@/lib/commodities/taxonomy";
 import { BALANCE_CATEGORIES } from "@/lib/commodities/balanceTaxonomy";
@@ -50,7 +51,12 @@ export default async function CommoditiesPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="mb-2 text-2xl font-semibold">Commodities</h1>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Commodities</h1>
+        <Link href="/dashboard/commodities/oilseeds" className="text-sm text-accent hover:underline">
+          Oilseeds deep-dive (crush margins, country balances, positioning) →
+        </Link>
+      </div>
       <p className="mb-6 max-w-3xl text-sm text-text-dim">
         Real monthly commodity prices from the World Bank Pink Sheet (free, no key, since 1960) and the IMF
         Primary Commodity Price System (free, no key, via DBnomics) across ~56 commodities, with a

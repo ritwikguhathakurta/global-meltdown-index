@@ -3,11 +3,13 @@ import { Readable } from "node:stream";
 import readline from "node:readline";
 import type { MetricPoint } from "../metrics/store";
 import { BALANCE_COMMODITIES } from "../commodities/balanceTaxonomy";
+import { SOYBEAN_COUNTRIES, SOYBEAN_PSD_CODE } from "../commodities/oilseedsTaxonomy";
 
 /**
  * USDA FAS Production, Supply and Distribution (PSD) — free, no key, no
  * login. Annual world agricultural commodity balances (production,
- * consumption, ending stocks), updated ~monthly. This is the bulk CSV
+ * consumption, ending stocks, and — for oilseeds — crush), updated
+ * ~monthly. This is the bulk CSV
  * download, not the gated apps.fas.usda.gov/OpenData API (which needs an
  * API key) — the bulk file needs no auth at all and carries the full
  * ~2 million row history for every commodity/country/year:
@@ -36,7 +38,7 @@ const EU_AGGREGATE_CODES = new Set(["E2", "E3", "E4"]);
 
 const CONSUMPTION_ATTRIBUTES = new Set(["Domestic Consumption", "Domestic Use", "Human Dom. Consumption"]);
 
-type Attribute = "production" | "consumption" | "ending_stocks";
+type Attribute = "production" | "consumption" | "ending_stocks" | "crush";
 
 function parseCsvLine(line: string): string[] {
   const out: string[] = [];
@@ -72,9 +74,7 @@ type YearBucket = { nonEu: number; euMembers: number; euAggregate: number };
 // commodityCode -> attribute -> year -> bucket
 type Aggregation = Map<string, Map<Attribute, Map<string, YearBucket>>>;
 
-export async function fetchUsdaPsdBalances(): Promise<MetricPoint[]> {
-  const wantedCodes = new Map(BALANCE_COMMODITIES.filter((c) => c.source === "usda_psd").map((c) => [c.sourceCode, c]));
-
+async function downloadPsdCsv(): Promise<Buffer> {
   const res = await fetch(PSD_ZIP_URL, { next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`USDA PSD bulk download: HTTP ${res.status}`);
   const zipBuffer = Buffer.from(await res.arrayBuffer());
@@ -82,7 +82,12 @@ export async function fetchUsdaPsdBalances(): Promise<MetricPoint[]> {
   const zip = new AdmZip(zipBuffer);
   const entry = zip.getEntries().find((e) => e.entryName.toLowerCase().endsWith(".csv"));
   if (!entry) throw new Error("USDA PSD bulk download: no CSV entry found in zip");
-  const csvBuffer = entry.getData();
+  return entry.getData();
+}
+
+export async function fetchUsdaPsdBalances(): Promise<MetricPoint[]> {
+  const wantedCodes = new Map(BALANCE_COMMODITIES.filter((c) => c.source === "usda_psd").map((c) => [c.sourceCode, c]));
+  const csvBuffer = await downloadPsdCsv();
 
   const aggregation: Aggregation = new Map();
 
@@ -107,6 +112,7 @@ export async function fetchUsdaPsdBalances(): Promise<MetricPoint[]> {
     if (attributeDescription === "Production") attribute = "production";
     else if (CONSUMPTION_ATTRIBUTES.has(attributeDescription)) attribute = "consumption";
     else if (attributeDescription === "Ending Stocks") attribute = "ending_stocks";
+    else if (attributeDescription === "Crush") attribute = "crush";
     if (!attribute) continue;
 
     const value = parseFloat(rawValue);
@@ -155,6 +161,52 @@ export async function fetchUsdaPsdBalances(): Promise<MetricPoint[]> {
         });
       }
     }
+  }
+  return points;
+}
+
+const COUNTRY_ATTRIBUTES = new Set(["Production", "Crush", "Imports", "Exports", "Ending Stocks"]);
+
+/**
+ * Country-level Soybean balance sheet — Oilseeds section (spec §7, §11-15).
+ * Unlike the world balance above, these are single reporting-country rows
+ * with no EU-bloc double-counting risk (the EU entry here is PSD's own E4
+ * bloc figure, reported as its own row, not summed against member states).
+ */
+export async function fetchUsdaPsdSoybeanCountryBalances(): Promise<MetricPoint[]> {
+  const countryBySlug = new Map(SOYBEAN_COUNTRIES.map((c) => [c.psdCountryCode, c]));
+  const csvBuffer = await downloadPsdCsv();
+
+  const points: MetricPoint[] = [];
+  const rl = readline.createInterface({ input: Readable.from(csvBuffer), crlfDelay: Infinity });
+  let isFirstLine = true;
+  for await (const line of rl) {
+    if (isFirstLine) {
+      isFirstLine = false;
+      continue;
+    }
+    if (!line) continue;
+    const fields = parseCsvLine(line);
+    if (fields[0] !== SOYBEAN_PSD_CODE) continue;
+
+    const country = countryBySlug.get(fields[2]);
+    if (!country) continue;
+    const attributeDescription = fields[8];
+    if (!COUNTRY_ATTRIBUTES.has(attributeDescription)) continue;
+
+    const value = parseFloat(fields[11]);
+    if (Number.isNaN(value)) continue;
+
+    const attribute = attributeDescription.toLowerCase().replace(/\s+/g, "_"); // "Ending Stocks" -> "ending_stocks"
+    points.push({
+      metric_key: `commodity.soybeans.country.${country.slug}.${attribute}`,
+      observed_at: `${fields[4]}-12-31`,
+      value: value / 1000, // USDA reports 1000 MT
+      unit: "million MT",
+      source_key: "usda_psd",
+      source_tier: 1,
+      frequency: "annual",
+    });
   }
   return points;
 }

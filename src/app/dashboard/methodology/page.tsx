@@ -2057,14 +2057,46 @@ export default function MethodologyPage() {
           inputs.
         </p>
         <p className="mb-2">
-          <strong>Genuinely still to build</strong>: the actual spec-weighted Commodity Direction Score (needs the
-          original spec&apos;s exact remaining formula component re-supplied, not guessed), production data for
-          base/precious metals — checked live, USGS publishes this but only as annual PDFs (Mineral Commodity
-          Summaries), and this app has no PDF-parsing infrastructure yet, so it&apos;s deferred rather than
-          silently skipped — a UN Comtrade-based commodity trade network, an India-specific
-          production/consumption/import-dependency view, a Global Commodity Stress Index, an early-warning alert
-          engine, a scenario/what-if simulator, model backtesting, and fundamental reference-value/price-forecast
-          models.
+          <strong>Oilseeds sub-module (shipped)</strong> — a dedicated{" "}
+          <a href="/dashboard/commodities/oilseeds" className="text-accent hover:underline">
+            /dashboard/commodities/oilseeds
+          </a>{" "}
+          page, built against a separate ~161-section Oilseeds Engine spec that explicitly says not to create a
+          new top-level platform but to extend Commodities. Reuses existing price/balance infrastructure (spec
+          §2&apos;s seed→crush→oil+meal causal model) and adds three genuinely new, live, free pieces: (1) USDA
+          PSD <em>country-level</em> Soybean balance sheets (production, crush, imports, exports, ending stocks)
+          for Brazil, US, Argentina, China, India, Paraguay, Canada, Russia, Ukraine, and the EU — the same bulk
+          file as the world balance table, just not aggregated away; (2) a Soybean crush margin (&ldquo;board
+          crush&rdquo;) computed from the three existing Pink Sheet legs (seed/oil/meal) using disclosed,
+          published industry-average extraction ratios (18.5% oil / 79% meal) — explicitly not country- or
+          plant-specific, since no free source publishes those; (3) live CFTC non-commercial futures positioning
+          for Soybeans, Soybean Oil, Soybean Meal, and Canola, by adding four market names to the same generic
+          COT ingest already built for FX/VIX/S&P (cftcCot.ts) — zero new infrastructure. A vegetable-oil
+          relative-value matrix (soy oil vs. palm/sunflower/rapeseed oil, z-scored against its own 5-year
+          history) is computed directly from prices already in the database. A dedicated history page shows the
+          full 10-year series behind every number. Checked and confirmed genuinely unavailable: a CFTC-reportable
+          Sunflower contract (trades on Euronext/MATIF, not a US exchange) and raw seed/meal prices for Rapeseed
+          and Sunflower (only their oils are priced in any free source found), so no crush margin is computed for
+          those two.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong> from the Oilseeds spec, and why: weather/ENSO yield-risk modeling and crop
+          calendars (needs a paid or complex agromet integration and a validated yield model — a shallow version
+          risked more harm than a clear gap); futures term structure/basis/carry beyond spot positioning (needs a
+          live futures curve feed this app doesn&apos;t have); freight/BDI, port congestion, and biofuel-mandate
+          policy tracking (no free live source found); and the spec&apos;s full scenario/shock propagation engine,
+          systemic risk score, 150-indicator early-warning system, and AI integration (large net-new subsystems
+          beyond a single build pass).
+        </p>
+        <p className="mb-2">
+          <strong>Genuinely still to build</strong> (Commodities overall): the actual spec-weighted Commodity
+          Direction Score (needs the original spec&apos;s exact remaining formula component re-supplied, not
+          guessed), production data for base/precious metals — checked live, USGS publishes this but only as
+          annual PDFs (Mineral Commodity Summaries), and this app has no PDF-parsing infrastructure yet, so
+          it&apos;s deferred rather than silently skipped — a UN Comtrade-based commodity trade network, an
+          India-specific production/consumption/import-dependency view, a Global Commodity Stress Index, an
+          early-warning alert engine, a scenario/what-if simulator, model backtesting, and fundamental
+          reference-value/price-forecast models.
         </p>
       </section>
 

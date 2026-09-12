@@ -69,6 +69,8 @@ export const BALANCE_COMMODITIES: BalanceCommodityDef[] = [
 
   // Oilseeds — USDA PSD
   { source: "usda_psd", sourceCode: "2222000", slug: "soybeans", label: "Soybeans", category: "Oilseeds", unit: "million MT" },
+  { source: "usda_psd", sourceCode: "2226000", slug: "rapeseed_seed", label: "Rapeseed/Canola (seed, world)", category: "Oilseeds", unit: "million MT" },
+  { source: "usda_psd", sourceCode: "2224000", slug: "sunflowerseed", label: "Sunflower Seed (world)", category: "Oilseeds", unit: "million MT" },
   { source: "usda_psd", sourceCode: "4232000", slug: "soybean_oil", label: "Soybean Oil", category: "Oilseeds", unit: "million MT" },
   { source: "usda_psd", sourceCode: "0813100", slug: "soybean_meal", label: "Soybean Meal", category: "Oilseeds", unit: "million MT" },
   { source: "usda_psd", sourceCode: "4243000", slug: "palm_oil", label: "Palm Oil", category: "Oilseeds", unit: "million MT" },

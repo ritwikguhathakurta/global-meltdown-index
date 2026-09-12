@@ -41,6 +41,10 @@ import { getEnergyTradeNetworkGraph as computeEnergyTradeNetworkGraph, type Ener
 import { getEnergyBacktestResult as computeEnergyBacktestResult, type EnergyBacktestResult } from "@/lib/engines/energyBacktest";
 import { getCommodityHeatmap as computeCommodityHeatmap, type CommodityHeatmapResult } from "@/lib/engines/commodities";
 import { getCommodityBalances as computeCommodityBalances, type CommodityBalanceResult } from "@/lib/engines/commodityBalance";
+import { getSoybeanCountryBalances as computeSoybeanCountryBalances, type SoybeanCountryRow } from "@/lib/engines/oilseedsCountry";
+import { getSoybeanCrushMargin as computeSoybeanCrushMargin, type CrushMarginResult } from "@/lib/engines/oilseedsCrush";
+import { getVegetableOilSpreads as computeVegetableOilSpreads, type OilSpreadRow } from "@/lib/engines/oilseedsSpreads";
+import { getOilseedPositioning as computeOilseedPositioning, type OilseedPositioningRow } from "@/lib/engines/oilseedsPositioning";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -440,6 +444,128 @@ export async function getCommodityBalances(): Promise<CommodityBalanceResult | n
   try {
     const db = await createServerSupabase();
     return await computeCommodityBalances(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getSoybeanCountryBalances(): Promise<SoybeanCountryRow[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeSoybeanCountryBalances(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getSoybeanCrushMargin(): Promise<CrushMarginResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeSoybeanCrushMargin(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getVegetableOilSpreads(): Promise<OilSpreadRow[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeVegetableOilSpreads(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getOilseedPositioning(): Promise<OilseedPositioningRow[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeOilseedPositioning(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export type OilseedsHistoryResult = {
+  prices: { slug: string; label: string; unit: string; points: { t: string; v: number }[] }[];
+  balances: { slug: string; label: string; unit: string; attribute: string; points: { t: string; v: number }[] }[];
+  countryBalances: { slug: string; label: string; attribute: string; points: { t: string; v: number }[] }[];
+};
+
+export async function getOilseedsHistory(): Promise<OilseedsHistoryResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    const { fetchSeries } = await import("@/lib/metrics/store");
+    const { COMMODITIES } = await import("@/lib/commodities/taxonomy");
+    const { BALANCE_COMMODITIES } = await import("@/lib/commodities/balanceTaxonomy");
+    const { SOYBEAN_COUNTRIES } = await import("@/lib/commodities/oilseedsTaxonomy");
+
+    const since = new Date();
+    since.setUTCFullYear(since.getUTCFullYear() - 10);
+    const sinceIso = since.toISOString();
+
+    const priceSlugs = ["soybeans", "soybean_oil", "soybean_meal", "rapeseed_oil", "sunflower_oil", "palm_oil", "palm_kernel_oil", "coconut_oil"];
+    const priceDefs = COMMODITIES.filter((c) => priceSlugs.includes(c.slug));
+    const prices = await Promise.all(
+      priceDefs.map(async (c) => ({
+        slug: c.slug,
+        label: c.label,
+        unit: c.unit,
+        points: await fetchSeries(db, `commodity.${c.slug}.price`, sinceIso),
+      }))
+    );
+
+    const balanceSlugs = ["soybeans", "soybean_oil", "soybean_meal", "rapeseed_seed", "rapeseed_oil", "sunflowerseed", "sunflower_oil", "palm_oil", "palm_kernel_oil", "coconut_oil"];
+    const balanceDefs = BALANCE_COMMODITIES.filter((c) => balanceSlugs.includes(c.slug));
+    const balanceAttrs: { attr: string; label: string }[] = [
+      { attr: "production", label: "Production" },
+      { attr: "consumption", label: "Consumption" },
+      { attr: "ending_stocks", label: "Ending Stocks" },
+    ];
+    const balances = (
+      await Promise.all(
+        balanceDefs.flatMap((c) =>
+          balanceAttrs.map(async (a) => ({
+            slug: c.slug,
+            label: `${c.label} — ${a.label}`,
+            unit: c.unit,
+            attribute: a.attr,
+            points: await fetchSeries(db, `commodity.${c.slug}.${a.attr}`, sinceIso),
+          }))
+        )
+      )
+    ).filter((b) => b.points.length > 0);
+
+    const countryAttrs: { attr: string; label: string }[] = [
+      { attr: "production", label: "Production" },
+      { attr: "crush", label: "Crush" },
+      { attr: "imports", label: "Imports" },
+      { attr: "exports", label: "Exports" },
+      { attr: "ending_stocks", label: "Ending Stocks" },
+    ];
+    const countryBalances = (
+      await Promise.all(
+        SOYBEAN_COUNTRIES.flatMap((c) =>
+          countryAttrs.map(async (a) => ({
+            slug: c.slug,
+            label: `${c.label} — Soybean ${a.label}`,
+            attribute: a.attr,
+            points: await fetchSeries(db, `commodity.soybeans.country.${c.slug}.${a.attr}`, sinceIso),
+          }))
+        )
+      )
+    ).filter((b) => b.points.length > 0);
+
+    return { prices, balances, countryBalances };
   } catch (e) {
     console.error((e as Error).message);
     return null;

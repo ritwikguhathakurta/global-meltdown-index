@@ -31,6 +31,16 @@ export const COT_MARKETS: CotDef[] = [
   { metricKeyPrefix: "cot.mxn", marketName: "MEXICAN PESO - CHICAGO MERCANTILE EXCHANGE" },
   { metricKeyPrefix: "cot.brl", marketName: "BRAZILIAN REAL - CHICAGO MERCANTILE EXCHANGE" },
   { metricKeyPrefix: "cot.zar", marketName: "SO AFRICAN RAND - CHICAGO MERCANTILE EXCHANGE" },
+
+  // Oilseeds engine — positioning for the core soybean complex plus canola
+  // (rapeseed). No CFTC-reportable contract exists for sunflower seed/oil
+  // (traded mainly on Euronext/MATIF, not a US-reportable exchange) —
+  // genuinely unavailable, not estimated. Market names verified live
+  // against the most recent report date before use.
+  { metricKeyPrefix: "cot.soybeans", marketName: "SOYBEANS - CHICAGO BOARD OF TRADE" },
+  { metricKeyPrefix: "cot.soybean_oil", marketName: "SOYBEAN OIL - CHICAGO BOARD OF TRADE" },
+  { metricKeyPrefix: "cot.soybean_meal", marketName: "SOYBEAN MEAL - CHICAGO BOARD OF TRADE" },
+  { metricKeyPrefix: "cot.canola", marketName: "CANOLA - ICE FUTURES U.S." },
 ];
 
 type CotRow = {
