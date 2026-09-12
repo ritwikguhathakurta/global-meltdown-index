@@ -43,9 +43,10 @@ export default async function CommoditiesPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Commodities</h1>
       <p className="mb-6 max-w-3xl text-sm text-text-dim">
-        Real monthly commodity prices from the World Bank Pink Sheet (free, no key, since 1960) across ~50
-        commodities, with a price-momentum signal — Phase 1 of a much larger planned build. See the disclosure
-        below for what this is (and isn&apos;t) measuring yet.
+        Real monthly commodity prices from the World Bank Pink Sheet (free, no key, since 1960) and the IMF
+        Primary Commodity Price System (free, no key, via DBnomics) across ~56 commodities, with a
+        price-momentum signal — Phase 1 of a much larger planned build. See the disclosure below for what this
+        is (and isn&apos;t) measuring yet.
       </p>
 
       {!heatmap && <p className="text-sm text-text-dim">Commodity data is not yet available.</p>}
@@ -131,21 +132,25 @@ export default async function CommoditiesPage() {
 
           <section className="gfew-panel p-4 text-xs text-text-dim">
             <strong className="text-text">Phase 1 of a much larger planned build.</strong> This is real World Bank
-            Pink Sheet price data (free, no key, monthly since 1960) for ~50 commodities, with a genuine
-            price-momentum signal — each commodity&apos;s 1M/3M/6M/12M/36M returns are z-scored against that same
-            commodity&apos;s own trailing return history, then blended per the spec&apos;s own horizon weights
-            (10/20/25/30/15) and classified into STRONG POSITIVE..STRONG NEGATIVE buckets. This is deliberately
-            <em> not</em> called a &ldquo;Commodity Direction Score&rdquo; because the full CDS spec weights price
-            momentum at only 10% alongside demand (20%), supply (15%), inventory (15%) and balance (15%) — none of
-            which are wired in yet. Checked and confirmed missing from the free Pink Sheet source: Lithium, Cobalt,
-            Graphite, Manganese, Rare Earths, Vanadium, Tungsten, Molybdenum (critical minerals) and a distinct OPEC
-            Basket series. Genuinely still to build, in rough priority order: production/consumption/inventory data
-            (USDA PSD for agriculture, FAOSTAT, EIA for energy — several of these are already partially ingested
-            elsewhere on this app and can be reused rather than re-fetched), a real supply-demand balance table, the
-            full weighted Commodity Direction Score, a UN Comtrade-based commodity trade network, an India-specific
-            production/consumption/import-dependency view, a Global Commodity Stress Index, an early-warning alert
-            engine, scenario/backtesting tools, and fundamental-value/forecast models. None of this is faked in the
-            meantime — categories and commodities without real data simply don&apos;t appear above.
+            Pink Sheet price data (free, no key, monthly since 1960, ~50 commodities) plus IMF Primary Commodity
+            Price System data for six critical minerals (Cobalt, Lithium, Manganese, Molybdenum, Vanadium
+            Pentoxide, and a Rare Earth Elements basket) — free, no key, mirrored via DBnomics after IMF&apos;s own
+            API endpoints for this dataset were checked live and found dead. Each commodity gets a genuine
+            price-momentum signal: 1M/3M/6M/12M/36M returns are z-scored against that same commodity&apos;s own
+            trailing return history, then blended per the spec&apos;s own horizon weights (10/20/25/30/15) and
+            classified into STRONG POSITIVE..STRONG NEGATIVE buckets. This is deliberately <em>not</em> called a
+            &ldquo;Commodity Direction Score&rdquo; because the full CDS spec weights price momentum at only 10%
+            alongside demand (20%), supply (15%), inventory (15%) and balance (15%) — none of which are wired in
+            yet. Checked and confirmed missing from both free sources: Graphite, Tungsten, and a distinct OPEC
+            Reference Basket series (EIA v2 publishes Brent/WTI/Dubai only; opec.org&apos;s own basket page returns
+            HTTP 403 to unauthenticated requests). Genuinely still to build, in rough priority order:
+            production/consumption/inventory data (USDA PSD for agriculture, FAOSTAT, EIA for energy — several of
+            these are already partially ingested elsewhere on this app and can be reused rather than re-fetched), a
+            real supply-demand balance table, the full weighted Commodity Direction Score, a UN Comtrade-based
+            commodity trade network, an India-specific production/consumption/import-dependency view, a Global
+            Commodity Stress Index, an early-warning alert engine, scenario/backtesting tools, and
+            fundamental-value/forecast models. None of this is faked in the meantime — categories and commodities
+            without real data simply don&apos;t appear above.
           </section>
         </>
       )}

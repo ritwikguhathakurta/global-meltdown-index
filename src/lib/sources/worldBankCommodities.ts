@@ -56,6 +56,7 @@ export async function fetchWorldBankCommodityPrices(sinceIso: string): Promise<M
     if (!observedAt || observedAt < sinceIso) continue;
 
     for (const commodity of COMMODITIES) {
+      if (commodity.source !== "world_bank" || commodity.pinkSheetColumn === undefined) continue;
       const raw = row[commodity.pinkSheetColumn];
       if (raw === undefined || raw === null || raw === "…" || raw === "...") continue;
       const value = typeof raw === "number" ? raw : parseFloat(String(raw));

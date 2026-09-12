@@ -1983,8 +1983,25 @@ export default function MethodologyPage() {
             Commodities page
           </a>{" "}
           for the full disclosure of what this is and isn&apos;t measuring. Checked directly against the Pink
-          Sheet and confirmed absent: Lithium, Cobalt, Graphite, Manganese, Rare Earths, Vanadium, Tungsten,
-          Molybdenum, and a distinct OPEC Basket series.
+          Sheet and confirmed absent: all eight critical minerals and a distinct OPEC Basket series.
+        </p>
+        <p className="mb-2">
+          <strong>Phase 1b (shipped)</strong>: six of those eight critical minerals turned out to be real,
+          free, no-key data after all — just not through IMF&apos;s own broken API (both
+          <code className="gfew-mono"> dataservices.imf.org</code> and{" "}
+          <code className="gfew-mono">api.imf.org/external/sdmx/3.0</code> were checked live and are
+          dead/404). The IMF Primary Commodity Price System dataset is mirrored, live and free, by{" "}
+          <a href="https://db.nomics.world/IMF/PCPS" className="text-accent hover:underline" target="_blank" rel="noreferrer">
+            DBnomics
+          </a>
+          , an open-source data aggregator — verified series-by-series against IMF&apos;s own published unit
+          documentation and known market price history (e.g. the mirrored Lithium series spikes to ~$410k/mt
+          in November 2022 and collapses through 2023-2025, consistent with the real lithium price crash on a
+          contained-metal basis) before wiring in. This adds Cobalt, Lithium, Manganese, Molybdenum, Vanadium
+          Pentoxide, and a Rare Earth Elements basket as a new &ldquo;Critical Minerals&rdquo; category.
+          Graphite, Tungsten, and the OPEC Reference Basket remain genuinely absent from both free sources
+          checked (EIA v2&apos;s international dataset publishes Brent/WTI/Dubai spot prices only, no ORB
+          series; opec.org&apos;s own basket page returns HTTP 403 to unauthenticated requests).
         </p>
         <p className="mb-2">
           <strong>Genuinely still to build</strong>: production/consumption/inventory data and a real

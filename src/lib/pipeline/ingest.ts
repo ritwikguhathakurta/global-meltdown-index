@@ -86,6 +86,7 @@ import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
 import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
+import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1053,6 +1054,23 @@ export async function ingestWorldBankCommodities(db: SupabaseClient, runDate: st
   }
 }
 
+export async function ingestCriticalMinerals(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const since = new Date();
+    since.setUTCFullYear(since.getUTCFullYear() - 20);
+    const points = await fetchCriticalMineralPrices(since.toISOString());
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_critical_minerals", status, detail);
+    return { stage: "ingest_critical_minerals", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_critical_minerals", "failed", detail);
+    return { stage: "ingest_critical_minerals", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1106,6 +1124,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
     withTimeout("ingest_energy_backtest_series", ingestEnergyBacktestSeries(db, runDate)),
     withTimeout("ingest_world_bank_commodities", ingestWorldBankCommodities(db, runDate)),
+    withTimeout("ingest_critical_minerals", ingestCriticalMinerals(db, runDate)),
   ]);
   return { runDate, results };
 }
