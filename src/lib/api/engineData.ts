@@ -40,6 +40,7 @@ import { getCountryEnergyBalanceTable as computeCountryEnergyBalanceTable, type 
 import { getEnergyTradeNetworkGraph as computeEnergyTradeNetworkGraph, type EnergyTradeNetworkResult } from "@/lib/engines/energyTradeNetwork";
 import { getEnergyBacktestResult as computeEnergyBacktestResult, type EnergyBacktestResult } from "@/lib/engines/energyBacktest";
 import { getCommodityHeatmap as computeCommodityHeatmap, type CommodityHeatmapResult } from "@/lib/engines/commodities";
+import { getCommodityBalances as computeCommodityBalances, type CommodityBalanceResult } from "@/lib/engines/commodityBalance";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -428,6 +429,17 @@ export async function getCommodityHeatmap(): Promise<CommodityHeatmapResult | nu
   try {
     const db = await createServerSupabase();
     return await computeCommodityHeatmap(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getCommodityBalances(): Promise<CommodityBalanceResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeCommodityBalances(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;
