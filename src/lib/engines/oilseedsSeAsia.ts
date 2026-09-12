@@ -35,10 +35,17 @@ export type MalaysiaExportRow = {
   yoy: number | null;
 };
 
+export type CmeFuturesPrice = {
+  latestValue: number | null;
+  latestDate: string | null;
+  change12m: number | null;
+};
+
 export type SeAsiaPalmResult = {
   indonesiaOilPalm: IndonesiaPalmRow;
   indonesiaCoconut: IndonesiaPalmRow;
   malaysiaExports: MalaysiaExportRow[];
+  cmeFuturesPrice: CmeFuturesPrice;
 };
 
 function buildIndonesiaRow(label: string, annual: Point[], monthly: Point[]): IndonesiaPalmRow {
@@ -59,11 +66,19 @@ export async function getSeAsiaPalmBalances(db: SupabaseClient): Promise<SeAsiaP
   since.setUTCFullYear(since.getUTCFullYear() - 12);
   const sinceIso = since.toISOString();
 
-  const [oilPalmAnnual, oilPalmMonthly, coconutAnnual] = await Promise.all([
+  const [oilPalmAnnual, oilPalmMonthly, coconutAnnual, cmeFutures] = await Promise.all([
     fetchSeries(db, "commodity.palm_oil.indonesia.production", sinceIso),
     fetchSeries(db, "commodity.palm_oil.indonesia.production_monthly_large_estate", sinceIso),
     fetchSeries(db, "commodity.coconut.indonesia.production", sinceIso),
+    fetchSeries(db, "commodity.palm_oil.cme_futures_price", sinceIso),
   ]);
+
+  const lastCmeFutures = latest(cmeFutures);
+  const cmeFuturesPrice: CmeFuturesPrice = {
+    latestValue: lastCmeFutures?.v ?? null,
+    latestDate: lastCmeFutures?.t ?? null,
+    change12m: pctChangeOverDays(cmeFutures, 365),
+  };
 
   const indonesiaOilPalm = buildIndonesiaRow("Oil Palm (CPO, all ownership)", oilPalmAnnual, oilPalmMonthly);
   const indonesiaCoconut = buildIndonesiaRow("Coconut (all ownership)", coconutAnnual, []);
@@ -86,5 +101,6 @@ export async function getSeAsiaPalmBalances(db: SupabaseClient): Promise<SeAsiaP
     indonesiaOilPalm,
     indonesiaCoconut,
     malaysiaExports: malaysiaExportsRaw.filter((r) => r.latestValue !== null),
+    cmeFuturesPrice,
   };
 }

@@ -510,7 +510,7 @@ export type OilseedsHistoryResult = {
   prices: { slug: string; label: string; unit: string; points: { t: string; v: number }[] }[];
   balances: { slug: string; label: string; unit: string; attribute: string; points: { t: string; v: number }[] }[];
   countryBalances: { slug: string; label: string; attribute: string; points: { t: string; v: number }[] }[];
-  seAsia: { slug: string; label: string; points: { t: string; v: number }[] }[];
+  seAsia: { slug: string; label: string; unit: string; points: { t: string; v: number }[] }[];
 };
 
 export async function getOilseedsHistory(): Promise<OilseedsHistoryResult | null> {
@@ -578,21 +578,23 @@ export async function getOilseedsHistory(): Promise<OilseedsHistoryResult | null
       )
     ).filter((b) => b.points.length > 0);
 
-    const seAsiaSeries: { slug: string; label: string }[] = [
-      { slug: "commodity.palm_oil.indonesia.production", label: "Indonesia — Oil Palm (CPO, all ownership, annual)" },
-      { slug: "commodity.palm_oil.indonesia.production_monthly_large_estate", label: "Indonesia — Oil Palm, Large Estates Only (monthly)" },
-      { slug: "commodity.coconut.indonesia.production", label: "Indonesia — Coconut, all ownership (annual)" },
-      { slug: "commodity.palm_oil.malaysia.export.cpo", label: "Malaysia — CPO Exports (monthly)" },
-      { slug: "commodity.palm_oil.malaysia.export.palm_oil", label: "Malaysia — Palm Oil Exports, total (monthly)" },
-      { slug: "commodity.palm_oil.malaysia.export.palm_kernel_oil", label: "Malaysia — Palm Kernel Oil Exports, total (monthly)" },
-      { slug: "commodity.palm_oil.malaysia.export.biodiesel", label: "Malaysia — Biodiesel Exports (monthly)" },
-      { slug: "commodity.palm_oil.malaysia.export.total", label: "Malaysia — Oil Palm Products Exports, TOTAL (monthly)" },
+    const seAsiaSeries: { slug: string; label: string; unit: string }[] = [
+      { slug: "commodity.palm_oil.indonesia.production", label: "Indonesia — Oil Palm (CPO, all ownership, annual)", unit: "million MT" },
+      { slug: "commodity.palm_oil.indonesia.production_monthly_large_estate", label: "Indonesia — Oil Palm, Large Estates Only (monthly)", unit: "million MT" },
+      { slug: "commodity.coconut.indonesia.production", label: "Indonesia — Coconut, all ownership (annual)", unit: "million MT" },
+      { slug: "commodity.palm_oil.malaysia.export.cpo", label: "Malaysia — CPO Exports (monthly)", unit: "million MT" },
+      { slug: "commodity.palm_oil.malaysia.export.palm_oil", label: "Malaysia — Palm Oil Exports, total (monthly)", unit: "million MT" },
+      { slug: "commodity.palm_oil.malaysia.export.palm_kernel_oil", label: "Malaysia — Palm Kernel Oil Exports, total (monthly)", unit: "million MT" },
+      { slug: "commodity.palm_oil.malaysia.export.biodiesel", label: "Malaysia — Biodiesel Exports (monthly)", unit: "million MT" },
+      { slug: "commodity.palm_oil.malaysia.export.total", label: "Malaysia — Oil Palm Products Exports, TOTAL (monthly)", unit: "million MT" },
+      { slug: "commodity.palm_oil.cme_futures_price", label: "CME Crude Palm Oil Calendar Swap Futures (CPO=F, daily)", unit: "USD/MT" },
     ];
     const seAsia = (
       await Promise.all(
         seAsiaSeries.map(async (s) => ({
           slug: s.slug,
           label: s.label,
+          unit: s.unit,
           points: await fetchSeries(db, s.slug, sinceIso),
         }))
       )

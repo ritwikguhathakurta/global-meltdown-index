@@ -2096,7 +2096,17 @@ export default function MethodologyPage() {
           (verified by checking the decoded annual-total key against the exact sum of that year&apos;s 12 decoded
           monthly values). Malaysia: MPOB (Malaysian Palm Oil Board) publishes monthly oil-palm product export
           volumes (CPO, PPO, CPKO, PPKO, palm kernel cake, oleochemicals, finished products, biodiesel) as a plain
-          HTML report, parsed directly — MPOB has no REST/JSON API.
+          HTML report, parsed directly — MPOB has no REST/JSON API. A live daily price was also requested via
+          TradingView&apos;s MYX FCPO chart — checked and rejected: TradingView has no public data API, and its
+          real-time chart data streams over a private, authenticated internal feed rather than a documented
+          endpoint (its own robots.txt confirms the price data isn&apos;t in the static page at all). The
+          legitimate substitute already fits this app&apos;s existing pattern for exactly this situation (see the
+          Yahoo Finance chart-endpoint note above, where investing.com was rejected the same way for BTC/ETH):
+          CME lists a &ldquo;Crude Palm Oil Calendar Swap&rdquo; futures contract (ticker{" "}
+          <code className="gfew-mono">CPO=F</code>) that is cash-settled against MPOB&apos;s own daily posted
+          Malaysian palm oil price — a real, actively-traded instrument, verified live with fresh recent daily
+          bars before adding, requiring zero new ingest infrastructure since it just extends the existing Yahoo
+          Finance connector&apos;s symbol list.
         </p>
         <p className="mb-2">
           <strong>Checked and confirmed genuinely unavailable</strong> for Malaysia/Indonesia: Malaysia&apos;s

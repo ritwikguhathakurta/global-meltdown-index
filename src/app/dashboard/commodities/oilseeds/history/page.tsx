@@ -81,7 +81,7 @@ export default async function OilseedsHistoryPage() {
               Oilseeds page for why.
             </p>
             {history.seAsia.map((s) => (
-              <SeriesTable key={s.slug} label={s.label} unit="million MT" points={s.points} />
+              <SeriesTable key={s.slug} label={s.label} unit={s.unit} points={s.points} />
             ))}
           </section>
         </>

@@ -286,6 +286,26 @@ export default async function OilseedsPage() {
             Indonesia via BPS (Statistics Indonesia), Malaysia via MPOB (Malaysian Palm Oil Board) — the two
             countries that together produce roughly 85% of the world&apos;s palm oil.
           </p>
+
+          {seAsia.cmeFuturesPrice.latestValue !== null && (
+            <div className="gfew-panel mb-6 p-4">
+              <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">
+                Live Price — CME Crude Palm Oil Calendar Swap Futures (CPO=F)
+              </div>
+              <div className="flex items-baseline gap-3">
+                <span className="gfew-mono text-2xl font-semibold">${fmt(seAsia.cmeFuturesPrice.latestValue, 2)}/mt</span>
+                <span className="text-xs text-text-dim">as of {seAsia.cmeFuturesPrice.latestDate?.slice(0, 10) ?? "—"}</span>
+                <span className="gfew-mono text-sm font-semibold" style={{ color: pctColor(seAsia.cmeFuturesPrice.change12m) }}>
+                  {fmtPct(seAsia.cmeFuturesPrice.change12m)} (12M)
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-text-dim">
+                Cash-settled against MPOB&apos;s own daily posted Malaysian palm oil settlement price — the live
+                proxy used here instead of scraping TradingView, which has no public data API.
+              </p>
+            </div>
+          )}
+
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {[seAsia.indonesiaOilPalm, seAsia.indonesiaCoconut].map((row) => (
               <div key={row.label} className="gfew-panel p-4">
@@ -356,8 +376,11 @@ export default async function OilseedsPage() {
         for Soybeans, Soybean Oil, Soybean Meal, and Canola; a vegetable-oil relative-value matrix computed
         directly from existing prices; Indonesia&apos;s national annual oil palm (CPO) and coconut production, all
         ownership combined, via BPS&apos;s Web API (registered key), plus a large-estates-only monthly palm
-        indicator (the only higher-than-annual frequency BPS publishes); and Malaysia&apos;s monthly oil-palm
-        product export volumes (CPO, PKO, biodiesel, oleochemicals, etc.) via MPOB.
+        indicator (the only higher-than-annual frequency BPS publishes); Malaysia&apos;s monthly oil-palm
+        product export volumes (CPO, PKO, biodiesel, oleochemicals, etc.) via MPOB; and a genuinely live daily
+        palm oil price via CME&apos;s Crude Palm Oil Calendar Swap futures (CPO=F on Yahoo Finance) — cash-settled
+        against MPOB&apos;s own posted Malaysian benchmark, added instead of scraping TradingView (which has no
+        public data API — its charts stream over a private, authenticated feed, not a documented endpoint).
         <br />
         <br />
         <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a CFTC-reportable

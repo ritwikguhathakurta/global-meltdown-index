@@ -100,6 +100,16 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   // India: ^CNXREALTY (Nifty Realty) rejected (1 stale bar) — DLF Ltd, India's
   // largest listed developer, used as a single-company proxy instead.
   { metricKey: "property.reit_india", symbol: "DLF.NS", unit: "INR" },
+  // Oilseeds engine — TradingView was requested for a live MYX FCPO price,
+  // but TradingView has no public API (its real-time data streams over a
+  // private authenticated feed, not a documented endpoint) — same
+  // no-scraping-undocumented-feeds rule that already excludes investing.com
+  // above. CME's "Crude Palm Oil Calendar Swap" futures (ticker CPO=F) is
+  // the legitimate substitute: a real, actively-traded, USD-denominated
+  // contract cash-settled against MPOB's own daily posted Malaysian palm
+  // oil settlement price — verified live with fresh recent daily bars
+  // before adding.
+  { metricKey: "commodity.palm_oil.cme_futures_price", symbol: "CPO=F", unit: "USD/MT" },
 ];
 
 type ChartResponse = {
