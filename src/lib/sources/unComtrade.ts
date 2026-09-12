@@ -103,6 +103,13 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
     // Each group stays comfortably under the endpoint's 500-record cap
     // (4 reporters * 16 partners * a handful of flow-code variants).
     const REPORTER_CHUNK_SIZE = 4;
+    // Comtrade can report more than one "X" (export) row for the same
+    // reporter/partner pair — split by customs procedure or mode of
+    // transport — so pair values are summed here before ever becoming a
+    // MetricPoint, or upsertMetrics' single-batch upsert would try to
+    // touch the same (metric_key, observed_at, source_id) row twice and
+    // Postgres rejects that outright.
+    const valueByPair = new Map<string, number>();
     for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
       const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
       const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
@@ -111,17 +118,21 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
         const reporterSlug = slugByCode.get(String(row.reporterCode));
         const partnerSlug = slugByCode.get(String(row.partnerCode));
         if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
-        points.push({
-          metric_key: `energy.trade.${commodity.slug}.${reporterSlug}_to_${partnerSlug}`,
-          observed_at: `${year}-12-31`,
-          value: row.primaryValue,
-          unit: "USD",
-          source_key: "un_comtrade",
-          source_tier: 1,
-          frequency: "annual",
-        });
+        const pairKey = `${reporterSlug}_to_${partnerSlug}`;
+        valueByPair.set(pairKey, (valueByPair.get(pairKey) ?? 0) + row.primaryValue);
       }
       await delay(2000);
+    }
+    for (const [pairKey, value] of valueByPair) {
+      points.push({
+        metric_key: `energy.trade.${commodity.slug}.${pairKey}`,
+        observed_at: `${year}-12-31`,
+        value,
+        unit: "USD",
+        source_key: "un_comtrade",
+        source_tier: 1,
+        frequency: "annual",
+      });
     }
   }
   return points;
