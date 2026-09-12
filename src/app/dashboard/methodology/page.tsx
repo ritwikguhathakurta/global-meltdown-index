@@ -2004,13 +2004,30 @@ export default function MethodologyPage() {
           series; opec.org&apos;s own basket page returns HTTP 403 to unauthenticated requests).
         </p>
         <p className="mb-2">
-          <strong>Genuinely still to build</strong>: production/consumption/inventory data and a real
-          supply-demand balance table (USDA PSD for agriculture, FAOSTAT, EIA for energy — several already
-          partially ingested elsewhere on this platform, e.g. energyCountryBalance.ts, and reusable rather than
-          re-fetched), the full weighted Commodity Direction Score, a UN Comtrade-based commodity trade network,
-          an India-specific production/consumption/import-dependency view, a Global Commodity Stress Index, an
-          early-warning alert engine, a scenario/what-if simulator, model backtesting, and fundamental
-          reference-value/price-forecast models.
+          <strong>Phase 2 (shipped)</strong>: a real global supply-demand balance table — annual world
+          production, consumption, and ending stocks for 20 commodities (Grains, Oilseeds, Soft Commodities,
+          Livestock/Dairy) from USDA FAS&apos;s Production, Supply and Distribution (PSD) database. Free, no key,
+          no login — but not via the gated <code className="gfew-mono">apps.fas.usda.gov/OpenData</code> API
+          (needs an API key); instead the ~2 million row bulk CSV download (
+          <code className="gfew-mono">psdonline/downloads/psd_alldata_csv.zip</code>) that needs no auth at all.
+          Computing correct world totals took real care: PSD sometimes reports EU production only as a bloc
+          (codes E2/E3/E4) with no individual member-country rows — true for Wheat, where naively excluding the
+          bloc code undercounts world production by ~15% (verified live: adding it back moves the 2022 total
+          from ~656M to ~790M tonnes, matching published figures) — and sometimes reports EU members
+          individually alongside the bloc in the same years — true for Sugar, 2001-2005, which would
+          double-count if both were summed. Resolved per commodity/year: prefer the member-country sum when it
+          exists for that year, fall back to the bloc figure otherwise. Stocks-to-use (ending stocks ÷
+          consumption) is shown as the standard tightness signal.
+        </p>
+        <p className="mb-2">
+          <strong>Genuinely still to build</strong>: FAOSTAT and EIA production/consumption data for the
+          commodities USDA PSD doesn&apos;t cover (base/precious metals, energy — EIA country-level energy
+          balances are already partially ingested elsewhere on this platform, e.g. energyCountryBalance.ts, and
+          reusable rather than re-fetched), the full weighted Commodity Direction Score combining price momentum
+          with this new balance data, a UN Comtrade-based commodity trade network, an India-specific
+          production/consumption/import-dependency view, a Global Commodity Stress Index, an early-warning alert
+          engine, a scenario/what-if simulator, model backtesting, and fundamental reference-value/price-forecast
+          models.
         </p>
       </section>
 
