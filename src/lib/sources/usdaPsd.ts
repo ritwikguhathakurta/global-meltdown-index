@@ -73,7 +73,7 @@ type YearBucket = { nonEu: number; euMembers: number; euAggregate: number };
 type Aggregation = Map<string, Map<Attribute, Map<string, YearBucket>>>;
 
 export async function fetchUsdaPsdBalances(): Promise<MetricPoint[]> {
-  const wantedCodes = new Map(BALANCE_COMMODITIES.map((c) => [c.psdCommodityCode, c]));
+  const wantedCodes = new Map(BALANCE_COMMODITIES.filter((c) => c.source === "usda_psd").map((c) => [c.sourceCode, c]));
 
   const res = await fetch(PSD_ZIP_URL, { next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`USDA PSD bulk download: HTTP ${res.status}`);
@@ -134,7 +134,8 @@ export async function fetchUsdaPsdBalances(): Promise<MetricPoint[]> {
 
   const points: MetricPoint[] = [];
   for (const commodity of BALANCE_COMMODITIES) {
-    const byAttribute = aggregation.get(commodity.psdCommodityCode);
+    if (commodity.source !== "usda_psd") continue;
+    const byAttribute = aggregation.get(commodity.sourceCode);
     if (!byAttribute) continue;
     for (const [attribute, byYear] of byAttribute) {
       for (const [year, bucket] of byYear) {

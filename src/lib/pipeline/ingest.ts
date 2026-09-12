@@ -88,6 +88,8 @@ import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
 import { fetchUsdaPsdBalances } from "../sources/usdaPsd";
+import { fetchFaostatProduction } from "../sources/faostat";
+import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1087,6 +1089,41 @@ export async function ingestUsdaPsdBalances(db: SupabaseClient, runDate: string)
   }
 }
 
+export async function ingestFaostatProduction(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchFaostatProduction();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_faostat_production", status, detail);
+    return { stage: "ingest_faostat_production", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_faostat_production", "failed", detail);
+    return { stage: "ingest_faostat_production", status: "failed", detail };
+  }
+}
+
+export async function ingestEiaWorldEnergy(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const apiKey = process.env.EIA_API_KEY;
+  if (!apiKey) {
+    await logRun(db, runDate, "ingest_eia_world_energy", "warning", { reason: "EIA_API_KEY not set" });
+    return { stage: "ingest_eia_world_energy", status: "warning", detail: { reason: "EIA_API_KEY not set" } };
+  }
+  try {
+    const points = await fetchEiaWorldEnergyBalances(apiKey);
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_eia_world_energy", status, detail);
+    return { stage: "ingest_eia_world_energy", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_eia_world_energy", "failed", detail);
+    return { stage: "ingest_eia_world_energy", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1142,6 +1179,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_world_bank_commodities", ingestWorldBankCommodities(db, runDate)),
     withTimeout("ingest_critical_minerals", ingestCriticalMinerals(db, runDate)),
     withTimeout("ingest_usda_psd_balances", ingestUsdaPsdBalances(db, runDate)),
+    withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
+    withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
   ]);
   return { runDate, results };
 }

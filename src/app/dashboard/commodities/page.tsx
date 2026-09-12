@@ -142,8 +142,10 @@ export default async function CommoditiesPage() {
               <h2 className="mb-2 text-lg font-semibold">Global Supply &amp; Demand Balance</h2>
               <p className="mb-4 max-w-3xl text-sm text-text-dim">
                 Real annual world production, consumption, and ending stocks from USDA FAS&apos;s Production,
-                Supply and Distribution database (free, no key). Stocks-to-use is the standard tightness metric —
-                a falling ratio means the world is drawing down inventory faster than it&apos;s replacing it.
+                Supply and Distribution database, the EIA&apos;s own World energy aggregates, and FAOSTAT
+                (production only for Cocoa/Tea/Rubber/Tobacco — see disclosure below). Stocks-to-use is the
+                standard tightness metric — a falling ratio means the world is drawing down inventory faster than
+                it&apos;s replacing it.
               </p>
               {BALANCE_CATEGORIES.map((category) => {
                 const rows: BalanceRow[] = balances.rows.filter((r) => r.category === category);
@@ -214,23 +216,38 @@ export default async function CommoditiesPage() {
             <br />
             <br />
             <strong className="text-text">Phase 2 (shipped)</strong>: the Global Supply &amp; Demand Balance table
-            above — real annual world production/consumption/ending-stocks for 20 commodities (Grains, Oilseeds,
-            Soft Commodities, Livestock/Dairy) from USDA FAS&apos;s free, no-key PSD bulk data file. World totals
-            required care: PSD sometimes reports EU production only as a bloc with no individual member rows
-            (true for Wheat — naively excluding the EU bloc code undercounts world production by ~15%, verified
-            live) and sometimes reports EU members individually alongside the bloc in the same years (true for
-            Sugar, 2001-2005, which would double-count if both were summed) — resolved per commodity/year by
-            preferring the member-country sum when it exists and falling back to the bloc figure otherwise.
+            above — real annual world production/consumption/ending-stocks for 20 agricultural commodities
+            (Grains, Oilseeds, Soft Commodities, Livestock/Dairy) from USDA FAS&apos;s free, no-key PSD bulk data
+            file. World totals required care: PSD sometimes reports EU production only as a bloc with no
+            individual member rows (true for Wheat — naively excluding the EU bloc code undercounts world
+            production by ~15%, verified live) and sometimes reports EU members individually alongside the bloc
+            in the same years (true for Sugar, 2001-2005, which would double-count if both were summed) —
+            resolved per commodity/year by preferring the member-country sum when it exists and falling back to
+            the bloc figure otherwise.
             <br />
             <br />
-            <strong className="text-text">Genuinely still to build</strong>, in rough priority order: FAOSTAT and
-            EIA production/consumption data for the commodities USDA PSD doesn&apos;t cover (base/precious metals,
-            energy — EIA country-level energy balances are already partially ingested elsewhere on this app and
-            reusable), the full weighted Commodity Direction Score combining price momentum with this new balance
-            data, a UN Comtrade-based commodity trade network, an India-specific production/consumption/
-            import-dependency view, a Global Commodity Stress Index, an early-warning alert engine,
-            scenario/backtesting tools, and fundamental-value/forecast models. None of this is faked in the
-            meantime — categories and commodities without real data simply don&apos;t appear above.
+            <strong className="text-text">Phase 2b (shipped)</strong>: world Petroleum &amp; Other Liquids,
+            Natural Gas, and Coal production/consumption from the EIA&apos;s own pre-computed &ldquo;World&rdquo;
+            region aggregate (not summed from countries — EIA publishes it directly, verified against known
+            figures). Also Cocoa, Tea, Rubber, and Tobacco world production from FAOSTAT&apos;s free bulk data
+            file (FAOSTAT&apos;s live JSON API is unreachable from this deployment — TLS connects but the request
+            hangs, consistent with a bot challenge that never resolves for non-browser clients — so this uses
+            FAOSTAT&apos;s S3-hosted bulk CSV instead). FAOSTAT reports production only, not
+            consumption/stocks, for these four — they show &ldquo;—&rdquo; for those columns above rather than a
+            fabricated number. EIA has no &ldquo;crude oil consumption&rdquo; concept at all (crude isn&apos;t
+            consumed directly, it&apos;s refined first, verified live), so the energy row pairs production and
+            consumption at the broader &ldquo;Petroleum &amp; Other Liquids&rdquo; level instead — the same
+            convention this app already uses for country-level energy balances.
+            <br />
+            <br />
+            <strong className="text-text">Genuinely still to build</strong>, in rough priority order: production
+            data for base/precious metals (checked live: USGS publishes this but only as annual PDFs, and this
+            app has no PDF-parsing infrastructure — deferred, not silently skipped), the full weighted Commodity
+            Direction Score combining price momentum with this balance data, a UN Comtrade-based commodity trade
+            network, an India-specific production/consumption/import-dependency view, a Global Commodity Stress
+            Index, an early-warning alert engine, scenario/backtesting tools, and fundamental-value/forecast
+            models. None of this is faked in the meantime — categories and commodities without real data simply
+            don&apos;t appear above.
           </section>
         </>
       )}

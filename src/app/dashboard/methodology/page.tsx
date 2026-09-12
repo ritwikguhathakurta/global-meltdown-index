@@ -2020,14 +2020,33 @@ export default function MethodologyPage() {
           consumption) is shown as the standard tightness signal.
         </p>
         <p className="mb-2">
-          <strong>Genuinely still to build</strong>: FAOSTAT and EIA production/consumption data for the
-          commodities USDA PSD doesn&apos;t cover (base/precious metals, energy — EIA country-level energy
-          balances are already partially ingested elsewhere on this platform, e.g. energyCountryBalance.ts, and
-          reusable rather than re-fetched), the full weighted Commodity Direction Score combining price momentum
-          with this new balance data, a UN Comtrade-based commodity trade network, an India-specific
-          production/consumption/import-dependency view, a Global Commodity Stress Index, an early-warning alert
-          engine, a scenario/what-if simulator, model backtesting, and fundamental reference-value/price-forecast
-          models.
+          <strong>Phase 2b (shipped)</strong>: world Petroleum &amp; Other Liquids, Natural Gas, and Coal
+          production/consumption from the EIA international dataset&apos;s own pre-computed{" "}
+          <code className="gfew-mono">countryRegionId=WORL</code> aggregate — not summed from the 16-country list
+          the Energy tab uses, since EIA publishes a true world total directly (verified against known published
+          figures: 2025 petroleum &amp; other liquids production ~106M bbl/day, 2024 natural gas
+          production/consumption ~149 Tcf, 2024 coal production/consumption ~8.8 billion MT). EIA has no
+          &ldquo;crude oil consumption&rdquo; concept at all — checked live, the query returns zero rows, since
+          crude isn&apos;t consumed directly, it&apos;s refined first — so production and consumption pair up at
+          the broader &ldquo;Total petroleum and other liquids&rdquo;/&ldquo;Refined petroleum products&rdquo;
+          level instead, the same convention eiaApi.ts already uses for country-level balances. Also added: Cocoa,
+          Tea, Rubber, and Tobacco world production from FAOSTAT&apos;s bulk data file (production only — FAOSTAT
+          doesn&apos;t publish consumption/stocks in this domain, so those columns show a blank rather than a
+          fabricated figure). FAOSTAT&apos;s live JSON API (fenixservices.fao.org) is unreachable from this
+          deployment — TLS connects but the request hangs indefinitely, the same symptom seen earlier with USGS
+          ScienceBase, consistent with a bot challenge that never resolves for non-browser clients — so this uses
+          FAOSTAT&apos;s S3/CloudFront-hosted bulk CSV instead, which has no such issue. Its &ldquo;World&rdquo;
+          row (Area Code 5000) is a pre-computed aggregate published by FAO itself, unlike USDA PSD&apos;s bulk
+          file — no EU-style double-counting risk there.
+        </p>
+        <p className="mb-2">
+          <strong>Genuinely still to build</strong>: production data for base/precious metals — checked live,
+          USGS publishes this but only as annual PDFs (Mineral Commodity Summaries), and this app has no
+          PDF-parsing infrastructure yet, so it&apos;s deferred rather than silently skipped — the full weighted
+          Commodity Direction Score combining price momentum with this balance data, a UN Comtrade-based
+          commodity trade network, an India-specific production/consumption/import-dependency view, a Global
+          Commodity Stress Index, an early-warning alert engine, a scenario/what-if simulator, model backtesting,
+          and fundamental reference-value/price-forecast models.
         </p>
       </section>
 
