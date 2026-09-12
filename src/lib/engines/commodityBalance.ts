@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { latest, pctChangeOverDays } from "../metrics/stats";
+import { latest, pctChangeOverDays, percentileRank } from "../metrics/stats";
 import { BALANCE_COMMODITIES, type BalanceCategory } from "../commodities/balanceTaxonomy";
 
 /**
@@ -28,6 +28,8 @@ export type BalanceRow = {
   productionYoy: number | null;
   stocksToUsePct: number | null;
   stocksToUseYoy: number | null;
+  /** where the latest stocks-to-use ratio sits vs. its own full history, 0 (tightest ever) to 100 (loosest ever) */
+  stocksToUsePercentile: number | null;
 };
 
 export type CommodityBalanceResult = {
@@ -36,7 +38,10 @@ export type CommodityBalanceResult = {
 
 export async function getCommodityBalances(db: SupabaseClient): Promise<CommodityBalanceResult> {
   const since = new Date();
-  since.setUTCFullYear(since.getUTCFullYear() - 20);
+  // 45 years gives most commodities close to their full available PSD/FAOSTAT
+  // history for the stocks-to-use percentile below, rather than an arbitrary
+  // recent window that would understate a multi-decade tightness cycle.
+  since.setUTCFullYear(since.getUTCFullYear() - 45);
   const sinceIso = since.toISOString();
 
   const rows: BalanceRow[] = [];
@@ -76,6 +81,7 @@ export async function getCommodityBalances(db: SupabaseClient): Promise<Commodit
       productionYoy: pctChangeOverDays(production, 365),
       stocksToUsePct: lastStocksToUse?.v ?? null,
       stocksToUseYoy: pctChangeOverDays(stocksToUseSeries, 365),
+      stocksToUsePercentile: percentileRank(stocksToUseSeries, 60),
     });
   }
 

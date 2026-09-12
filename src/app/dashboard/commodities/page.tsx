@@ -3,6 +3,7 @@ import { COMMODITY_CATEGORIES } from "@/lib/commodities/taxonomy";
 import { BALANCE_CATEGORIES } from "@/lib/commodities/balanceTaxonomy";
 import type { CommodityDirectionLabel, CommodityRow } from "@/lib/engines/commodities";
 import type { BalanceRow } from "@/lib/engines/commodityBalance";
+import { getCommodityComposite } from "@/lib/engines/commodityComposite";
 
 const DIRECTION_COLORS: Record<CommodityDirectionLabel, string> = {
   "STRONG POSITIVE": "#34c085",
@@ -45,6 +46,7 @@ function fmtQty(v: number | null): string {
 
 export default async function CommoditiesPage() {
   const [heatmap, balances] = await Promise.all([getCommodityHeatmap(), getCommodityBalances()]);
+  const composite = heatmap && balances ? getCommodityComposite(heatmap, balances) : null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -197,6 +199,46 @@ export default async function CommoditiesPage() {
             </>
           )}
 
+          {composite && composite.rows.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-2 text-lg font-semibold">Momentum + Balance Composite</h2>
+              <p className="mb-4 max-w-3xl text-sm text-text-dim">
+                Not the full spec Commodity Direction Score — see the disclosure below for why. An equal-weight
+                blend of price momentum (above) and a balance &ldquo;tightness&rdquo; signal (where the latest
+                stocks-to-use ratio sits vs. its own full history), for the {composite.rows.length} commodities
+                where this app has both a price and a USDA-PSD-style consumption series.
+              </p>
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-panel-raised text-text-dim">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Commodity</th>
+                      <th className="px-3 py-2 font-medium">Momentum</th>
+                      <th className="px-3 py-2 font-medium">Balance Tightness</th>
+                      <th className="px-3 py-2 font-medium">Composite</th>
+                      <th className="px-3 py-2 font-medium">Direction</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {composite.rows.map((r) => (
+                      <tr key={r.slug} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium">{r.label}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{r.momentumScore ?? "—"}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{r.balanceScore ?? "—"}</td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(r.compositeScore) }}>
+                          {r.compositeScore ?? "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <DirectionPill direction={r.direction} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           <section className="gfew-panel p-4 text-xs text-text-dim">
             <strong className="text-text">Phase 1 (shipped)</strong>: real World Bank Pink Sheet price data (free,
             no key, monthly since 1960, ~50 commodities) plus IMF Primary Commodity Price System data for six
@@ -240,14 +282,25 @@ export default async function CommoditiesPage() {
             convention this app already uses for country-level energy balances.
             <br />
             <br />
-            <strong className="text-text">Genuinely still to build</strong>, in rough priority order: production
-            data for base/precious metals (checked live: USGS publishes this but only as annual PDFs, and this
-            app has no PDF-parsing infrastructure — deferred, not silently skipped), the full weighted Commodity
-            Direction Score combining price momentum with this balance data, a UN Comtrade-based commodity trade
-            network, an India-specific production/consumption/import-dependency view, a Global Commodity Stress
-            Index, an early-warning alert engine, scenario/backtesting tools, and fundamental-value/forecast
-            models. None of this is faked in the meantime — categories and commodities without real data simply
-            don&apos;t appear above.
+            <strong className="text-text">Momentum + Balance Composite (shipped, not the full CDS)</strong>: the
+            spec&apos;s full Commodity Direction Score weights (momentum 10% / demand 20% / supply 15% /
+            inventory 15% / balance 15%, per this app&apos;s own earlier disclosures) only ever accounted for 75%
+            of its own stated total — the remaining ~25% component was never fully captured from the original
+            spec text, and rather than invent a number to fill that gap, the table above is an honestly-scoped
+            two-factor blend built only from data this app actually has: price momentum plus a balance
+            &ldquo;tightness&rdquo; percentile (where the latest stocks-to-use ratio sits vs. its own up-to-45-year
+            history), equal-weighted since there&apos;s no basis to prefer one factor. It covers only the ~16
+            commodities with both a price and a matching USDA-PSD-style consumption series under the same name.
+            <br />
+            <br />
+            <strong className="text-text">Genuinely still to build</strong>, in rough priority order: the actual
+            spec-weighted Commodity Direction Score (needs the original spec&apos;s exact remaining formula
+            components, not yet re-supplied), production data for base/precious metals (checked live: USGS
+            publishes this but only as annual PDFs, and this app has no PDF-parsing infrastructure — deferred, not
+            silently skipped), a UN Comtrade-based commodity trade network, an India-specific
+            production/consumption/import-dependency view, a Global Commodity Stress Index, an early-warning
+            alert engine, scenario/backtesting tools, and fundamental-value/forecast models. None of this is
+            faked in the meantime — categories and commodities without real data simply don&apos;t appear above.
           </section>
         </>
       )}

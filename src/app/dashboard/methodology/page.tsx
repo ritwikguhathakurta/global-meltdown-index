@@ -2040,13 +2040,31 @@ export default function MethodologyPage() {
           file — no EU-style double-counting risk there.
         </p>
         <p className="mb-2">
-          <strong>Genuinely still to build</strong>: production data for base/precious metals — checked live,
-          USGS publishes this but only as annual PDFs (Mineral Commodity Summaries), and this app has no
-          PDF-parsing infrastructure yet, so it&apos;s deferred rather than silently skipped — the full weighted
-          Commodity Direction Score combining price momentum with this balance data, a UN Comtrade-based
-          commodity trade network, an India-specific production/consumption/import-dependency view, a Global
-          Commodity Stress Index, an early-warning alert engine, a scenario/what-if simulator, model backtesting,
-          and fundamental reference-value/price-forecast models.
+          <strong>Momentum + Balance Composite (shipped, not the full CDS)</strong>: the spec&apos;s full
+          Commodity Direction Score weights (momentum 10% / demand 20% / supply 15% / inventory 15% / balance
+          15%, per this app&apos;s own earlier disclosures above) only ever accounted for 75% of their own stated
+          total — the remaining ~25% component was never fully captured from the original spec text during this
+          build, and rather than invent a number to fill that gap, the Commodities dashboard instead shows an
+          honestly-scoped two-factor blend built only from data this app actually has: price momentum (unchanged
+          from Phase 1) plus a balance &ldquo;tightness&rdquo; percentile — where the latest stocks-to-use ratio
+          sits vs. its own history (up to 45 years, via <code className="gfew-mono">percentileRank</code>),
+          inverted so a rare-low ratio (tight market) reads bullish and a rare-high ratio (loose market) reads
+          bearish. Equal-weighted 50/50, since there&apos;s no basis to prefer one factor over the other absent
+          the spec&apos;s real weights. This only covers the ~16 commodities where this app has both a price
+          series and a matching USDA-PSD-style consumption series under the same slug (e.g. Corn, Cotton,
+          Soybeans and its oil/meal, Sugar, Cocoa) — everything else keeps showing momentum-only or balance-only
+          in their own tables, not silently forced into a composite that isn&apos;t actually blending two real
+          inputs.
+        </p>
+        <p className="mb-2">
+          <strong>Genuinely still to build</strong>: the actual spec-weighted Commodity Direction Score (needs the
+          original spec&apos;s exact remaining formula component re-supplied, not guessed), production data for
+          base/precious metals — checked live, USGS publishes this but only as annual PDFs (Mineral Commodity
+          Summaries), and this app has no PDF-parsing infrastructure yet, so it&apos;s deferred rather than
+          silently skipped — a UN Comtrade-based commodity trade network, an India-specific
+          production/consumption/import-dependency view, a Global Commodity Stress Index, an early-warning alert
+          engine, a scenario/what-if simulator, model backtesting, and fundamental reference-value/price-forecast
+          models.
         </p>
       </section>
 

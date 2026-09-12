@@ -103,7 +103,7 @@ function computeMomentumScore(series: Point[]): number | null {
   return Math.round((clamped / 3) * 100);
 }
 
-function classifyDirection(score: number | null): CommodityDirectionLabel {
+export function classifyDirection(score: number | null): CommodityDirectionLabel {
   if (score === null) return "INSUFFICIENT_DATA";
   if (score >= 65) return "STRONG POSITIVE";
   if (score >= 25) return "POSITIVE";
