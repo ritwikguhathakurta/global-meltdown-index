@@ -411,8 +411,10 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
             <section className="mb-8">
               <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Country Energy Balance (Oil)</h2>
               <p className="mb-3 max-w-3xl text-xs text-text-dim">
-                Real country-level petroleum production and consumption from EIA API v2 (monthly, ~3-4
-                month publication lag). Import Dependency = Net Imports / Consumption. Oil only — EIA&apos;s
+                Real country-level petroleum production and consumption from EIA API v2, annual (EIA&apos;s
+                own monthly consumption series is genuinely unpublished — flagged &ldquo;data row has been
+                initialized&rdquo; — for every country here except the US/Japan/South Korea; annual has real
+                values for all 16). Import Dependency = Net Imports / Consumption. Oil only — EIA&apos;s
                 free international dataset does not carry natural gas or coal balances at this
                 granularity.
               </p>
@@ -442,7 +444,7 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
                   </tbody>
                 </table>
               </div>
-              {countryBalance[0]?.asOf && <p className="mt-2 text-[10px] text-text-dim">Latest reporting month: {countryBalance[0].asOf.slice(0, 7)}</p>}
+              {countryBalance[0]?.asOf && <p className="mt-2 text-[10px] text-text-dim">Latest reporting year: {countryBalance[0].asOf.slice(0, 4)}</p>}
             </section>
           )}
 

@@ -66,14 +66,28 @@ async function eiaQuery(path: string, apiKey: string, params: Record<string, str
   return json.response?.data ?? [];
 }
 
+// Country-level oil CONSUMPTION under `frequency=monthly` was checked live
+// and confirmed genuinely empty ("--", EIA's own "Data row has been
+// initialized" flag) for every country except the US/Japan/South Korea —
+// not a bug in this connector, a real EIA reporting-cadence gap for most
+// countries at monthly granularity. `frequency=annual` was checked live and
+// has real numeric values for all 16 countries (e.g. China 2024 consumption
+// = 16,370 kbpd, matching its known real-world ~16mbpd draw). Production
+// works at either cadence, but is pulled annual here too so a country's
+// production and consumption readings share the same "as of" year rather
+// than mixing a monthly production figure against an annual consumption
+// one. `unit=TBPD` (thousand barrels/day) is requested explicitly — EIA
+// returns the same figure repeated in 5 different unit systems (TBPD, MTOE,
+// QBTU, metric tons, terajoules) per row otherwise.
 function countryOilQuery(apiKey: string, sinceIso: string, activityId: string, productId: string): Promise<EiaRow[]> {
-  const startPeriod = sinceIso.slice(0, 7); // YYYY-MM
+  const startPeriod = sinceIso.slice(0, 4); // YYYY
   return eiaQuery("international/data/", apiKey, {
-    frequency: "monthly",
+    frequency: "annual",
     "data[0]": "value",
     "facets[countryRegionId][]": EIA_COUNTRIES.map((c) => c.code),
     "facets[activityId][]": [activityId],
     "facets[productId][]": [productId],
+    "facets[unit][]": ["TBPD"],
     start: startPeriod,
     length: "5000",
   });
@@ -94,12 +108,12 @@ export async function fetchEiaCountryPetroleum(apiKey: string, sinceIso: string)
       if (!slug || value === null || value === undefined || Number.isNaN(value)) continue;
       points.push({
         metric_key: `energy.country.${slug}.${metricSuffix}`,
-        observed_at: `${r.period}-01`,
+        observed_at: `${r.period}-12-31`,
         value,
         unit: "kbpd",
         source_key: "eia_api",
         source_tier: 1,
-        frequency: "monthly",
+        frequency: "annual",
       });
     }
   };
