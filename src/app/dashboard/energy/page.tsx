@@ -1,4 +1,4 @@
-import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getGridSnapshots } from "@/lib/api/engineData";
+import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getCountryRenewablesTable, getGridSnapshots } from "@/lib/api/engineData";
 import { EngineDetail } from "@/components/EngineDetail";
 import { ENERGY_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type EnergyRegimeLabel } from "@/lib/engines/energySystemicRisk";
 import { gfmiColor } from "@/components/RegimeBadge";
@@ -84,11 +84,20 @@ function pctColor(pct: number | null): string {
   return "#34c085"; // net exporter
 }
 
+function renewableShareColor(pct: number | null): string {
+  if (pct === null) return "#5a6472";
+  if (pct >= 50) return "#34c085";
+  if (pct >= 25) return "#3fa9f5";
+  if (pct >= 10) return "#e0b93d";
+  return "#e0793d";
+}
+
 export default async function EnergyPage() {
-  const [rows, gesri, countryBalance, gridSnapshots] = await Promise.all([
+  const [rows, gesri, countryBalance, countryRenewables, gridSnapshots] = await Promise.all([
     getLatestEngine("energy"),
     getEnergySystemicRiskResult(),
     getCountryEnergyBalanceTable(),
+    getCountryRenewablesTable(),
     getGridSnapshots(),
   ]);
 
@@ -308,6 +317,49 @@ export default async function EnergyPage() {
             </section>
           )}
 
+          {countryRenewables && countryRenewables.some((r) => r.renewableCapacityMw !== null) && (
+            <section className="mb-8">
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Renewable Energy Mix (IRENA)</h2>
+              <p className="mb-3 max-w-3xl text-xs text-text-dim">
+                Real electricity capacity and generation by country from IRENA IRENASTAT (free, no key).
+                Capacity is published annually in March; generation is published annually in July with a
+                longer lag — the two columns can legitimately show different &ldquo;as of&rdquo; years.
+              </p>
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-panel-raised text-text-dim">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Country</th>
+                      <th className="px-3 py-2 font-medium">Renewable Capacity</th>
+                      <th className="px-3 py-2 font-medium">Capacity Share</th>
+                      <th className="px-3 py-2 font-medium">Renewable Generation</th>
+                      <th className="px-3 py-2 font-medium">Generation Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {countryRenewables.map((r) => (
+                      <tr key={r.slug} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium">{r.countryLabel}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.renewableCapacityMw, "MW", 0)}</td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: renewableShareColor(r.renewableCapacitySharePct) }}>
+                          {r.renewableCapacitySharePct !== null ? `${r.renewableCapacitySharePct}%` : "—"}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.renewableGenerationGwh, "GWh", 0)}</td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: renewableShareColor(r.renewableGenerationSharePct) }}>
+                          {r.renewableGenerationSharePct !== null ? `${r.renewableGenerationSharePct}%` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-[10px] text-text-dim">
+                Latest capacity year: {countryRenewables[0]?.capacityAsOf?.slice(0, 4) ?? "—"} · Latest
+                generation year: {countryRenewables[0]?.generationAsOf?.slice(0, 4) ?? "—"}
+              </p>
+            </section>
+          )}
+
           {gridSnapshots && gridSnapshots.length > 0 && (
             <section className="mb-8">
               <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Grid Snapshots (US ISOs)</h2>
@@ -387,15 +439,16 @@ export default async function EnergyPage() {
             Country Energy Balance section below), and all seven major US grid operators (ISO-NE, CAISO,
             NYISO, MISO, PJM, ERCOT, SPP) now have live load/generation data — the last four via EIA-930
             since their own real-time APIs are either registration-gated or (MISO) confirmed deprecated.
-            Still not built — checked against real free sources, disclosed rather than faked: deeper
-            5-minute-resolution PJM/ERCOT data (pending each operator&apos;s own registration approval),
-            ENTSO-E European grid data (pending transparency@entsoe.eu access request), producer-level
-            effective spare capacity, OPEC+ quota/compliance tracking, a genuine futures-curve/backwardation
-            signal (needs a paid futures-chain feed), nuclear reactor-level outage tracking (IAEA
-            PRIS has no public API), renewable capacity/generation by country (IRENA IRENASTAT confirmed
-            free, not yet integrated), critical-mineral mining/refining concentration breakdowns, a
-            global energy trade network graph, a scenario library with a policy simulator, historical
-            backtesting, and a daily report/AI Q&amp;A layer. See the{" "}
+            Renewable/non-renewable electricity capacity and generation by country now run live on IRENA
+            IRENASTAT (see the Renewable Energy Mix section above). Still not built — checked against
+            real free sources, disclosed rather than faked: deeper 5-minute-resolution PJM/ERCOT data
+            (pending each operator&apos;s own registration approval), ENTSO-E European grid data (pending
+            transparency@entsoe.eu access request), producer-level effective spare capacity, OPEC+ quota/
+            compliance tracking, a genuine futures-curve/backwardation signal (needs a paid futures-chain
+            feed), nuclear reactor-level outage tracking (IAEA PRIS has no public API), critical-mineral
+            mining/refining concentration breakdowns, a global energy trade network graph, a scenario
+            library with a policy simulator, historical backtesting, and a daily report/AI Q&amp;A layer.
+            See the{" "}
             <a href="/dashboard/methodology#energy-systemic-risk" className="text-accent hover:underline">
               methodology page
             </a>{" "}

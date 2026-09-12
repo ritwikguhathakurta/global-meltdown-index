@@ -83,6 +83,7 @@ import { fetchAllBankFdicMetrics } from "../sources/fdicBankFind";
 import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
 import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
+import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -966,6 +967,32 @@ export async function ingestEiaGridMonitor(db: SupabaseClient, runDate: string):
   }
 }
 
+export async function ingestIrenaRenewables(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  let ok = 0;
+  const errors: string[] = [];
+  let points = 0;
+  try {
+    const pts = await fetchIrenaRenewablesCapacity();
+    await upsertMetrics(db, pts);
+    points += pts.length;
+    ok++;
+  } catch (e) {
+    errors.push(`capacity: ${(e as Error).message}`);
+  }
+  try {
+    const pts = await fetchIrenaRenewablesGeneration();
+    await upsertMetrics(db, pts);
+    points += pts.length;
+    ok++;
+  } catch (e) {
+    errors.push(`generation: ${(e as Error).message}`);
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: 2, points, errors };
+  await logRun(db, runDate, "ingest_irena_renewables", status, detail);
+  return { stage: "ingest_irena_renewables", status, detail };
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1015,6 +1042,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_caiso_grid", ingestCaisoGrid(db, runDate)),
     withTimeout("ingest_nyiso_grid", ingestNyisoGrid(db, runDate)),
     withTimeout("ingest_eia_grid_monitor", ingestEiaGridMonitor(db, runDate)),
+    withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
   ]);
   return { runDate, results };
 }

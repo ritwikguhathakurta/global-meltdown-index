@@ -27,7 +27,7 @@ export type CountryEnergyBalanceRow = {
   selfSufficiencyPct: number | null; // production / consumption * 100
 };
 
-const COUNTRY_LABELS: Record<string, string> = {
+export const COUNTRY_LABELS: Record<string, string> = {
   us: "United States",
   saudi_arabia: "Saudi Arabia",
   russia: "Russia",
@@ -70,4 +70,60 @@ export async function getCountryEnergyBalanceTable(db: SupabaseClient): Promise<
       selfSufficiencyPct,
     };
   }).sort((a, b) => (b.importDependencyPct ?? -Infinity) - (a.importDependencyPct ?? -Infinity));
+}
+
+export type CountryRenewablesRow = {
+  countryLabel: string;
+  slug: string;
+  renewableCapacityMw: number | null;
+  nonRenewableCapacityMw: number | null;
+  renewableCapacitySharePct: number | null;
+  capacityAsOf: string | null;
+  renewableGenerationGwh: number | null;
+  nonRenewableGenerationGwh: number | null;
+  renewableGenerationSharePct: number | null;
+  generationAsOf: string | null;
+};
+
+// IRENA IRENASTAT (irenaStat.ts) — capacity and generation are published on
+// different annual cadences (capacity in March, generation in July), so they
+// can legitimately carry different "as of" years; not a data-quality issue.
+export async function getCountryRenewablesTable(db: SupabaseClient): Promise<CountryRenewablesRow[]> {
+  const keys = EIA_COUNTRIES.flatMap((c) => [
+    `energy.country.${c.slug}.renewable_capacity_mw`,
+    `energy.country.${c.slug}.nonrenewable_capacity_mw`,
+    `energy.country.${c.slug}.renewable_generation_gwh`,
+    `energy.country.${c.slug}.nonrenewable_generation_gwh`,
+  ]);
+  const latest = await fetchLatestForKeys(db, keys);
+
+  return EIA_COUNTRIES.map((c) => {
+    const renCap = latest.get(`energy.country.${c.slug}.renewable_capacity_mw`);
+    const nonRenCap = latest.get(`energy.country.${c.slug}.nonrenewable_capacity_mw`);
+    const renGen = latest.get(`energy.country.${c.slug}.renewable_generation_gwh`);
+    const nonRenGen = latest.get(`energy.country.${c.slug}.nonrenewable_generation_gwh`);
+
+    const renewableCapacityMw = renCap?.v ?? null;
+    const nonRenewableCapacityMw = nonRenCap?.v ?? null;
+    const totalCapacity = renewableCapacityMw !== null && nonRenewableCapacityMw !== null ? renewableCapacityMw + nonRenewableCapacityMw : null;
+    const renewableCapacitySharePct = renewableCapacityMw !== null && totalCapacity !== null && totalCapacity !== 0 ? Math.round((renewableCapacityMw / totalCapacity) * 1000) / 10 : null;
+
+    const renewableGenerationGwh = renGen?.v ?? null;
+    const nonRenewableGenerationGwh = nonRenGen?.v ?? null;
+    const totalGeneration = renewableGenerationGwh !== null && nonRenewableGenerationGwh !== null ? renewableGenerationGwh + nonRenewableGenerationGwh : null;
+    const renewableGenerationSharePct = renewableGenerationGwh !== null && totalGeneration !== null && totalGeneration !== 0 ? Math.round((renewableGenerationGwh / totalGeneration) * 1000) / 10 : null;
+
+    return {
+      countryLabel: COUNTRY_LABELS[c.slug] ?? c.slug,
+      slug: c.slug,
+      renewableCapacityMw,
+      nonRenewableCapacityMw,
+      renewableCapacitySharePct,
+      capacityAsOf: renCap?.t ?? nonRenCap?.t ?? null,
+      renewableGenerationGwh,
+      nonRenewableGenerationGwh,
+      renewableGenerationSharePct,
+      generationAsOf: renGen?.t ?? nonRenGen?.t ?? null,
+    };
+  }).sort((a, b) => (b.renewableCapacitySharePct ?? -Infinity) - (a.renewableCapacitySharePct ?? -Infinity));
 }

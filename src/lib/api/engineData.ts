@@ -36,7 +36,7 @@ import {
 } from "@/lib/engines/treasuryRiskEngine";
 import { getChinaSystemicRiskResult as computeChinaSystemicRiskResult, type ChinaSystemicRiskResult } from "@/lib/engines/chinaSystemicRisk";
 import { getEnergySystemicRiskResult as computeEnergySystemicRiskResult, type EnergySystemicRiskResult } from "@/lib/engines/energySystemicRisk";
-import { getCountryEnergyBalanceTable as computeCountryEnergyBalanceTable, type CountryEnergyBalanceRow } from "@/lib/engines/energyCountryBalance";
+import { getCountryEnergyBalanceTable as computeCountryEnergyBalanceTable, type CountryEnergyBalanceRow, getCountryRenewablesTable as computeCountryRenewablesTable, type CountryRenewablesRow } from "@/lib/engines/energyCountryBalance";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -381,6 +381,17 @@ export async function getCountryEnergyBalanceTable(): Promise<CountryEnergyBalan
   try {
     const db = await createServerSupabase();
     return await computeCountryEnergyBalanceTable(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getCountryRenewablesTable(): Promise<CountryRenewablesRow[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeCountryRenewablesTable(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;

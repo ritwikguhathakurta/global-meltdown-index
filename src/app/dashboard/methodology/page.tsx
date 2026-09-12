@@ -1204,15 +1204,16 @@ export default function MethodologyPage() {
           and NYISO from each operator&apos;s own real-time feed, and MISO, PJM, ERCOT and SPP from EIA-930
           (Form EIA-930 Hourly Electric Grid Monitor, same-day official data with a 1-3hr lag) after MISO&apos;s
           own public data broker was confirmed deprecated with no free replacement, and PJM/ERCOT&apos;s
-          deeper real-time feeds were confirmed registration-gated.
+          deeper real-time feeds were confirmed registration-gated; and renewable/non-renewable electricity
+          capacity and generation by country via IRENA IRENASTAT (free PxWeb statistical API, no key) —
+          capacity published annually in March, generation in July with a longer lag.
         </p>
         <p className="mb-2">
           <strong>Phase 2 (credentials requested, build in progress)</strong>: deeper 5-minute-resolution
           PJM and ERCOT data, pending each operator&apos;s own registration approval (PJM Tools Account +
           Customer Account Manager sign-off; ERCOT developer-portal client ID); European grid reserve-margin
-          and blackout-risk data via ENTSO-E, pending a ~3-business-day API access request; renewable
-          capacity/generation by country via IRENA IRENASTAT (confirmed free, no key needed, integration
-          pending); MISO and SPP&apos;s own deeper data feeds via MISO Data Exchange, pending registration.
+          and blackout-risk data via ENTSO-E, pending a ~3-business-day API access request; MISO and
+          SPP&apos;s own deeper data feeds via MISO Data Exchange, pending registration.
         </p>
         <p className="mb-2">
           <strong>Genuine gaps — checked, no free source exists, disclosed rather than faked</strong>:
