@@ -1,4 +1,5 @@
-import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getCountryRenewablesTable, getGridSnapshots, getEnergyTradeNetworkGraph } from "@/lib/api/engineData";
+import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getCountryRenewablesTable, getGridSnapshots, getEnergyTradeNetworkGraph, getEnergyBacktestResult } from "@/lib/api/engineData";
+import { HISTORICAL_ENERGY_CRISES, LEAD_LOOKBACK_MONTHS } from "@/lib/engines/energyBacktest";
 import type { EnergyTradeNetworkResult } from "@/lib/engines/energyTradeNetwork";
 import { EngineDetail } from "@/components/EngineDetail";
 import { ENERGY_STAGES, STRUCTURAL_WEIGHTS, COMPOSITE_WEIGHTS, type EnergyRegimeLabel } from "@/lib/engines/energySystemicRisk";
@@ -207,13 +208,14 @@ function TradeNetworkSection({ network }: { network: EnergyTradeNetworkResult })
 }
 
 export default async function EnergyPage({ searchParams }: { searchParams: Promise<{ scenario?: string }> }) {
-  const [rows, gesri, countryBalance, countryRenewables, gridSnapshots, tradeNetwork] = await Promise.all([
+  const [rows, gesri, countryBalance, countryRenewables, gridSnapshots, tradeNetwork, backtest] = await Promise.all([
     getLatestEngine("energy"),
     getEnergySystemicRiskResult(),
     getCountryEnergyBalanceTable(),
     getCountryRenewablesTable(),
     getGridSnapshots(),
     getEnergyTradeNetworkGraph(),
+    getEnergyBacktestResult(),
   ]);
   const selectedScenarioId = (await searchParams).scenario ?? null;
 
@@ -642,6 +644,81 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
             </section>
           )}
 
+          {backtest && backtest.series.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Historical Backtesting (Proxy)</h2>
+              <p className="mb-3 max-w-3xl text-xs text-text-dim">
+                GESRI&apos;s own structural inputs (chokepoint transit data, EIA country balances) only exist
+                from ~2019 onward, so a genuine multi-domain backtest to 1973 would require fabricating
+                decades of history this project does not have — a hard line this build won&apos;t cross.
+                Instead, this validates a single real long-run signal that DOES go back to 1973 and beyond
+                (FRED&apos;s WTI spot price, monthly since 1946: a rolling z-score of price vs. its own
+                trailing 5-year mean) against {HISTORICAL_ENERGY_CRISES.length} well-documented historical
+                energy crises. This is a narrow sensitivity check on one price signal, not a claim that
+                today&apos;s 4-domain methodology existed or would have scored the same way during any of
+                these events.
+              </p>
+              <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="gfew-panel p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">AUC</div>
+                  <div className="gfew-mono text-lg font-semibold">{backtest.auc ?? "—"}</div>
+                  <div className="text-[10px] text-text-dim">0.5 = no skill, 1.0 = perfect</div>
+                </div>
+                <div className="gfew-panel p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Brier Score</div>
+                  <div className="gfew-mono text-lg font-semibold">{backtest.brierScore ?? "—"}</div>
+                  <div className="text-[10px] text-text-dim">0 = perfect, lower is better</div>
+                </div>
+                <div className="gfew-panel p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Data Span</div>
+                  <div className="gfew-mono text-lg font-semibold">
+                    {backtest.dataStart} &rarr; {backtest.dataEnd}
+                  </div>
+                </div>
+                <div className="gfew-panel p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-text-dim">Threshold</div>
+                  <div className="gfew-mono text-lg font-semibold">score &ge; {backtest.threshold}</div>
+                  <div className="text-[10px] text-text-dim">&ldquo;in crisis&rdquo; = event month + {backtest.positiveWindowMonths}mo</div>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-panel-raised text-text-dim">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Event</th>
+                      <th className="px-3 py-2 font-medium">Date</th>
+                      <th className="px-3 py-2 font-medium">Score at event</th>
+                      <th className="px-3 py-2 font-medium">Peak nearby (&plusmn;3mo)</th>
+                      <th className="px-3 py-2 font-medium">Lead time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backtest.events.map((row) => (
+                      <tr key={row.event.id} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium" title={row.event.description}>
+                          {row.event.label}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{row.event.date.slice(0, 7)}</td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(row.scoreAtEvent) }}>
+                          {row.scoreAtEvent ?? "—"}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(row.peakScoreNearby) }}>
+                          {row.peakScoreNearby ?? "—"}
+                        </td>
+                        <td className="px-3 py-2 text-text-dim">{row.leadTimeMonths === null ? "no warning" : row.leadTimeMonths === 0 ? "coincident" : `${row.leadTimeMonths}mo early`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-[10px] text-text-dim">
+                &ldquo;Lead time&rdquo; is the number of months before the event the proxy score first crossed{" "}
+                {backtest.threshold} within a {LEAD_LOOKBACK_MONTHS}-month lookback — &ldquo;no warning&rdquo; means it never crossed in that
+                window (a real miss, shown as such, not hidden).
+              </p>
+            </section>
+          )}
+
           <section className="gfew-panel p-4 text-xs text-text-dim">
             <strong className="text-text">Phased build against the full spec:</strong> a real chokepoint-
             throughput system now runs live on IMF PortWatch AIS data, and country-level oil production/
@@ -655,14 +732,18 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
             deterministic shocks applied through the real engine weighting, not a separate model — and a
             global energy trade network graph now runs on real bilateral UN Comtrade export values, with
             node centrality computed via Brandes&apos; algorithm, not a hand-picked score (see Global Energy
-            Trade Network above). Still not built — checked against real free sources, disclosed rather
-            than faked: deeper 5-minute-resolution PJM/ERCOT data (pending each operator&apos;s own
-            registration approval), ENTSO-E European grid data (pending transparency@entsoe.eu access
-            request), producer-level effective spare capacity, OPEC+ quota/compliance tracking, a genuine
-            futures-curve/backwardation signal (needs a paid futures-chain feed), nuclear reactor-level
-            outage tracking (IAEA PRIS has no public API), critical-mineral mining/refining concentration
-            breakdowns, historical backtesting, and a daily report/AI Q&amp;A layer (deferred by request —
-            no LLM API key configured). See the{" "}
+            Trade Network above), and historical backtesting now validates a real long-run WTI price proxy
+            (FRED, monthly since 1946) against {HISTORICAL_ENERGY_CRISES.length} documented crises with
+            AUC/Brier-score/lead-time metrics (see Historical Backtesting above) — GESRI&apos;s own
+            structural inputs only exist from ~2019 onward, so this is explicitly a single-signal proxy
+            validation, not a claim the full methodology existed back to 1973. Still not built — checked
+            against real free sources, disclosed rather than faked: deeper 5-minute-resolution PJM/ERCOT
+            data (pending each operator&apos;s own registration approval), ENTSO-E European grid data
+            (pending transparency@entsoe.eu access request), producer-level effective spare capacity, OPEC+
+            quota/compliance tracking, a genuine futures-curve/backwardation signal (needs a paid
+            futures-chain feed), nuclear reactor-level outage tracking (IAEA PRIS has no public API),
+            critical-mineral mining/refining concentration breakdowns, and a daily report/AI Q&amp;A layer
+            (deferred by request — no LLM API key configured). See the{" "}
             <a href="/dashboard/methodology#energy-systemic-risk" className="text-accent hover:underline">
               methodology page
             </a>{" "}

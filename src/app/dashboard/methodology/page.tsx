@@ -1211,7 +1211,13 @@ export default function MethodologyPage() {
           scores through the exact same composite weighting the engine itself uses (not a parallel model);
           and a global energy trade network graph built on real bilateral crude-oil and petroleum-gas
           export values from UN Comtrade (free, no key), with node centrality computed via Brandes&apos;
-          algorithm (degree, weighted strength, and betweenness centrality), not a hand-picked score.
+          algorithm (degree, weighted strength, and betweenness centrality), not a hand-picked score; and a
+          historical backtest validating a real long-run signal (FRED&apos;s WTI spot price, monthly since
+          1946) against 8 documented energy crises back to the 1973 OPEC embargo, with AUC, Brier-score and
+          per-event lead-time metrics computed via the standard Mann-Whitney U / mean-squared-error
+          definitions (src/lib/metrics/stats.ts) — explicitly a single-signal proxy validation, not a claim
+          that GESRI&apos;s current multi-domain methodology existed or would have scored the same way
+          during any of these events (its own structural inputs only exist from ~2019 onward).
         </p>
         <p className="mb-2">
           <strong>Phase 2 (credentials requested, build in progress)</strong>: deeper 5-minute-resolution

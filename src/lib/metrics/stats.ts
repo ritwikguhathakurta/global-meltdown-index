@@ -100,6 +100,40 @@ export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
 
+/**
+ * AUC (area under the ROC curve) via the Mann-Whitney U statistic, with the
+ * standard mid-rank tie correction (a 0-100 risk score is frequently tied
+ * across many observations after rounding, and naive sequential ranking
+ * would bias the result). Returns null when either class is empty — AUC is
+ * undefined without at least one positive and one negative observation.
+ */
+export function computeAUC(labeled: { score: number; positive: boolean }[]): number | null {
+  const posCount = labeled.filter((p) => p.positive).length;
+  const negCount = labeled.length - posCount;
+  if (posCount === 0 || negCount === 0) return null;
+  const sorted = [...labeled].sort((a, b) => a.score - b.score);
+  const ranks = new Array<number>(sorted.length);
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1].score === sorted[i].score) j++;
+    const avgRank = (i + 1 + (j + 1)) / 2; // 1-indexed rank, averaged across the tied block
+    for (let k = i; k <= j; k++) ranks[k] = avgRank;
+    i = j + 1;
+  }
+  let rankSumPos = 0;
+  for (let k = 0; k < sorted.length; k++) if (sorted[k].positive) rankSumPos += ranks[k];
+  const u = rankSumPos - (posCount * (posCount + 1)) / 2;
+  return u / (posCount * negCount);
+}
+
+/** Mean squared error between a predicted probability (0-1) and the actual binary outcome. Lower is better; 0 is perfect. */
+export function computeBrierScore(labeled: { probability: number; positive: boolean }[]): number | null {
+  if (labeled.length === 0) return null;
+  const sse = labeled.reduce((a, p) => a + (p.probability - (p.positive ? 1 : 0)) ** 2, 0);
+  return sse / labeled.length;
+}
+
 /** Aligns two series by calendar month and returns (a - b) * scale, e.g. for cross-country yield spreads. */
 export function diffSeriesByMonth(a: Point[], b: Point[], scale = 100): Point[] {
   const bMap = new Map(b.map((p) => [p.t.slice(0, 7), p.v]));
@@ -226,6 +260,29 @@ export function realizedVolAnnualized(points: Point[], window = 20): number | nu
   }
   const sd = stdev(rets);
   return Number.isNaN(sd) ? null : sd * Math.sqrt(252) * 100;
+}
+
+/**
+ * Time series of trailing-`window` z-scores, one point per observation once
+ * enough history exists — same walk-forward pattern as
+ * rollingRealizedVolSeries below, but for "how many standard deviations from
+ * its own trailing mean" rather than realized volatility. Used by the
+ * historical backtest engine to score every past observation, not just the
+ * latest one (zScore() above only returns the current single value).
+ */
+export function rollingZScoreSeries(points: Point[], window: number): Point[] {
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const out: Point[] = [];
+  for (let i = window; i < sorted.length; i++) {
+    const baseline = sorted.slice(i - window, i).map((p) => p.v);
+    const m = mean(baseline);
+    const sd = stdev(baseline);
+    if (Number.isNaN(sd)) continue;
+    const current = sorted[i].v;
+    const z = sd === 0 ? (current === m ? 0 : current > m ? 3 : -3) : (current - m) / sd;
+    out.push({ t: sorted[i].t, v: z });
+  }
+  return out;
 }
 
 /**

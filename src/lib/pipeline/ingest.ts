@@ -160,6 +160,32 @@ export async function ingestFred(db: SupabaseClient, runDate: string): Promise<I
   return { stage: "ingest_fred", status, detail: { ok, total: FRED_SERIES.length, errors } };
 }
 
+// Separate from the FRED_SERIES manifest/lookbackDaysFor above on purpose:
+// every other FRED series only needs a few years of trailing history for its
+// own zScore() window, but the Historical Backtesting proxy (energyBacktest.ts)
+// needs WTI's full real history back to 1946 to reach the 1973 oil embargo —
+// routing this through the generic 5.2-year monthly lookback would silently
+// starve it of the exact decades of history the whole feature exists to use.
+export async function ingestEnergyBacktestSeries(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const apiKey = process.env.FRED_API_KEY;
+  if (!apiKey) {
+    await logRun(db, runDate, "ingest_energy_backtest_series", "warning", { reason: "FRED_API_KEY not set" });
+    return { stage: "ingest_energy_backtest_series", status: "warning", detail: { reason: "FRED_API_KEY not set" } };
+  }
+  try {
+    const points = await fetchFredSeries({ metricKey: "energy.wti_longrun_monthly", seriesId: "WTISPLC", frequency: "monthly", unit: "USD/bbl" }, apiKey, "1946-01-01");
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_energy_backtest_series", status, detail);
+    return { stage: "ingest_energy_backtest_series", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_energy_backtest_series", "failed", detail);
+    return { stage: "ingest_energy_backtest_series", status: "failed", detail };
+  }
+}
+
 export async function ingestFx(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   const since = new Date();
   since.setUTCDate(since.getUTCDate() - 400);
@@ -1060,6 +1086,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_eia_grid_monitor", ingestEiaGridMonitor(db, runDate)),
     withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
     withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
+    withTimeout("ingest_energy_backtest_series", ingestEnergyBacktestSeries(db, runDate)),
   ]);
   return { runDate, results };
 }
