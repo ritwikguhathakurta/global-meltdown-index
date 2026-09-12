@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/dashboard/property", label: "Property" },
   { href: "/dashboard/china", label: "China" },
   { href: "/dashboard/energy", label: "Energy" },
+  { href: "/dashboard/commodities", label: "Commodities" },
   { href: "/dashboard/geopolitical", label: "Geopolitical" },
   { href: "/dashboard/derivatives", label: "Derivatives" },
   { href: "/dashboard/crypto", label: "Crypto" },

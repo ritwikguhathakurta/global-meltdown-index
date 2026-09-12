@@ -85,6 +85,7 @@ import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
 import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
+import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1035,6 +1036,23 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
   }
 }
 
+export async function ingestWorldBankCommodities(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const since = new Date();
+    since.setUTCFullYear(since.getUTCFullYear() - 10);
+    const points = await fetchWorldBankCommodityPrices(since.toISOString());
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_world_bank_commodities", status, detail);
+    return { stage: "ingest_world_bank_commodities", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_world_bank_commodities", "failed", detail);
+    return { stage: "ingest_world_bank_commodities", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1087,6 +1105,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
     withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
     withTimeout("ingest_energy_backtest_series", ingestEnergyBacktestSeries(db, runDate)),
+    withTimeout("ingest_world_bank_commodities", ingestWorldBankCommodities(db, runDate)),
   ]);
   return { runDate, results };
 }

@@ -1959,6 +1959,44 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      <section className="mb-8" id="commodities-engine">
+        <h2 className="mb-2 text-base font-semibold text-text">Commodities</h2>
+        <p className="mb-2">
+          Built against a ~115-section Commodity Intelligence Platform spec covering a full price/production/
+          consumption/inventory/trade/forecast/India-risk system across roughly 60 commodities. That spec also
+          calls for its own new database schema (UUID-keyed commodity/country/source tables); per its own
+          engineering rules (§112-113 — &ldquo;adapt to the existing repository,&rdquo; &ldquo;never create
+          duplicate functionality&rdquo;), this instead reuses the same <code className="gfew-mono">metric_series</code>{" "}
+          fact table and config-in-code source pattern every other engine on this platform already uses, rather
+          than standing up a second, parallel schema.
+        </p>
+        <p className="mb-2">
+          <strong>Phase 1 (shipped)</strong>: real monthly commodity prices since 1960 from the World Bank
+          Commodity Price Data workbook (&ldquo;the Pink Sheet&rdquo; — free, no key), covering ~50 commodities
+          across Energy, Base Metals, Precious Metals, Grains, Oilseeds, Soft Commodities, Livestock/Dairy,
+          Fertilizers and Forestry — the download link is scraped live from the World Bank&apos;s own page rather
+          than hardcoded, since its hash changes across releases. A price-momentum signal (not the spec&apos;s
+          full Commodity Direction Score) z-scores each commodity&apos;s 1M/3M/6M/12M/36M returns against that
+          same commodity&apos;s own trailing return history, blends them per the spec&apos;s own horizon weights,
+          and classifies the result into the spec&apos;s own STRONG POSITIVE..STRONG NEGATIVE buckets — see the{" "}
+          <a href="/dashboard/commodities" className="text-accent hover:underline">
+            Commodities page
+          </a>{" "}
+          for the full disclosure of what this is and isn&apos;t measuring. Checked directly against the Pink
+          Sheet and confirmed absent: Lithium, Cobalt, Graphite, Manganese, Rare Earths, Vanadium, Tungsten,
+          Molybdenum, and a distinct OPEC Basket series.
+        </p>
+        <p className="mb-2">
+          <strong>Genuinely still to build</strong>: production/consumption/inventory data and a real
+          supply-demand balance table (USDA PSD for agriculture, FAOSTAT, EIA for energy — several already
+          partially ingested elsewhere on this platform, e.g. energyCountryBalance.ts, and reusable rather than
+          re-fetched), the full weighted Commodity Direction Score, a UN Comtrade-based commodity trade network,
+          an India-specific production/consumption/import-dependency view, a Global Commodity Stress Index, an
+          early-warning alert engine, a scenario/what-if simulator, model backtesting, and fundamental
+          reference-value/price-forecast models.
+        </p>
+      </section>
+
       <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">What we don&apos;t do</h2>
         <ul className="list-inside list-disc">
