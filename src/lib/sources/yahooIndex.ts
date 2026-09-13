@@ -110,6 +110,26 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   // oil settlement price — verified live with fresh recent daily bars
   // before adding.
   { metricKey: "commodity.palm_oil.cme_futures_price", symbol: "CPO=F", unit: "USD/MT" },
+  // Base/Precious Metals Multi-Timeframe Price Heatmap — genuine daily
+  // futures feeds, each verified live before use (fresh multi-year daily
+  // bars, not a stale/delisted symbol). Lead, Tin, Nickel, Cobalt,
+  // Manganese, Molybdenum, and Vanadium Pentoxide were checked and confirmed
+  // to have NO working Yahoo ticker (all candidates tried returned HTTP 404
+  // or a dead placeholder series) — those Short-Term heatmap cells read N/A
+  // rather than using a fabricated proxy.
+  { metricKey: "commodity.gold.daily_futures_price", symbol: "GC=F", unit: "USD/troy oz" },
+  { metricKey: "commodity.silver.daily_futures_price", symbol: "SI=F", unit: "USD/troy oz" },
+  { metricKey: "commodity.platinum.daily_futures_price", symbol: "PL=F", unit: "USD/troy oz" },
+  { metricKey: "commodity.copper.daily_futures_price", symbol: "HG=F", unit: "USD/lb" },
+  { metricKey: "commodity.aluminum.daily_futures_price", symbol: "ALI=F", unit: "USD/mt" },
+  { metricKey: "commodity.zinc.daily_futures_price", symbol: "ZNC=F", unit: "USD/mt" },
+  { metricKey: "commodity.iron_ore.daily_futures_price", symbol: "TIO=F", unit: "USD/mt" },
+  // Lithium and Rare Earths have no futures contract at all — these are
+  // equity/ETF proxies (a liquid battery-metals ETF and a rare-earth/
+  // strategic-metals miner ETF), not a direct commodity price, disclosed as
+  // such wherever shown rather than presented as a spot price.
+  { metricKey: "commodity.lithium.etf_proxy_price", symbol: "LIT", unit: "USD" },
+  { metricKey: "commodity.rare_earth_elements.etf_proxy_price", symbol: "REMX", unit: "USD" },
 ];
 
 type ChartResponse = {

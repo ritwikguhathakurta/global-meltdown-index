@@ -4,6 +4,7 @@ import readline from "node:readline";
 import type { MetricPoint } from "../metrics/store";
 import { BALANCE_COMMODITIES } from "../commodities/balanceTaxonomy";
 import { SOYBEAN_COUNTRIES, SOYBEAN_PSD_CODE } from "../commodities/oilseedsTaxonomy";
+import { COUNTRY_BALANCE_COMMODITIES } from "../commodities/countryBalanceTaxonomy";
 
 /**
  * USDA FAS Production, Supply and Distribution (PSD) — free, no key, no
@@ -203,6 +204,61 @@ export async function fetchUsdaPsdSoybeanCountryBalances(): Promise<MetricPoint[
       observed_at: `${fields[4]}-12-31`,
       value: value / 1000, // USDA reports 1000 MT
       unit: "million MT",
+      source_key: "usda_psd",
+      source_tier: 1,
+      frequency: "annual",
+    });
+  }
+  return points;
+}
+
+const GENERIC_COUNTRY_CONSUMPTION_ATTRIBUTES = new Set(["Domestic Consumption", "Domestic Use", "Human Dom. Consumption"]);
+const GENERIC_COUNTRY_ATTRIBUTES = new Set(["Production", "Imports", "Exports", "Ending Stocks"]);
+
+/**
+ * Generalized version of fetchUsdaPsdSoybeanCountryBalances covering Wheat,
+ * Corn, Rice, Cotton, Sugar, Coffee, Beef, Chicken, and Pork (see
+ * countryBalanceTaxonomy.ts) — same bulk file, one pass over every wanted
+ * commodity/country pair instead of a single hardcoded one. Consumption is
+ * normalized to "consumption" regardless of which of PSD's three
+ * label variants a given commodity uses (verified live: Cotton uses
+ * "Domestic Use", Sugar uses "Human Dom. Consumption", everything else uses
+ * "Domestic Consumption").
+ */
+export async function fetchUsdaPsdCountryBalances(): Promise<MetricPoint[]> {
+  const byPsdCode = new Map(COUNTRY_BALANCE_COMMODITIES.filter((c) => c.source === "usda_psd").map((c) => [c.psdCode!, c]));
+  const csvBuffer = await downloadPsdCsv();
+
+  const points: MetricPoint[] = [];
+  const rl = readline.createInterface({ input: Readable.from(csvBuffer), crlfDelay: Infinity });
+  let isFirstLine = true;
+  for await (const line of rl) {
+    if (isFirstLine) {
+      isFirstLine = false;
+      continue;
+    }
+    if (!line) continue;
+    const fields = parseCsvLine(line);
+    const commodity = byPsdCode.get(fields[0]);
+    if (!commodity) continue;
+
+    const country = commodity.countries.find((c) => c.psdCountryCode === fields[2]);
+    if (!country) continue;
+
+    const attributeDescription = fields[8];
+    let attribute: string | null = null;
+    if (GENERIC_COUNTRY_CONSUMPTION_ATTRIBUTES.has(attributeDescription)) attribute = "consumption";
+    else if (GENERIC_COUNTRY_ATTRIBUTES.has(attributeDescription)) attribute = attributeDescription.toLowerCase().replace(/\s+/g, "_");
+    if (!attribute) continue;
+
+    const value = parseFloat(fields[11]);
+    if (Number.isNaN(value)) continue;
+
+    points.push({
+      metric_key: `commodity.${commodity.slug}.country.${country.slug}.${attribute}`,
+      observed_at: `${fields[4]}-12-31`,
+      value: value / 1000, // USDA reports 1000 native units (e.g. 1000 MT, 1000 bales)
+      unit: commodity.unit,
       source_key: "usda_psd",
       source_tier: 1,
       frequency: "annual",

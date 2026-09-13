@@ -2261,14 +2261,77 @@ export default function MethodologyPage() {
           pending a decision on whether to pursue it.
         </p>
         <p className="mb-2">
+          <strong>Correction</strong>: an earlier version of this page said USGS mineral production data was
+          deferred because it &ldquo;only publishes annual PDFs.&rdquo; That was wrong — checked again, USGS&apos;s
+          Mineral Commodity Summaries bulk data release is a genuine machine-readable CSV hosted on
+          sciencebase.gov (USGS&apos;s own data repository, not behind the WAF that blocks usgs.gov itself), and it
+          is now built — see the Base Metals/Precious Metals/Critical Minerals/Fertilizers sub-modules below.
+        </p>
+        <p className="mb-2">
           <strong>Genuinely still to build</strong> (Commodities overall): the actual spec-weighted Commodity
           Direction Score (needs the original spec&apos;s exact remaining formula component re-supplied, not
-          guessed), production data for base/precious metals — checked live, USGS publishes this but only as
-          annual PDFs (Mineral Commodity Summaries), and this app has no PDF-parsing infrastructure yet, so
-          it&apos;s deferred rather than silently skipped — a UN Comtrade-based commodity trade network, an
-          India-specific production/consumption/import-dependency view, a Global Commodity Stress Index, an
-          early-warning alert engine, a scenario/what-if simulator, model backtesting, and fundamental
-          reference-value/price-forecast models.
+          guessed); a UN Comtrade-based commodity trade network (confirmed live-extensible to metals/fertilizer HS
+          codes, not yet wired in); an India-specific production/consumption/import-dependency view; a Global
+          Commodity Stress Index; an early-warning alert engine; a scenario/what-if simulator; model backtesting;
+          and fundamental reference-value/price-forecast models.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Commodities — other category sub-modules (shipped)</h2>
+        <p className="mb-2">
+          Following the same build pattern as the Oilseeds sub-module above (Complex Overview, Country Balance
+          Sheet, Multi-Timeframe Price Heatmap, Price Cycle Engine, Production &amp; Export Seasonality), the same
+          five sections were built for every other commodity category:{" "}
+          <strong>Base Metals, Precious Metals, Critical Minerals, Grains, Soft Commodities, Livestock/Dairy,
+          Fertilizers,</strong> and <strong>Forestry/Other Raw Materials</strong> (each its own page under
+          /dashboard/commodities/). The Multi-Timeframe Price Heatmap and Price Cycle Engine were generalized out
+          of the Oilseeds-specific code into commodityPriceHeatmap.ts/commodityPriceCycles.ts, parameterized by
+          category, so every category reuses the exact same z-scored-momentum and -20%/+20% drawdown/recovery
+          methodology, not a re-derived one.
+        </p>
+        <p className="mb-2">
+          <strong>Country Balance Sheet</strong> generalizes two different sources depending on category. For{" "}
+          <strong>Grains (Wheat, Corn, Rice), Soft Commodities (Cotton, Sugar, Coffee), and Livestock/Dairy
+          (Beef, Chicken, Pork)</strong>: the same USDA PSD bulk file and balance-sheet identity as the Oilseeds
+          engine&apos;s Soybean Country Balance Sheet, with top-8-to-10-producer country lists derived from a live
+          download+parse of that file (ranked by latest-marketing-year production, not assumed), giving a full
+          production/imports/exports/ending-stocks/apparent-consumption/stocks-to-use/classification/export-HHI
+          read. For <strong>Base Metals, Precious Metals, Critical Minerals, and Fertilizers (Phosphate Rock,
+          Potash)</strong>: USGS&apos;s National Minerals Information Center Mineral Commodity Summaries (MCS) bulk
+          CSV, live-verified as a genuine machine-readable file (not a PDF) hosted on sciencebase.gov — but MCS is
+          a current-year SUMMARY publication, not a balance-sheet source: it carries only the latest two years per
+          commodity and PRODUCTION ONLY, no imports/exports/consumption/ending-stocks, so those columns and the
+          exporter/importer classification read &ldquo;—&rdquo; for every USGS-sourced row rather than fabricating
+          an identity the source doesn&apos;t publish the inputs for. Country lists for all 18 USGS-sourced
+          commodities (top 4-10 producers each, capped at what USGS itself individually reports rather than
+          lumping into &ldquo;Other countries&rdquo;) were likewise derived from a live download+parse of the MCS
+          bulk file, including handling its Windows-1252 (not UTF-8) encoding correctly for accented country names
+          like Côte d&apos;Ivoire.
+        </p>
+        <p className="mb-2">
+          <strong>Multi-Timeframe Price Heatmap</strong> Short-Term (0-30D) cells use genuine daily futures prices
+          where one was live-verified to exist on Yahoo Finance: Gold (GC=F), Silver (SI=F), Platinum (PL=F),
+          Copper (HG=F), Aluminium (ALI=F), Zinc (ZNC=F), and an SGX/TSI-linked Iron Ore swap (TIO=F) — Lithium and
+          Rare Earth Elements have no futures contract at all, so a liquid ETF proxy is used instead (LIT, REMX),
+          disclosed as an equity/ETF proxy rather than a direct spot price. Lead, Tin, Nickel, Cobalt, Manganese,
+          Molybdenum, and Vanadium Pentoxide were checked live and confirmed to have no working Yahoo ticker (all
+          candidates tried returned HTTP 404 or a dead placeholder series with zero volume) — their Short-Term
+          cells read N/A, same discipline as Oilseeds&apos; own non-Palm-Oil products.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong> for these other categories, and why: Production &amp; Export Seasonality —
+          USDA PSD and USGS MCS both publish at most annual/two-year granularity, so there is no genuine monthly
+          series to compute a seasonal index from (a candidate exists for Grains via USDA FAS&apos;s weekly Export
+          Sales report, not yet wired in); a full trade balance (imports/exports/consumption/stocks) for
+          USGS-sourced metals/fertilizers — UN Comtrade was confirmed live to carry the relevant HS trade codes
+          (e.g. 7402 for unrefined copper, 2601 for iron ore, 3105 for fertilizers) and could fill this gap in a
+          future pass, but isn&apos;t wired in yet; country-level production for DAP/TSP/Urea specifically — these
+          are manufactured products, not raw mined minerals, so USGS doesn&apos;t track them, but FAOSTAT&apos;s
+          bulk fertilizer-products file was confirmed live (country-level Urea/DAP/MAP/Superphosphates, 2002-2024)
+          as a real candidate for a fast follow-up; and country-level production/trade for tropical logs and
+          tobacco imports (Forestry category) — no free, live, country-level source has been checked for the
+          specific Cameroon/Malaysian log grades or tobacco-import benchmark priced here.
         </p>
       </section>
 

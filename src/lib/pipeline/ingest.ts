@@ -87,7 +87,8 @@ import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "..
 import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
-import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances } from "../sources/usdaPsd";
+import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances, fetchUsdaPsdCountryBalances } from "../sources/usdaPsd";
+import { fetchUsgsMineralCommodities } from "../sources/usgsMineralCommodities";
 import { fetchFaostatProduction, fetchFaostatOilseedsCountryProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
@@ -1125,6 +1126,36 @@ export async function ingestUsdaPsdSoybeanCountries(db: SupabaseClient, runDate:
   }
 }
 
+export async function ingestUsdaPsdCountryBalances(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchUsdaPsdCountryBalances();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_usda_psd_country_balances", status, detail);
+    return { stage: "ingest_usda_psd_country_balances", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_usda_psd_country_balances", "failed", detail);
+    return { stage: "ingest_usda_psd_country_balances", status: "failed", detail };
+  }
+}
+
+export async function ingestUsgsMineralCommodities(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchUsgsMineralCommodities();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_usgs_mineral_commodities", status, detail);
+    return { stage: "ingest_usgs_mineral_commodities", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_usgs_mineral_commodities", "failed", detail);
+    return { stage: "ingest_usgs_mineral_commodities", status: "failed", detail };
+  }
+}
+
 export async function ingestFaostatProduction(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchFaostatProduction();
@@ -1326,6 +1357,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_critical_minerals", ingestCriticalMinerals(db, runDate)),
     withTimeout("ingest_usda_psd_balances", ingestUsdaPsdBalances(db, runDate)),
     withTimeout("ingest_usda_psd_soybean_countries", ingestUsdaPsdSoybeanCountries(db, runDate)),
+    withTimeout("ingest_usda_psd_country_balances", ingestUsdaPsdCountryBalances(db, runDate)),
+    withTimeout("ingest_usgs_mineral_commodities", ingestUsgsMineralCommodities(db, runDate)),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
     withTimeout("ingest_bps_indonesia", ingestBpsIndonesia(db, runDate)),

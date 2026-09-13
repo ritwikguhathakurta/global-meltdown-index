@@ -63,6 +63,22 @@ export default async function CommoditiesPage() {
           Oilseeds deep-dive (crush margins, country balances, positioning) →
         </Link>
       </div>
+      <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        {[
+          { href: "/dashboard/commodities/base-metals", label: "Base Metals" },
+          { href: "/dashboard/commodities/precious-metals", label: "Precious Metals" },
+          { href: "/dashboard/commodities/critical-minerals", label: "Critical Minerals" },
+          { href: "/dashboard/commodities/grains", label: "Grains" },
+          { href: "/dashboard/commodities/soft-commodities", label: "Soft Commodities" },
+          { href: "/dashboard/commodities/livestock-dairy", label: "Livestock / Dairy" },
+          { href: "/dashboard/commodities/fertilizers", label: "Fertilizers" },
+          { href: "/dashboard/commodities/forestry", label: "Forestry / Other Raw Materials" },
+        ].map((c) => (
+          <Link key={c.href} href={c.href} className="text-accent hover:underline">
+            {c.label} deep-dive →
+          </Link>
+        ))}
+      </div>
       <p className="mb-2 max-w-3xl text-sm text-text-dim">
         Real monthly commodity prices from the World Bank Pink Sheet (free, no key, since 1960) and the IMF
         Primary Commodity Price System (free, no key, via DBnomics) across ~56 commodities, with a

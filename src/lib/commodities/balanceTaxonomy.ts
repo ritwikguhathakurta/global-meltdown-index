@@ -28,8 +28,17 @@
  * rather than the world-aggregate quantity these sources report.
  */
 
-export type BalanceCategory = "Energy" | "Grains" | "Oilseeds" | "Soft Commodities" | "Livestock / Dairy";
-export type BalanceSource = "usda_psd" | "faostat" | "eia_world_energy";
+export type BalanceCategory =
+  | "Energy"
+  | "Grains"
+  | "Oilseeds"
+  | "Soft Commodities"
+  | "Livestock / Dairy"
+  | "Base Metals"
+  | "Precious Metals"
+  | "Critical Minerals"
+  | "Fertilizers";
+export type BalanceSource = "usda_psd" | "faostat" | "eia_world_energy" | "usgs_mcs";
 
 export type BalanceCommodityDef = {
   source: BalanceSource;
@@ -92,6 +101,42 @@ export const BALANCE_COMMODITIES: BalanceCommodityDef[] = [
   { source: "usda_psd", sourceCode: "0111000", slug: "beef", label: "Beef", category: "Livestock / Dairy", unit: "million MT (carcass wt.)" },
   { source: "usda_psd", sourceCode: "0115000", slug: "chicken", label: "Chicken", category: "Livestock / Dairy", unit: "million MT" },
   { source: "usda_psd", sourceCode: "0113000", slug: "pork", label: "Pork (Swine)", category: "Livestock / Dairy", unit: "million MT (carcass wt.)" },
+
+  // Base Metals / Precious Metals / Critical Minerals / Fertilizers — USGS
+  // National Minerals Information Center, Mineral Commodity Summaries bulk
+  // data (see usgsMineralCommodities.ts). Production only — MCS is a
+  // current-year summary publication, not a balance-sheet source, so
+  // consumption/ending-stocks/stocks-to-use read "—" for all of these
+  // (productionOnly, same disclosed pattern as the FAOSTAT-sourced Soft
+  // Commodities rows above).
+  { source: "usgs_mcs", sourceCode: "Gold", slug: "gold", label: "Gold", category: "Precious Metals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Silver", slug: "silver", label: "Silver", category: "Precious Metals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Platinum", slug: "platinum", label: "Platinum", category: "Precious Metals", unit: "kilograms", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Cobalt", slug: "cobalt", label: "Cobalt", category: "Critical Minerals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Lithium", slug: "lithium", label: "Lithium", category: "Critical Minerals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Manganese", slug: "manganese", label: "Manganese", category: "Critical Minerals", unit: "thousand metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Molybdenum", slug: "molybdenum", label: "Molybdenum", category: "Critical Minerals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Vanadium", slug: "vanadium_pentoxide", label: "Vanadium", category: "Critical Minerals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Rare Earths", slug: "rare_earth_elements", label: "Rare Earth Elements", category: "Critical Minerals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Nickel", slug: "nickel", label: "Nickel", category: "Base Metals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Tin", slug: "tin", label: "Tin", category: "Base Metals", unit: "metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Lead", slug: "lead", label: "Lead", category: "Base Metals", unit: "thousand metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Zinc", slug: "zinc", label: "Zinc", category: "Base Metals", unit: "thousand metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Aluminum", slug: "aluminum", label: "Aluminium", category: "Base Metals", unit: "thousand metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Iron Ore", slug: "iron_ore", label: "Iron Ore", category: "Base Metals", unit: "thousand metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Copper", slug: "copper", label: "Copper", category: "Base Metals", unit: "thousand metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Phosphate Rock", slug: "phosphate_rock", label: "Phosphate Rock", category: "Fertilizers", unit: "thousand metric tons", productionOnly: true },
+  { source: "usgs_mcs", sourceCode: "Potash", slug: "potassium_chloride", label: "Potash (Potassium Chloride)", category: "Fertilizers", unit: "thousand metric tons", productionOnly: true },
 ];
 
-export const BALANCE_CATEGORIES: BalanceCategory[] = ["Energy", "Grains", "Oilseeds", "Soft Commodities", "Livestock / Dairy"];
+export const BALANCE_CATEGORIES: BalanceCategory[] = [
+  "Energy",
+  "Grains",
+  "Oilseeds",
+  "Soft Commodities",
+  "Livestock / Dairy",
+  "Base Metals",
+  "Precious Metals",
+  "Critical Minerals",
+  "Fertilizers",
+];

@@ -59,6 +59,15 @@ import { getOilseedsSeasonality as computeOilseedsSeasonality, type SeasonalityR
 import { getOilseedsRainfall as computeOilseedsRainfall, type RainfallRegionResult } from "@/lib/engines/oilseedsRainfall";
 import { getOilseedsPriceHeatmap as computeOilseedsPriceHeatmap, type OilseedsHeatmapResult } from "@/lib/engines/oilseedsPriceHeatmap";
 import { getOilseedsRainfallImpact as computeOilseedsRainfallImpact, type RainfallImpactResult } from "@/lib/engines/oilseedsRainfallImpact";
+import { getCommodityPriceHeatmapForCategory as computeCommodityPriceHeatmapForCategory, type CommodityPriceHeatmapResult } from "@/lib/engines/commodityPriceHeatmap";
+import { getCommodityPriceCyclesForCategory as computeCommodityPriceCyclesForCategory } from "@/lib/engines/commodityPriceCycles";
+import {
+  getCommodityCountryBalance as computeCommodityCountryBalance,
+  getCommodityCountryBalancesForCategory as computeCommodityCountryBalancesForCategory,
+  type CommodityCountryBalanceResult,
+} from "@/lib/engines/commodityCountryBalance";
+import type { CommodityCategory } from "@/lib/commodities/taxonomy";
+import type { CountryBalanceCommodityDef } from "@/lib/commodities/countryBalanceTaxonomy";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -586,6 +595,64 @@ export async function getOilseedsRainfallImpact(): Promise<RainfallImpactResult 
   try {
     const db = await createServerSupabase();
     return await computeOilseedsRainfallImpact(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+/**
+ * Generic per-category versions of the Multi-Timeframe Price Heatmap and
+ * Price Cycle Engine (originally built Oilseeds-only, see
+ * commodityPriceHeatmap.ts/commodityPriceCycles.ts) — used by the other
+ * commodity-category pages (Base Metals, Precious Metals, Critical
+ * Minerals, Grains, Soft Commodities, Livestock/Dairy, Fertilizers,
+ * Forestry).
+ */
+export async function getCommodityPriceHeatmapForCategory(
+  category: CommodityCategory,
+  dailySeriesMetricKeyBySlug?: Record<string, string>
+): Promise<CommodityPriceHeatmapResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeCommodityPriceHeatmapForCategory(db, category, dailySeriesMetricKeyBySlug);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getCommodityPriceCyclesForCategory(category: CommodityCategory) {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeCommodityPriceCyclesForCategory(db, category);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+/** Country balance sheet for a single USDA-PSD-covered commodity (Wheat, Corn, Rice, Cotton, Sugar, Coffee, Beef, Chicken, Pork). */
+export async function getCommodityCountryBalance(commoditySlug: string): Promise<CommodityCountryBalanceResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeCommodityCountryBalance(db, commoditySlug);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getCommodityCountryBalancesForCategory(
+  category: CountryBalanceCommodityDef["category"]
+): Promise<CommodityCountryBalanceResult[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeCommodityCountryBalancesForCategory(db, category);
   } catch (e) {
     console.error((e as Error).message);
     return null;
