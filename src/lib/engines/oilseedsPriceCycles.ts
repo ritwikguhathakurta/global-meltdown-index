@@ -1,12 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
 import type { Point } from "../metrics/stats";
+import { COMMODITIES } from "../commodities/taxonomy";
 
 /**
  * Price Cycle Engine — Oilseeds engine, spec §100-101, §106. Computed
  * entirely from World Bank Pink Sheet prices already in this app (monthly
- * since 1960 for Palm Oil and Soybean Oil — 60+ years, well beyond the
- * spec's 20-year minimum). No new ingestion.
+ * since 1960 — 60+ years, well beyond the spec's 20-year minimum). No new
+ * ingestion. Covers all 8 Oilseeds-category products in the taxonomy
+ * (Palm Oil, Soybean Oil, Soybeans, Soybean Meal, Rapeseed Oil, Sunflower
+ * Oil, Palm Kernel Oil, Coconut Oil), not just the original two — every one
+ * of them has the same 1960-present Pink Sheet history, so there's no
+ * reason to leave six of them out.
  *
  * Cycle boundaries use the standard, disclosed -20%/+20% peak/trough
  * convention (the same threshold widely used to call bear/bull markets) —
@@ -41,7 +46,10 @@ export type PriceCycleResult = {
   runningPeakDate: string | null;
   distanceFromPeakPct: number | null;
   monthsSincePeak: number | null;
-  cycles: PriceCycle[]; // most recent first
+  cycles: PriceCycle[]; // most recent first, capped to last 10
+  historicalCycleCount: number; // ALL detected cycles since 1960, not just the capped list above
+  avgDrawdownPct: number | null;
+  avgDurationMonths: number | null;
 };
 
 function monthsBetween(a: string, b: string): number {
@@ -112,11 +120,16 @@ async function buildCycleResult(db: SupabaseClient, slug: string, label: string,
       distanceFromPeakPct: null,
       monthsSincePeak: null,
       cycles: [],
+      historicalCycleCount: 0,
+      avgDrawdownPct: null,
+      avgDurationMonths: null,
     };
   }
 
   const { cycles, state, peakVal, peakDate } = detectCycles(sorted);
   const last = sorted[sorted.length - 1];
+  const avgDrawdownPct = cycles.length > 0 ? cycles.reduce((a, c) => a + c.drawdownPct, 0) / cycles.length : null;
+  const avgDurationMonths = cycles.length > 0 ? cycles.reduce((a, c) => a + c.durationMonths, 0) / cycles.length : null;
 
   return {
     slug,
@@ -130,13 +143,17 @@ async function buildCycleResult(db: SupabaseClient, slug: string, label: string,
     distanceFromPeakPct: (last.v / peakVal - 1) * 100,
     monthsSincePeak: monthsBetween(peakDate, last.t),
     cycles: cycles.slice(-10).reverse(),
+    historicalCycleCount: cycles.length,
+    avgDrawdownPct,
+    avgDurationMonths,
   };
 }
 
-const CYCLE_COMMODITIES: { slug: string; label: string; unit: string }[] = [
-  { slug: "palm_oil", label: "Palm Oil", unit: "$/mt" },
-  { slug: "soybean_oil", label: "Soybean Oil", unit: "$/mt" },
-];
+const CYCLE_COMMODITIES: { slug: string; label: string; unit: string }[] = COMMODITIES.filter((c) => c.category === "Oilseeds").map((c) => ({
+  slug: c.slug,
+  label: c.label,
+  unit: c.unit,
+}));
 
 export async function getOilseedsPriceCycles(db: SupabaseClient): Promise<PriceCycleResult[]> {
   return Promise.all(CYCLE_COMMODITIES.map((c) => buildCycleResult(db, c.slug, c.label, c.unit)));

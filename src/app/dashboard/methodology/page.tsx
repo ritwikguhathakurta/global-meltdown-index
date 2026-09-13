@@ -2144,10 +2144,26 @@ export default function MethodologyPage() {
           free, no key, since 1950 — NOAA is item 1 on the spec&apos;s own weather-source priority list) feeds an
           El Niño/La Niña classifier that follows NOAA&apos;s own convention: an episode is only called
           &ldquo;established&rdquo; once the ±0.5°C threshold has held for 5 consecutive overlapping seasons,
-          otherwise it&apos;s labeled &ldquo;developing&rdquo;. A price-cycle engine detects bull/bear regimes in
-          Palm Oil and Soybean Oil directly from the existing Pink Sheet history (monthly since 1960, well beyond
-          the spec&apos;s 20-year ask) using the standard, disclosed −20%/+20% peak-to-trough/trough-to-recovery
-          convention — a mechanical drawdown detector, deliberately not a fundamentals-based cycle call. A
+          otherwise it&apos;s labeled &ldquo;developing&rdquo;. A price-cycle engine detects bull/bear regimes across
+          all 8 Oilseeds-category products (extended from an original 2 — Palm Oil and Soybean Oil — since all 8
+          share the same Pink Sheet history) using the standard, disclosed −20%/+20% peak-to-trough/trough-to-recovery
+          convention — a mechanical drawdown detector, deliberately not a fundamentals-based cycle call — and now
+          also reports each product&apos;s own historical cycle count and average drawdown/duration, so the current
+          cycle&apos;s age can be measured against that product&apos;s own history rather than an arbitrary
+          benchmark. This surfaced a real bug while extending it: the Pink Sheet ingestion stage
+          (worldBankCommodities.ts) was discarding every observation older than a rolling 10 years before it ever
+          reached Supabase, even though the source workbook itself has genuine monthly data back to 1960 and
+          multiple files in this app (including this one) already claimed &ldquo;since 1960&rdquo; — that claim was
+          only true of the source file, not of what was actually stored. Fixed by requesting the full series from
+          1960 at ingestion time (chunked in batches of 5,000 rows on the one-time backfill, since a full refetch is
+          ~40,000 rows across ~54 commodities vs. ~650/month on every run after) — the same fix that makes true
+          multi-decade cycle detection possible at all. A companion Multi-Timeframe Price Heatmap splits momentum
+          into three independently z-scored buckets (Short 0-30D, Medium 30-90D, Long &gt;90D, using the same
+          rollingReturnZScore methodology as the main Commodities momentum score, factored out into a reusable
+          momentumScoreForHorizons function) rather than showing one blended score three times — Short-Term is
+          computed only for Palm Oil, from CME&apos;s daily CPO=F futures, since every other Oilseeds product has
+          only monthly data and a 0-30 day window on a monthly series can&apos;t reflect a genuine sample (those
+          cells read N/A, not an approximation). A
           production/export seasonality index (Monthly Index = month&apos;s value ÷ that year&apos;s own average
           monthly value, per the spec&apos;s own §18 formula) runs on Indonesia&apos;s BPS large-estate production
           series and, for Malaysia, the MPOB mirror&apos;s export field (see above) rather than MPOB&apos;s own

@@ -63,7 +63,7 @@ const RETURN_BASELINE_WINDOW = 48; // trailing observations used as each horizon
 // trailing distribution of N-day returns (not a level z-score) — this is
 // what makes a -12% move meaningful only relative to how volatile that
 // specific commodity's own N-day moves normally are.
-function rollingReturnZScore(series: Point[], horizonDays: number): number | null {
+export function rollingReturnZScore(series: Point[], horizonDays: number): number | null {
   const sorted = [...series].sort((a, b) => (a.t < b.t ? -1 : 1));
   if (sorted.length < 20) return null;
 
@@ -92,8 +92,13 @@ function rollingReturnZScore(series: Point[], horizonDays: number): number | nul
   return (latestReturn - mean) / sd;
 }
 
-function computeMomentumScore(series: Point[]): number | null {
-  const parts = MOMENTUM_HORIZONS.map((h) => ({ z: rollingReturnZScore(series, h.days), weight: h.weight })).filter(
+// Generalized version of the spec's own horizon-weighted momentum blend —
+// factored out so other engines (e.g. oilseedsPriceHeatmap.ts) can compute
+// the same z-scored-return methodology over a different set of horizons
+// (a genuine short-term 7/14/30-day blend on daily data, for instance)
+// without duplicating the z-scoring/blending/clamping logic itself.
+export function momentumScoreForHorizons(series: Point[], horizons: { days: number; weight: number }[]): number | null {
+  const parts = horizons.map((h) => ({ z: rollingReturnZScore(series, h.days), weight: h.weight })).filter(
     (p): p is { z: number; weight: number } => p.z !== null
   );
   if (parts.length === 0) return null;
@@ -101,6 +106,10 @@ function computeMomentumScore(series: Point[]): number | null {
   const blendedZ = parts.reduce((a, b) => a + b.z * b.weight, 0) / totalWeight;
   const clamped = Math.max(-3, Math.min(3, blendedZ));
   return Math.round((clamped / 3) * 100);
+}
+
+function computeMomentumScore(series: Point[]): number | null {
+  return momentumScoreForHorizons(series, MOMENTUM_HORIZONS);
 }
 
 export function classifyDirection(score: number | null): CommodityDirectionLabel {

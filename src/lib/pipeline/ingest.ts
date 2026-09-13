@@ -1047,10 +1047,25 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
 
 export async function ingestWorldBankCommodities(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
-    const since = new Date();
-    since.setUTCFullYear(since.getUTCFullYear() - 10);
-    const points = await fetchWorldBankCommodityPrices(since.toISOString());
-    await upsertMetrics(db, points);
+    // The Pink Sheet workbook itself has genuine monthly data back to 1960
+    // (fetchWorldBankCommodityPrices parses the whole sheet regardless of
+    // this cutoff), but this stage previously discarded everything older
+    // than 10 years before it ever reached Supabase — so every "monthly
+    // since 1960" claim elsewhere in this codebase (taxonomy.ts,
+    // oilseedsPriceCycles.ts, commodities.ts) was actually only true of the
+    // source file, not of what was stored. Multi-year cycle detection
+    // (oilseedsPriceCycles.ts) specifically needs decades of history to be
+    // meaningful, so this now stores the full series, matching the
+    // ingestEnergyBacktestSeries precedent above for the same reason.
+    const points = await fetchWorldBankCommodityPrices("1960-01-01");
+    // ~54 commodities x up to 66 years x 12 months can approach ~40,000 rows
+    // on a full backfill (vs. ~800/month on every run after) — chunked to
+    // stay well under any single-request payload/row limit rather than
+    // risking one oversized upsert.
+    const CHUNK_SIZE = 5000;
+    for (let i = 0; i < points.length; i += CHUNK_SIZE) {
+      await upsertMetrics(db, points.slice(i, i + CHUNK_SIZE));
+    }
     const status = points.length > 0 ? "ok" : "warning";
     const detail = { points: points.length };
     await logRun(db, runDate, "ingest_world_bank_commodities", status, detail);

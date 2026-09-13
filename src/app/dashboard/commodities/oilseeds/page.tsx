@@ -12,10 +12,12 @@ import {
   getOilseedsPriceCycles,
   getOilseedsSeasonality,
   getOilseedsRainfall,
+  getOilseedsPriceHeatmap,
 } from "@/lib/api/engineData";
 import type { CountryClass } from "@/lib/engines/oilseedsCountry";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
 import type { EnsoPhase } from "@/lib/engines/oilseedsEnso";
+import type { HeatmapCell } from "@/lib/engines/oilseedsPriceHeatmap";
 
 const OILSEED_SLUGS = new Set([
   "soybeans",
@@ -114,21 +116,72 @@ function pctColor(v: number | null): string {
   return v >= 0 ? "#34c085" : "#e05a4d";
 }
 
+function HeatmapCellView({ cell }: { cell: HeatmapCell }) {
+  if (!cell.available) {
+    return (
+      <div className="rounded bg-panel-raised px-2 py-1.5 text-center" title={cell.unavailableReason}>
+        <div className="gfew-mono text-sm font-semibold text-text-dim">N/A</div>
+        <div className="text-[9px] uppercase tracking-wide text-text-dim">monthly only</div>
+      </div>
+    );
+  }
+  const color = DIRECTION_COLORS[cell.direction];
+  return (
+    <div className="rounded px-2 py-1.5 text-center" style={{ background: `${color}22` }}>
+      <div className="gfew-mono text-sm font-semibold" style={{ color }}>
+        {fmtPct(cell.changePct)}
+      </div>
+      <div className="text-[9px] uppercase tracking-wide" style={{ color }}>
+        {cell.direction.replace(/_/g, " ")}
+      </div>
+    </div>
+  );
+}
+
+function CycleGauge({ distanceFromPeakPct, phase }: { distanceFromPeakPct: number | null; phase: "Bull" | "Bear" | null }) {
+  if (distanceFromPeakPct === null || phase === null) return null;
+  const clamped = Math.max(-50, Math.min(0, distanceFromPeakPct));
+  const positionPct = ((clamped + 50) / 50) * 100; // 0% = -50 (deep bear), 100% = 0 (at/above peak)
+  const bearThresholdPct = ((-20 + 50) / 50) * 100; // where the -20% bear-confirmation line sits on this same 0-100 scale
+  const color = phase === "Bull" ? "#34c085" : "#e05a4d";
+  return (
+    <div className="mt-2">
+      <div className="relative h-2 rounded-full bg-panel-raised">
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${positionPct}%`, background: `${color}55` }} />
+        <div className="absolute inset-y-0 w-px bg-text-dim opacity-50" style={{ left: `${bearThresholdPct}%` }} />
+        <div
+          className="absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full border-2 border-panel"
+          style={{ left: `${positionPct}%`, background: color }}
+        />
+      </div>
+      <div className="relative mt-1 h-3 text-[9px] uppercase tracking-wide text-text-dim">
+        <span className="absolute left-0">-50%</span>
+        <span className="absolute -translate-x-1/2" style={{ left: `${bearThresholdPct}%` }}>
+          -20% (bear line)
+        </span>
+        <span className="absolute right-0">Peak</span>
+      </div>
+    </div>
+  );
+}
+
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall] = await Promise.all([
-    getCommodityHeatmap(),
-    getCommodityBalances(),
-    getSoybeanCountryBalances(),
-    getSoybeanCrushMargin(),
-    getVegetableOilSpreads(),
-    getOilseedPositioning(),
-    getSeAsiaPalmBalances(),
-    getSoybeanTradeIntelligence(),
-    getEnsoState(),
-    getOilseedsPriceCycles(),
-    getOilseedsSeasonality(),
-    getOilseedsRainfall(),
-  ]);
+  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall, priceHeatmap] =
+    await Promise.all([
+      getCommodityHeatmap(),
+      getCommodityBalances(),
+      getSoybeanCountryBalances(),
+      getSoybeanCrushMargin(),
+      getVegetableOilSpreads(),
+      getOilseedPositioning(),
+      getSeAsiaPalmBalances(),
+      getSoybeanTradeIntelligence(),
+      getEnsoState(),
+      getOilseedsPriceCycles(),
+      getOilseedsSeasonality(),
+      getOilseedsRainfall(),
+      getOilseedsPriceHeatmap(),
+    ]);
 
   const priceRows = (heatmap?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
   const balanceRows = (balances?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
@@ -571,13 +624,66 @@ export default async function OilseedsPage() {
         </section>
       )}
 
+      {priceHeatmap && priceHeatmap.rows.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Multi-Timeframe Price Heatmap</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            Each cell is its own horizon-weighted, z-scored momentum read — the same methodology as the
+            Commodities page&apos;s own momentum score (spec §32), but split into three independent timeframe
+            buckets instead of one blended number, so Short/Medium/Long are three different calculations, not the
+            same figure shown three times. <strong className="text-text">Short-Term (0-30D)</strong> is shown only
+            for Palm Oil, computed from CME&apos;s daily CPO=F futures — every other product here has only monthly
+            World Bank Pink Sheet data, where a 0-30 day window can&apos;t reflect a genuine sample, so those cells
+            read N/A rather than approximating from a single monthly print.{" "}
+            <strong className="text-text">Medium-Term (30-90D)</strong> and{" "}
+            <strong className="text-text">Long-Term (&gt;90D)</strong> use that same monthly series for all 8
+            products, since 90+ days comfortably spans multiple real monthly observations.
+          </p>
+          <div className="overflow-x-auto rounded border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-panel-raised text-text-dim">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Product</th>
+                  <th className="px-3 py-2 font-medium">Price</th>
+                  <th className="px-3 py-2 font-medium">Short-Term (0-30D)</th>
+                  <th className="px-3 py-2 font-medium">Medium-Term (30-90D)</th>
+                  <th className="px-3 py-2 font-medium">Long-Term (&gt;90D)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {priceHeatmap.rows.map((r) => (
+                  <tr key={r.slug} className="border-t border-border align-top">
+                    <td className="px-3 py-2 font-medium">{r.label}</td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">
+                      {r.price === null ? "—" : `${fmt(r.price, r.price >= 100 ? 1 : 2)} ${r.unit}`}
+                      <div className="text-[10px] text-text-dim">{r.asOf?.slice(0, 7) ?? ""}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <HeatmapCellView cell={r.short} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <HeatmapCellView cell={r.medium} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <HeatmapCellView cell={r.long} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {priceCycles && priceCycles.some((c) => c.currentPhase !== null) && (
         <section className="mb-10">
-          <h2 className="mb-2 text-lg font-semibold">Price Cycle Engine</h2>
+          <h2 className="mb-2 text-lg font-semibold">Price Cycle Engine — Long-Term Cycle Position</h2>
           <p className="mb-3 text-sm text-text-dim">
             Bull/bear cycles detected from World Bank Pink Sheet history (monthly since 1960) using the standard
             disclosed -20%/+20% peak-to-trough/trough-to-recovery convention — a mechanical drawdown detector, not
-            a fundamentals-based cycle call.
+            a fundamentals-based cycle call. The gauge shows where the current price sits between a deep (-50%)
+            drawdown and the running peak; the marker crossing the -20% line is what flips the phase from Bull to
+            Bear.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {priceCycles
@@ -608,6 +714,20 @@ export default async function OilseedsPage() {
                       </div>
                     </div>
                   </div>
+                  <CycleGauge distanceFromPeakPct={c.distanceFromPeakPct} phase={c.currentPhase} />
+                  {c.historicalCycleCount > 0 && (
+                    <div className="mt-3 border-t border-border pt-3 text-[10px] text-text-dim">
+                      {c.historicalCycleCount} completed bear cycle{c.historicalCycleCount === 1 ? "" : "s"} since 1960 — avg drawdown{" "}
+                      {c.avgDrawdownPct?.toFixed(0)}% over avg {c.avgDurationMonths?.toFixed(0)} months.
+                      {c.currentPhase === "Bear" && c.avgDurationMonths !== null && c.monthsSincePeak !== null && (
+                        <>
+                          {" "}
+                          This drawdown is {c.monthsSincePeak} months old —{" "}
+                          {c.monthsSincePeak > c.avgDurationMonths ? "already longer than" : "still within"} the historical average.
+                        </>
+                      )}
+                    </div>
+                  )}
                   {c.cycles.length > 0 && (
                     <div className="mt-3 border-t border-border pt-3">
                       <div className="mb-1 text-[10px] uppercase tracking-wide text-text-dim">Most Recent Completed Bear Cycle</div>
@@ -674,7 +794,16 @@ export default async function OilseedsPage() {
         above via the balance-sheet identity and standard HHI formula, no new source; NOAA&apos;s own Oceanic Niño
         Index (ONI) for basin-wide El Niño/La Niña state, classified using NOAA&apos;s own 5-consecutive-season
         convention; a price-cycle engine detecting bull/bear regimes in Palm Oil and Soybean Oil since 1960 via the
-        standard disclosed -20%/+20% drawdown/recovery threshold; a production/export seasonality index for
+        standard disclosed -20%/+20% drawdown/recovery threshold, now extended from 2 to all 8 Oilseeds-category
+        products (Soybeans, Soybean Oil, Soybean Meal, Rapeseed Oil, Sunflower Oil, Palm Oil, Palm Kernel Oil,
+        Coconut Oil — all share the same 1960-present Pink Sheet history) and enriched with each product&apos;s own
+        historical cycle count and average drawdown/duration, shown as a position gauge rather than just a text
+        label, so the current cycle&apos;s age can be compared against that product&apos;s own history instead of
+        an arbitrary benchmark; a Multi-Timeframe Price Heatmap splitting momentum into three independently
+        z-scored buckets (Short 0-30D, Medium 30-90D, Long &gt;90D) instead of one blended score — Short-Term is
+        shown only for Palm Oil (the only Oilseeds product with a real daily price, via CME&apos;s CPO=F futures);
+        the other seven read N/A there rather than approximating a 0-30 day signal from monthly data that can&apos;t
+        support one; a production/export seasonality index for
         Malaysia (MPOB, via the mirror below) exports and Indonesia (BPS) large-estate production, computed from
         already-ingested monthly series (explicitly labeled with how many full calendar years back each reading —
         Indonesia&apos;s BPS large-estate series now runs 2009-present, ~18 years; Malaysia&apos;s seasonality
