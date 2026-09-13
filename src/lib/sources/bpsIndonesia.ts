@@ -16,13 +16,17 @@ import type { MetricPoint } from "../metrics/store";
  *     coconut). Annual, "Ribu Ton" (thousand MT). The turvar=252 figures
  *     (~46.8-47.1 million MT for 2022-2023) match published Indonesian CPO
  *     output almost exactly, confirming this is CPO production, not raw
- *     fresh-fruit-bunch tonnage. Max year available: 2023 (th_id 123).
+ *     fresh-fruit-bunch tonnage. Verified live year-by-year: "available"
+ *     from 2009 onward, "list-not-available" for 2003-2008 — that boundary
+ *     isn't hardcoded below, out-of-range years are simply skipped via the
+ *     per-year data-availability check.
  *   - var=761 "Produksi Perkebunan Besar Bulanan Menurut Jenis Tanaman" —
  *     LARGE ESTATES ONLY (not the full national figure), vervar=2 (Kelapa
  *     Sawit). Monthly, "Ribu Ton". This is the only higher-than-annual
  *     frequency BPS publishes for palm, so it's kept as its own explicitly
  *     large-estate-scoped metric rather than blended with the national
- *     total above.
+ *     total above. Also verified live back to 2009 (same boundary as the
+ *     annual series above).
  *   - Soybean/groundnut (var=23, "Produksi Tanaman Pangan") checked and NOT
  *     built: that table's dynamic series stops at 2015 (BPS's own notes cite
  *     a 2016-17 methodology moratorium with continuation tables published
@@ -112,8 +116,11 @@ async function fetchMonthlyLargeEstate(apiKey: string, years: number[]): Promise
 
 export async function fetchBpsIndonesiaBalances(apiKey: string): Promise<MetricPoint[]> {
   const currentYear = new Date().getUTCFullYear();
-  const annualYears = Array.from({ length: 11 }, (_, i) => currentYear - i);
-  const monthlyYears = [currentYear - 1, currentYear];
+  // Both series are verified available back to 2009 (see comment above) — 20
+  // years comfortably covers that full span; requests for years before 2009
+  // come back "list-not-available" and are skipped, not guessed.
+  const annualYears = Array.from({ length: 20 }, (_, i) => currentYear - i);
+  const monthlyYears = Array.from({ length: 20 }, (_, i) => currentYear - i);
 
   const [oilPalmAnnual, coconutAnnual, oilPalmMonthly] = await Promise.all([
     fetchAnnualNationalTotal(apiKey, 252, annualYears),

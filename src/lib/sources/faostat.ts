@@ -121,3 +121,61 @@ export async function fetchFaostatProduction(): Promise<MetricPoint[]> {
   }
   return points;
 }
+
+// Country-level palm oil production for the Oilseeds sub-module — same bulk
+// file and item (257, "Palm oil"), but filtered by country Area Code instead
+// of the World aggregate above. Long-run annual context (1961-) for
+// Indonesia in particular, which otherwise only has ~1-2 years of monthly
+// BPS data. Cross-checked live: Malaysia's 2023 figure here (18.55M MT)
+// matches MPOB's own monthly-aggregated 2023 total almost exactly.
+const OILSEEDS_COUNTRY_AREA_CODES: Record<string, string> = { "101": "indonesia", "131": "malaysia" };
+const PALM_OIL_ITEM_CODE = "257";
+
+export async function fetchFaostatOilseedsCountryProduction(): Promise<MetricPoint[]> {
+  const res = await fetch(FAOSTAT_ZIP_URL, { next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`FAOSTAT bulk download: HTTP ${res.status}`);
+  const zipBuffer = Buffer.from(await res.arrayBuffer());
+
+  const zip = new AdmZip(zipBuffer);
+  const entry = zip.getEntries().find((e) => e.entryName.toUpperCase().includes("NOFLAG") && e.entryName.toLowerCase().endsWith(".csv"));
+  if (!entry) throw new Error("FAOSTAT bulk download: no NOFLAG CSV entry found in zip");
+  const csvBuffer = entry.getData();
+
+  const rl = readline.createInterface({ input: Readable.from(csvBuffer), crlfDelay: Infinity });
+  let header: string[] | null = null;
+  const points: MetricPoint[] = [];
+
+  for await (const line of rl) {
+    if (!header) {
+      header = parseCsvLine(line);
+      continue;
+    }
+    if (!line) continue;
+    const fields = parseCsvLine(line);
+    const country = OILSEEDS_COUNTRY_AREA_CODES[fields[0]];
+    if (!country) continue;
+    const itemCode = fields[3].replace(/^'/, "");
+    if (itemCode !== PALM_OIL_ITEM_CODE) continue;
+    const elementCode = fields[6];
+    if (elementCode !== PRODUCTION_ELEMENT_CODE) continue;
+
+    for (let col = 9; col < header.length; col++) {
+      const yearMatch = header[col].match(/^Y(\d{4})$/);
+      if (!yearMatch) continue;
+      const raw = fields[col];
+      if (!raw) continue;
+      const tonnes = parseFloat(raw);
+      if (Number.isNaN(tonnes)) continue;
+      points.push({
+        metric_key: `commodity.palm_oil.${country}.production_annual`,
+        observed_at: `${yearMatch[1]}-12-31`,
+        value: tonnes / 1_000_000,
+        unit: "million MT",
+        source_key: "faostat",
+        source_tier: 1,
+        frequency: "annual",
+      });
+    }
+  }
+  return points;
+}

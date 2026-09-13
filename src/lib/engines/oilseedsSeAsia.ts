@@ -41,11 +41,27 @@ export type CmeFuturesPrice = {
   change12m: number | null;
 };
 
+export type MalaysiaStockRow = {
+  label: string;
+  latestValue: number | null;
+  latestDate: string | null;
+  yoy: number | null;
+};
+
+export type LongRunProductionRow = {
+  label: string;
+  latestValue: number | null;
+  latestYear: number | null;
+  yearsOfHistory: number;
+};
+
 export type SeAsiaPalmResult = {
   indonesiaOilPalm: IndonesiaPalmRow;
   indonesiaCoconut: IndonesiaPalmRow;
   malaysiaExports: MalaysiaExportRow[];
   cmeFuturesPrice: CmeFuturesPrice;
+  malaysiaStocks: MalaysiaStockRow[];
+  longRunProduction: LongRunProductionRow[];
 };
 
 function buildIndonesiaRow(label: string, annual: Point[], monthly: Point[]): IndonesiaPalmRow {
@@ -61,16 +77,32 @@ function buildIndonesiaRow(label: string, annual: Point[], monthly: Point[]): In
   };
 }
 
+function buildLongRunRow(label: string, annual: Point[]): LongRunProductionRow {
+  const last = latest(annual);
+  const years = new Set(annual.map((p) => new Date(p.t).getUTCFullYear()));
+  return {
+    label,
+    latestValue: last?.v ?? null,
+    latestYear: last ? new Date(last.t).getUTCFullYear() : null,
+    yearsOfHistory: years.size,
+  };
+}
+
 export async function getSeAsiaPalmBalances(db: SupabaseClient): Promise<SeAsiaPalmResult> {
   const since = new Date();
   since.setUTCFullYear(since.getUTCFullYear() - 12);
   const sinceIso = since.toISOString();
+  const longRunSinceIso = "1960-01-01T00:00:00.000Z";
 
-  const [oilPalmAnnual, oilPalmMonthly, coconutAnnual, cmeFutures] = await Promise.all([
+  const [oilPalmAnnual, oilPalmMonthly, coconutAnnual, cmeFutures, cpoStock, totalPoStock, indonesiaLongRun, malaysiaLongRun] = await Promise.all([
     fetchSeries(db, "commodity.palm_oil.indonesia.production", sinceIso),
     fetchSeries(db, "commodity.palm_oil.indonesia.production_monthly_large_estate", sinceIso),
     fetchSeries(db, "commodity.coconut.indonesia.production", sinceIso),
     fetchSeries(db, "commodity.palm_oil.cme_futures_price", sinceIso),
+    fetchSeries(db, "commodity.palm_oil.malaysia.mpob_mirror.cpo_stock", sinceIso),
+    fetchSeries(db, "commodity.palm_oil.malaysia.mpob_mirror.total_po_stock", sinceIso),
+    fetchSeries(db, "commodity.palm_oil.indonesia.production_annual", longRunSinceIso),
+    fetchSeries(db, "commodity.palm_oil.malaysia.production_annual", longRunSinceIso),
   ]);
 
   const lastCmeFutures = latest(cmeFutures);
@@ -97,10 +129,24 @@ export async function getSeAsiaPalmBalances(db: SupabaseClient): Promise<SeAsiaP
     })
   );
 
+  const lastCpoStock = latest(cpoStock);
+  const lastTotalPoStock = latest(totalPoStock);
+  const malaysiaStocks: MalaysiaStockRow[] = [
+    { label: "CPO Stock", latestValue: lastCpoStock?.v ?? null, latestDate: lastCpoStock?.t ?? null, yoy: pctChangeOverDays(cpoStock, 365) },
+    { label: "Total Palm Oil Stock", latestValue: lastTotalPoStock?.v ?? null, latestDate: lastTotalPoStock?.t ?? null, yoy: pctChangeOverDays(totalPoStock, 365) },
+  ].filter((r) => r.latestValue !== null);
+
+  const longRunProduction: LongRunProductionRow[] = [
+    buildLongRunRow("Indonesia", indonesiaLongRun),
+    buildLongRunRow("Malaysia", malaysiaLongRun),
+  ].filter((r) => r.latestValue !== null);
+
   return {
     indonesiaOilPalm,
     indonesiaCoconut,
     malaysiaExports: malaysiaExportsRaw.filter((r) => r.latestValue !== null),
     cmeFuturesPrice,
+    malaysiaStocks,
+    longRunProduction,
   };
 }

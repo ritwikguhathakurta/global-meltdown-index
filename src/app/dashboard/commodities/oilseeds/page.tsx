@@ -457,6 +457,34 @@ export default async function OilseedsPage() {
             ))}
           </div>
 
+          {(seAsia.malaysiaStocks.length > 0 || seAsia.longRunProduction.length > 0) && (
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {seAsia.malaysiaStocks.map((row) => (
+                <div key={row.label} className="gfew-panel p-4">
+                  <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">Malaysia — {row.label} (MPOB, mirrored)</div>
+                  <div className="mb-2 flex items-baseline gap-3">
+                    <span className="gfew-mono text-xl font-semibold">{fmt(row.latestValue, 3)} Mt</span>
+                    <span className="text-xs text-text-dim">{row.latestDate?.slice(0, 7) ?? "—"}</span>
+                  </div>
+                  <div className="text-xs text-text-dim">
+                    <span className="uppercase tracking-wide">YoY </span>
+                    <span className="gfew-mono font-semibold" style={{ color: pctColor(row.yoy) }}>{fmtPct(row.yoy)}</span>
+                  </div>
+                </div>
+              ))}
+              {seAsia.longRunProduction.map((row) => (
+                <div key={row.label} className="gfew-panel p-4">
+                  <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">{row.label} — Long-Run Production (FAOSTAT)</div>
+                  <div className="mb-2 flex items-baseline gap-3">
+                    <span className="gfew-mono text-xl font-semibold">{fmt(row.latestValue)} Mt</span>
+                    <span className="text-xs text-text-dim">{row.latestYear ?? "—"}</span>
+                  </div>
+                  <div className="text-xs text-text-dim">{row.yearsOfHistory} years of annual history</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {seAsia.malaysiaExports.length > 0 && (
             <>
               <p className="mb-3 text-sm text-text-dim">Malaysia — monthly exports of oil palm products (MPOB), by product.</p>
@@ -646,12 +674,21 @@ export default async function OilseedsPage() {
         above via the balance-sheet identity and standard HHI formula, no new source; NOAA&apos;s own Oceanic Niño
         Index (ONI) for basin-wide El Niño/La Niña state, classified using NOAA&apos;s own 5-consecutive-season
         convention; a price-cycle engine detecting bull/bear regimes in Palm Oil and Soybean Oil since 1960 via the
-        standard disclosed -20%/+20% drawdown/recovery threshold; and a production/export seasonality index for
+        standard disclosed -20%/+20% drawdown/recovery threshold; a production/export seasonality index for
         Malaysia (MPOB) exports and Indonesia (BPS) large-estate production, computed from the same already-ingested
-        monthly series (explicitly labeled with how many full calendar years back each reading, since neither
-        series yet has more than ~1-2 years of history); and NASA POWER regional rainfall (point-based MERRA-2
-        reanalysis, no key, no GIS processing needed) for six Malaysia/Indonesia plantation regions, shown as a raw
-        monthly anomaly vs. each region&apos;s own historical average for that calendar month.
+        monthly series (explicitly labeled with how many full calendar years back each reading — Indonesia&apos;s
+        BPS large-estate series now runs 2009-present, ~18 years, while Malaysia&apos;s MPOB export series is still
+        genuinely short at ~3 years, per MPOB&apos;s own report-numbering restructuring noted below); NASA POWER
+        regional rainfall (point-based MERRA-2 reanalysis, no key, no GIS processing needed) for six
+        Malaysia/Indonesia plantation regions, shown as a raw monthly anomaly vs. each region&apos;s own historical
+        average for that calendar month; FAOSTAT&apos;s own bulk production data (free, no key) for Malaysia and
+        Indonesia palm oil specifically, back to 1961 — long-run annual context that BPS/MPOB alone don&apos;t
+        cover this far back, cross-checked live against MPOB&apos;s own 2023 total (18.55M MT both ways); and
+        Malaysia&apos;s monthly CPO and total palm oil stock levels back to 2000, via a free public CSV that
+        mirrors MPOB&apos;s own monthly release (palmoileconomics.com) — live cross-checked against an independent
+        news write-up of the same MPOB release and matched to the tonne, kept as its own tier-3 source since it
+        isn&apos;t MPOB&apos;s own site (only the two stock indicators from that mirror are used: every other field
+        in the same file — production, exports, imports, FFB price — has whole years missing).
         <br />
         <br />
         <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a CFTC-reportable
@@ -662,19 +699,26 @@ export default async function OilseedsPage() {
         computed for those two — shown as unavailable, not approximated; Malaysia&apos;s official crop-statistics
         API (OpenDOSM/data.gov.my) — real and live, but checked live to contain zero oil palm/soybean/groundnut
         rows (it only covers smallholder cash/fruit/vegetable/spice crops, not the plantation-scale industrial
-        crops MPOB tracks separately), so it isn&apos;t used here; MPOB production, stocks, and FFB/CPO price data
-        — MPOB has no documented API and its own report catalogue is access-restricted (HTTP 401), so only the one
-        confirmed-working export report was built, and Malaysia&apos;s export history above genuinely starts in
-        2024 (the report code scheme doesn&apos;t resolve to real data before that year); and Indonesia
+        crops MPOB tracks separately), so it isn&apos;t used here; MPOB production and FFB/CPO price data directly
+        from MPOB&apos;s own site — MPOB has no documented API and its own report catalogue is access-restricted
+        (HTTP 401), so only the one confirmed-working export report was built there, and Malaysia&apos;s export
+        history above genuinely starts in 2024 (the report code scheme doesn&apos;t resolve to real data before
+        that year); CPO/total stock levels are shown above via the third-party mirror instead, but production,
+        exports, imports, and FFB price from that same mirror are NOT shown because that file has whole years
+        missing for those specific fields (checked per-indicator, not assumed complete just because the file
+        exists); and Indonesia
         soybean/groundnut production — BPS&apos;s own dynamic series for these stopped updating in 2015 per its
         own published notes, with no replacement table found, so it isn&apos;t shown as a live figure.
         <br />
         <br />
         <strong className="text-text">Not built</strong>, and why: a rainfall-to-yield lag model for
         Malaysia/Indonesia specifically (the spec asks for lags tested from 1-18 months against regional yield
-        data — Indonesia&apos;s and Malaysia&apos;s own monthly production/export history is currently well under
-        2 years, nowhere near enough observations to fit a credible distributed-lag regression, so only the raw
-        rainfall anomaly and basin-wide ONI signals above are shown, without a derived production-impact estimate);
+        data — Indonesia&apos;s BPS large-estate series is now long enough, ~18 years, to plausibly support this,
+        but Malaysia&apos;s own MPOB export history is still genuinely short at ~3 years, and a credible
+        distributed-lag regression needs proper walk-forward validation infrastructure this pass doesn&apos;t
+        include — building it without that rigor would risk an unvalidated model dressed up as a real signal, so
+        only the raw rainfall anomaly and basin-wide ONI signals above are shown, without a derived
+        production-impact estimate);
         Bursa Malaysia&apos;s FCPO futures term structure and options data — a real, public, no-login JSON endpoint
         was actually found (the same one Bursa&apos;s own price page calls), and it returns full 24-contract-month
         settlement/volume/open-interest data when tested with <code className="gfew-mono">curl</code>, but it sits

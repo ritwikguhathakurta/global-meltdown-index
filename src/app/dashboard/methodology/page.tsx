@@ -2113,11 +2113,13 @@ export default function MethodologyPage() {
           official crop-statistics API (OpenDOSM/data.gov.my) — real, live, and free, but its actual data (checked
           row-by-row) covers only smallholder cash/fruit/vegetable/spice crops, with zero oil palm, soybean, or
           groundnut rows; those plantation-scale crops are tracked by MPOB separately, so this source doesn&apos;t
-          apply here despite initially looking like a fit. MPOB production, stocks, and FFB/CPO price data — MPOB
-          has no documented report-code catalogue (its own <code className="gfew-mono">/stat/</code> index returns
-          HTTP 401 Access Restricted), so only the one confirmed-working monthly-exports report was built; the
-          export history genuinely starts in 2024 (checked directly — the report&apos;s year-encoded URL scheme
-          returns nothing before that year). Indonesia soybean/groundnut production via BPS&apos;s dynamic API —
+          apply here despite initially looking like a fit. MPOB production and FFB/CPO price data directly from
+          MPOB&apos;s own site — MPOB has no documented report-code catalogue (its own{" "}
+          <code className="gfew-mono">/stat/</code> index returns HTTP 401 Access Restricted), so only the one
+          confirmed-working monthly-exports report was built there; the export history genuinely starts in 2024
+          (checked directly — the report&apos;s year-encoded URL scheme returns nothing before that year). CPO and
+          total palm oil stock levels ARE shown, but via a separate tier-3 third-party mirror (see below), not
+          MPOB&apos;s own site directly. Indonesia soybean/groundnut production via BPS&apos;s dynamic API —
           that series stops at 2015 per BPS&apos;s own published notes (a 2016-17 methodology moratorium with
           continuation tables published for rice/corn only), and no replacement table was found after checking
           both pages of the relevant subject&apos;s variable list.
@@ -2149,20 +2151,33 @@ export default function MethodologyPage() {
           production/export seasonality index (Monthly Index = month&apos;s value ÷ that year&apos;s own average
           monthly value, per the spec&apos;s own §18 formula) runs on Malaysia&apos;s MPOB export series and
           Indonesia&apos;s BPS large-estate production series — both already ingested, no new source — with each
-          reading labeled by how many full calendar years actually back it, since neither series yet has close to
-          20 years of history (Malaysia&apos;s starts 2024, Indonesia&apos;s 2025). NASA&apos;s POWER API (free, no
-          key, point-based MERRA-2 reanalysis since 1981, since 2006 here to match the spec&apos;s own 20-year ask)
-          adds monthly precipitation for six representative Malaysia/Indonesia oil-palm-growing points, shown as a
-          raw anomaly against each region&apos;s own historical average for that calendar month — deliberately not
-          run through CHIRPS/AgERA5&apos;s gridded NetCDF/GeoTIFF products, which need raster/GIS zonal-statistics
-          processing this app has no infrastructure for; NASA POWER&apos;s point API avoids that entirely.
+          reading labeled by how many full calendar years actually back it. Malaysia&apos;s MPOB export series is
+          still genuinely short (starts 2024, per the report-restructuring boundary above); Indonesia&apos;s BPS
+          large-estate series, once the BPS API key was registered, turned out to be verified live back to 2009 —
+          18 years, not the 1 year originally assumed — by requesting a wider year range and letting BPS&apos;s own
+          per-year data-availability flag decide what actually exists, rather than guessing a cutoff. NASA&apos;s
+          POWER API (free, no key, point-based MERRA-2 reanalysis since 1981, since 2006 here to match the
+          spec&apos;s own 20-year ask) adds monthly precipitation for six representative Malaysia/Indonesia
+          oil-palm-growing points, shown as a raw anomaly against each region&apos;s own historical average for
+          that calendar month — deliberately not run through CHIRPS/AgERA5&apos;s gridded NetCDF/GeoTIFF products,
+          which need raster/GIS zonal-statistics processing this app has no infrastructure for; NASA POWER&apos;s
+          point API avoids that entirely. Two more history extensions followed the same pattern: FAOSTAT&apos;s
+          bulk file (already ingested for the world Commodities balance table) also carries country-level Malaysia
+          and Indonesia palm oil production back to 1961, filtered by Area Code instead of the World aggregate —
+          cross-checked live against MPOB&apos;s own 2023 total (18.55M MT both ways); and Malaysia&apos;s monthly
+          CPO/total palm oil stock levels back to 2000 via a free public CSV mirror of MPOB&apos;s own release
+          (palmoileconomics.com), cross-checked live against an independent news write-up of the same MPOB release
+          and matched to the tonne — kept as its own tier-3 source, and limited to just those two indicators after
+          checking per-indicator coverage found whole years missing everywhere else in that file.
         </p>
         <p className="mb-2">
           <strong>Not built</strong> from the Oilseeds spec, and why: a rainfall-to-yield lag model for
           Malaysia/Indonesia specifically (spec §31 asks for lags tested from 1-18 months against regional yield
-          data — Malaysia&apos;s and Indonesia&apos;s own monthly production/export history is currently well
-          under 2 years, nowhere near enough observations to fit a credible distributed-lag regression, so only the
-          raw rainfall anomaly and basin-wide ONI signals above are shown); Bursa Malaysia&apos;s FCPO futures term
+          data — Indonesia&apos;s BPS large-estate series is now long enough, ~18 years, to plausibly support this,
+          but Malaysia&apos;s own MPOB export history is still genuinely short at ~3 years, and a credible
+          distributed-lag regression needs proper walk-forward validation infrastructure this pass doesn&apos;t
+          include, so only the raw rainfall anomaly and basin-wide ONI signals above are shown); Bursa
+          Malaysia&apos;s FCPO futures term
           structure and options data — a real public, no-login JSON endpoint was found (the same one Bursa&apos;s
           own derivatives-prices page calls, discovered by inspecting its script rather than guessing) and it does
           return full 24-contract-month settlement/volume/open-interest data, but it sits behind Cloudflare bot

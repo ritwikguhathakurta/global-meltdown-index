@@ -88,12 +88,13 @@ import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
 import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances } from "../sources/usdaPsd";
-import { fetchFaostatProduction } from "../sources/faostat";
+import { fetchFaostatProduction, fetchFaostatOilseedsCountryProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
 import { fetchMpobMalaysiaExports } from "../sources/mpobMalaysia";
 import { fetchNoaaOni } from "../sources/noaaOni";
 import { fetchNasaPowerRainfall } from "../sources/nasaPowerRainfall";
+import { fetchMpobMirrorStocks } from "../sources/mpobMirrorStocks";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1208,6 +1209,36 @@ export async function ingestNasaPowerRainfall(db: SupabaseClient, runDate: strin
   }
 }
 
+export async function ingestFaostatOilseedsCountryProduction(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchFaostatOilseedsCountryProduction();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_faostat_oilseeds_country", status, detail);
+    return { stage: "ingest_faostat_oilseeds_country", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_faostat_oilseeds_country", "failed", detail);
+    return { stage: "ingest_faostat_oilseeds_country", status: "failed", detail };
+  }
+}
+
+export async function ingestMpobMirrorStocks(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchMpobMirrorStocks();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_mpob_mirror_stocks", status, detail);
+    return { stage: "ingest_mpob_mirror_stocks", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_mpob_mirror_stocks", "failed", detail);
+    return { stage: "ingest_mpob_mirror_stocks", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1270,6 +1301,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_mpob_malaysia", ingestMpobMalaysia(db, runDate)),
     withTimeout("ingest_noaa_oni", ingestNoaaOni(db, runDate)),
     withTimeout("ingest_nasa_power_rainfall", ingestNasaPowerRainfall(db, runDate)),
+    withTimeout("ingest_faostat_oilseeds_country", ingestFaostatOilseedsCountryProduction(db, runDate)),
+    withTimeout("ingest_mpob_mirror_stocks", ingestMpobMirrorStocks(db, runDate)),
   ]);
   return { runDate, results };
 }
