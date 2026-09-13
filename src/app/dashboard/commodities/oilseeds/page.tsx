@@ -683,7 +683,12 @@ export default async function OilseedsPage() {
             disclosed -20%/+20% peak-to-trough/trough-to-recovery convention — a mechanical drawdown detector, not
             a fundamentals-based cycle call. The gauge shows where the current price sits between a deep (-50%)
             drawdown and the running peak; the marker crossing the -20% line is what flips the phase from Bull to
-            Bear.
+            Bear. The transition probability below each gauge is a plain empirical frequency, not a fitted model:
+            of every historical bear cycle (or bull leg) for that product that already lasted at least as long as
+            the current one has so far, what fraction ended within the next 6/12 months — with a Wilson 95%
+            confidence interval on that fraction, since these sample sizes are small (often single digits across
+            66 years) and a bare percentage would look far more precise than it is. Below 3 comparable historical
+            phases, no probability is shown at all.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {priceCycles
@@ -715,6 +720,39 @@ export default async function OilseedsPage() {
                     </div>
                   </div>
                   <CycleGauge distanceFromPeakPct={c.distanceFromPeakPct} phase={c.currentPhase} />
+                  {c.transitionProbabilities ? (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <div className="mb-1 text-[10px] uppercase tracking-wide text-text-dim">
+                        Probability of {c.currentPhase === "Bear" ? "Next Bull Cycle Starting" : "Next Bear Cycle Starting"}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        {c.transitionProbabilities.map((p) => (
+                          <div key={p.horizonMonths}>
+                            <div className="uppercase tracking-wide text-text-dim">Within {p.horizonMonths} months</div>
+                            <div className="gfew-mono font-semibold text-text">
+                              {(p.probability * 100).toFixed(0)}%{" "}
+                              <span className="text-text-dim">
+                                ({(p.ciLow * 100).toFixed(0)}-{(p.ciHigh * 100).toFixed(0)}% CI)
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-1 text-[10px] text-text-dim">
+                        Empirical: {c.transitionProbabilities[0].sampleSize} historical {c.currentPhase === "Bear" ? "bear cycles" : "bull legs"} that
+                        already lasted at least {c.currentPhaseAgeMonths} months (the current phase&apos;s own age) — a plain historical frequency with
+                        a Wilson 95% confidence interval, not a fitted model.
+                      </div>
+                    </div>
+                  ) : (
+                    c.currentPhaseAgeMonths !== null && (
+                      <div className="mt-3 border-t border-border pt-3 text-[10px] text-text-dim">
+                        Not enough historical {c.currentPhase === "Bear" ? "bear cycles" : "bull legs"} lasting at least{" "}
+                        {c.currentPhaseAgeMonths} months (need {3}+, this product has fewer) to estimate a transition probability without it
+                        being spurious.
+                      </div>
+                    )
+                  )}
                   {c.historicalCycleCount > 0 && (
                     <div className="mt-3 border-t border-border pt-3 text-[10px] text-text-dim">
                       {c.historicalCycleCount} completed bear cycle{c.historicalCycleCount === 1 ? "" : "s"} since 1960 — avg drawdown{" "}

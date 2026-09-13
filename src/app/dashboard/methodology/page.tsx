@@ -2163,7 +2163,15 @@ export default function MethodologyPage() {
           momentumScoreForHorizons function) rather than showing one blended score three times — Short-Term is
           computed only for Palm Oil, from CME&apos;s daily CPO=F futures, since every other Oilseeds product has
           only monthly data and a 0-30 day window on a monthly series can&apos;t reflect a genuine sample (those
-          cells read N/A, not an approximation). A
+          cells read N/A, not an approximation). The cycle engine also reports a transition probability — plain
+          empirical frequency, not a fitted survival model: of every historically completed phase of the same type
+          (bear cycle or bull leg) that already lasted at least as long as the current one has, what fraction ended
+          within the next 6/12 months, with a Wilson 95% confidence interval on that fraction rather than a vague
+          confidence label, since the underlying samples are small (single digits for most products across 66
+          years). Below 3 comparable historical phases, no probability is shown — verified live per product before
+          shipping (e.g. Rapeseed/Sunflower Oil, with only ~24 years of history and 3-4 bear cycles each, correctly
+          return null once the at-risk filter narrows further; Palm Oil and Soybean Complex products, with 60+
+          years and 15-24 cycles, return real if wide estimates). A
           production/export seasonality index (Monthly Index = month&apos;s value ÷ that year&apos;s own average
           monthly value, per the spec&apos;s own §18 formula) runs on Indonesia&apos;s BPS large-estate production
           series and, for Malaysia, the MPOB mirror&apos;s export field (see above) rather than MPOB&apos;s own
