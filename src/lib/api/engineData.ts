@@ -58,6 +58,7 @@ import { getOilseedsPriceCycles as computeOilseedsPriceCycles, type PriceCycleRe
 import { getOilseedsSeasonality as computeOilseedsSeasonality, type SeasonalityResult } from "@/lib/engines/oilseedsSeasonality";
 import { getOilseedsRainfall as computeOilseedsRainfall, type RainfallRegionResult } from "@/lib/engines/oilseedsRainfall";
 import { getOilseedsPriceHeatmap as computeOilseedsPriceHeatmap, type OilseedsHeatmapResult } from "@/lib/engines/oilseedsPriceHeatmap";
+import { getOilseedsRainfallImpact as computeOilseedsRainfallImpact, type RainfallImpactResult } from "@/lib/engines/oilseedsRainfallImpact";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -574,6 +575,17 @@ export async function getOilseedsPriceHeatmap(): Promise<OilseedsHeatmapResult |
   try {
     const db = await createServerSupabase();
     return await computeOilseedsPriceHeatmap(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getOilseedsRainfallImpact(): Promise<RainfallImpactResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeOilseedsRainfallImpact(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;

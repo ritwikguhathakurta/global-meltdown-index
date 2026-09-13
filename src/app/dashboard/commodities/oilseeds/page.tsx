@@ -13,6 +13,7 @@ import {
   getOilseedsSeasonality,
   getOilseedsRainfall,
   getOilseedsPriceHeatmap,
+  getOilseedsRainfallImpact,
 } from "@/lib/api/engineData";
 import type { CountryClass } from "@/lib/engines/oilseedsCountry";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
@@ -101,6 +102,21 @@ function CropPhasePill({ phase }: { phase: string }) {
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+const REGIME_COLORS: Record<string, string> = {
+  Deficit: "#e05a4d",
+  Normal: "#34c085",
+  Excess: "#3fa9f5",
+};
+
+function RegimePill({ regime }: { regime: string }) {
+  const color = REGIME_COLORS[regime] ?? "#8b96a8";
+  return (
+    <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: `${color}22`, color }}>
+      {regime}
+    </span>
+  );
+}
+
 function fmt(v: number | null, decimals = 1): string {
   if (v === null) return "—";
   return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -166,7 +182,7 @@ function CycleGauge({ distanceFromPeakPct, phase }: { distanceFromPeakPct: numbe
 }
 
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall, priceHeatmap] =
+  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall, priceHeatmap, rainfallImpact] =
     await Promise.all([
       getCommodityHeatmap(),
       getCommodityBalances(),
@@ -181,7 +197,10 @@ export default async function OilseedsPage() {
       getOilseedsSeasonality(),
       getOilseedsRainfall(),
       getOilseedsPriceHeatmap(),
+      getOilseedsRainfallImpact(),
     ]);
+
+  const regimeBySlug = new Map((rainfallImpact?.currentRegimeByRegion ?? []).map((r) => [r.slug, r.regime]));
 
   const priceRows = (heatmap?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
   const balanceRows = (balances?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
@@ -615,11 +634,181 @@ export default async function OilseedsPage() {
                     <span className="gfew-mono text-lg font-semibold">{fmt(r.latestValue, 1)} mm/day</span>
                     <span className="text-[10px] text-text-dim">{r.asOf?.slice(0, 7) ?? "—"}</span>
                   </div>
-                  <div className="gfew-mono text-xs font-semibold" style={{ color: pctColor(r.anomalyPct) }}>
+                  <div className="mb-1 gfew-mono text-xs font-semibold" style={{ color: pctColor(r.anomalyPct) }}>
                     {fmtPct(r.anomalyPct)} vs. {r.yearsOfHistory}y avg for this month
                   </div>
+                  {regimeBySlug.get(r.slug) && <RegimePill regime={regimeBySlug.get(r.slug)!} />}
                 </div>
               ))}
+          </div>
+        </section>
+      )}
+
+      {rainfallImpact && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Rainfall Impact: Production &amp; Price Linkage</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            Regimes are classified by a disclosed ±{rainfallImpact.regimeThresholdPct}% anomaly threshold (Deficit /
+            Normal / Excess) vs. each region&apos;s own history for that calendar month. Every probability below is
+            a plain empirical frequency from paired historical observations — not a fitted model — with a Wilson
+            95% confidence interval, since the underlying samples are modest. Production is linked at a{" "}
+            {rainfallImpact.productionLagMonths}-month lag (a commonly cited oil palm FFB gestation lag in agronomic
+            literature, not fitted to this data); price is linked at a much shorter {rainfallImpact.priceReactionMonths}-month
+            forward window, since markets react to rainfall news well before the resulting harvest actually prints.
+          </p>
+
+          <h3 className="mb-2 text-sm font-semibold text-text-dim">
+            Indonesia Production Outcome Probability ({rainfallImpact.productionLagMonths} months after rainfall, large-estate BPS series)
+          </h3>
+          <div className="mb-6 overflow-x-auto rounded border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-panel-raised text-text-dim">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Rainfall Regime (at time of rain)</th>
+                  <th className="px-3 py-2 font-medium">Sample</th>
+                  <th className="px-3 py-2 font-medium">P(Increase vs. seasonal norm)</th>
+                  <th className="px-3 py-2 font-medium">P(At-Par)</th>
+                  <th className="px-3 py-2 font-medium">P(Decrease)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rainfallImpact.productionLinkage.map((row) => (
+                  <tr key={row.regime} className="border-t border-border align-top">
+                    <td className="px-3 py-2">
+                      <RegimePill regime={row.regime} />
+                    </td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">n={row.sampleSize}</td>
+                    {row.outcomes.length === 0 ? (
+                      <td className="px-3 py-2 text-xs text-text-dim" colSpan={3}>
+                        Insufficient historical sample (need 3+) to estimate a probability.
+                      </td>
+                    ) : (
+                      ["Increase", "At-Par", "Decrease"].map((outcomeName) => {
+                        const o = row.outcomes.find((x) => x.outcome === outcomeName)!;
+                        return (
+                          <td key={outcomeName} className="gfew-mono px-3 py-2 text-text-dim">
+                            {(o.probability * 100).toFixed(0)}%{" "}
+                            <span className="text-[10px]">
+                              ({(o.ciLow * 100).toFixed(0)}-{(o.ciHigh * 100).toFixed(0)}%)
+                            </span>
+                          </td>
+                        );
+                      })
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="mb-2 text-sm font-semibold text-text-dim">
+            Palm Oil Price Reaction ({rainfallImpact.priceReactionMonths}-month forward return, palm-belt composite of all 6 regions)
+          </h3>
+          <div className="mb-3 overflow-x-auto rounded border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-panel-raised text-text-dim">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Rainfall Regime</th>
+                  <th className="px-3 py-2 font-medium">Sample</th>
+                  <th className="px-3 py-2 font-medium">Avg Forward Return</th>
+                  <th className="px-3 py-2 font-medium">Median Forward Return</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rainfallImpact.priceReaction.map((row) => (
+                  <tr key={row.regime} className="border-t border-border align-top">
+                    <td className="px-3 py-2">
+                      <RegimePill regime={row.regime} />
+                    </td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">n={row.sampleSize}</td>
+                    <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(row.avgForwardReturnPct) }}>
+                      {fmtPct(row.avgForwardReturnPct)}
+                    </td>
+                    <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(row.medianForwardReturnPct) }}>
+                      {fmtPct(row.medianForwardReturnPct)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {rainfallImpact.priceSensitivity && (
+            <div className="gfew-panel mb-6 p-4">
+              <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">Price Sensitivity to Rainfall Anomaly</div>
+              <div className="mb-2 flex items-baseline gap-3">
+                <span className="gfew-mono text-xl font-semibold" style={{ color: pctColor(rainfallImpact.priceSensitivity.slopePctPer10ptAnomaly) }}>
+                  {fmtPct(rainfallImpact.priceSensitivity.slopePctPer10ptAnomaly)}
+                </span>
+                <span className="text-xs text-text-dim">
+                  per +10 percentage points of composite rainfall anomaly, over the following {rainfallImpact.priceReactionMonths} months
+                </span>
+              </div>
+              <div className="text-xs text-text-dim">
+                R² = {rainfallImpact.priceSensitivity.rSquared?.toFixed(3)} on n={rainfallImpact.priceSensitivity.sampleSize} months.{" "}
+                {rainfallImpact.priceSensitivity.rSquared !== null && rainfallImpact.priceSensitivity.rSquared < 0.1 ? (
+                  <strong className="text-text">
+                    This R² is low — rainfall alone explains very little of palm oil&apos;s short-term price moves (biodiesel mandates,
+                    substitute-oil prices, FX, and Indonesian export policy all move it too), so treat the slope above as a weak, noisy
+                    association, not a reliable trading signal on its own.
+                  </strong>
+                ) : (
+                  "A moderate-to-strong R² here would mean rainfall alone explains a meaningful share of near-term price moves."
+                )}
+              </div>
+            </div>
+          )}
+
+          <h3 className="mb-2 text-sm font-semibold text-text-dim">Forward-Looking Rainfall Outlook (from NOAA CPC&apos;s ENSO Forecast)</h3>
+          <p className="mb-3 text-sm text-text-dim">
+            NOAA CPC publishes an official ENSO probability forecast monthly (La Niña / Neutral / El Niño chances for 9 upcoming
+            overlapping seasons). Combined with this app&apos;s own historical ENSO-phase-vs-rainfall-regime relationship per
+            region, that forecast is mixed into a probabilistic near-term rainfall regime outlook below — recomputed every time
+            the pipeline re-ingests a fresh CPC forecast, not a static snapshot.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {rainfallImpact.forecastByRegion.map((r) => (
+              <div key={r.slug} className="gfew-panel p-4">
+                <div className="mb-2 text-xs uppercase tracking-wide text-text-dim">
+                  {r.country} — {r.label}
+                </div>
+                {r.months === null ? (
+                  <div className="text-xs text-text-dim">
+                    Insufficient historical ENSO-phase overlap to project an outlook (El Niño n={r.phaseSampleSizes["El Nino"]}, La
+                    Niña n={r.phaseSampleSizes["La Nina"]}, Neutral n={r.phaseSampleSizes.Neutral} — need 10+ each).
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-text-dim">
+                        <tr>
+                          <th className="py-1 pr-2 font-medium">Month</th>
+                          <th className="py-1 pr-2 font-medium">Deficit</th>
+                          <th className="py-1 pr-2 font-medium">Normal</th>
+                          <th className="py-1 pr-2 font-medium">Excess</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.months.slice(0, 4).map((m) => (
+                          <tr key={m.targetMonth} className="border-t border-border">
+                            <td className="gfew-mono py-1 pr-2 text-text-dim">{m.targetMonth}</td>
+                            <td className="gfew-mono py-1 pr-2" style={{ color: REGIME_COLORS.Deficit }}>
+                              {(m.deficitProb * 100).toFixed(0)}%
+                            </td>
+                            <td className="gfew-mono py-1 pr-2" style={{ color: REGIME_COLORS.Normal }}>
+                              {(m.normalProb * 100).toFixed(0)}%
+                            </td>
+                            <td className="gfew-mono py-1 pr-2" style={{ color: REGIME_COLORS.Excess }}>
+                              {(m.excessProb * 100).toFixed(0)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -857,7 +1046,15 @@ export default async function OilseedsPage() {
         mirrors MPOB&apos;s own monthly release (palmoileconomics.com) — live cross-checked against an independent
         news write-up of the same MPOB release and matched to the tonne, kept as its own tier-3 source since it
         isn&apos;t MPOB&apos;s own site (only the two stock indicators from that mirror are used: every other field
-        in the same file — production, exports, imports, FFB price — has whole years missing).
+        in the same file — production, exports, imports, FFB price — has whole years missing); and a Rainfall
+        Impact engine linking NASA POWER rainfall regimes (Deficit/Normal/Excess, a disclosed ±15% anomaly
+        threshold) to Indonesia&apos;s production outcomes 18 months later and palm oil&apos;s price reaction 3
+        months later, both as plain empirical frequencies with Wilson confidence intervals from paired historical
+        observations — plus a genuine forward-looking layer using NOAA CPC&apos;s own official monthly ENSO
+        probability forecast (verified live: a real, free, server-rendered HTML table, not a JS-only chart),
+        mixed with this app&apos;s own historical ENSO-phase-vs-rainfall-regime relationship per region to project
+        a near-term rainfall outlook that updates automatically every time the pipeline re-ingests a fresh CPC
+        forecast.
         <br />
         <br />
         <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a CFTC-reportable

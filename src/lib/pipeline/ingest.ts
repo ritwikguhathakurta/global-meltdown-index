@@ -95,6 +95,7 @@ import { fetchMpobMalaysiaExports } from "../sources/mpobMalaysia";
 import { fetchNoaaOni } from "../sources/noaaOni";
 import { fetchNasaPowerRainfall } from "../sources/nasaPowerRainfall";
 import { fetchMpobMirror } from "../sources/mpobMirror";
+import { fetchCpcEnsoForecast } from "../sources/cpcEnsoForecast";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1254,6 +1255,21 @@ export async function ingestMpobMirror(db: SupabaseClient, runDate: string): Pro
   }
 }
 
+export async function ingestCpcEnsoForecast(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchCpcEnsoForecast();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_cpc_enso_forecast", status, detail);
+    return { stage: "ingest_cpc_enso_forecast", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_cpc_enso_forecast", "failed", detail);
+    return { stage: "ingest_cpc_enso_forecast", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1318,6 +1334,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_nasa_power_rainfall", ingestNasaPowerRainfall(db, runDate)),
     withTimeout("ingest_faostat_oilseeds_country", ingestFaostatOilseedsCountryProduction(db, runDate)),
     withTimeout("ingest_mpob_mirror", ingestMpobMirror(db, runDate)),
+    withTimeout("ingest_cpc_enso_forecast", ingestCpcEnsoForecast(db, runDate)),
   ]);
   return { runDate, results };
 }

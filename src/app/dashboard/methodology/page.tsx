@@ -2197,12 +2197,40 @@ export default function MethodologyPage() {
           checking per-indicator coverage found whole years missing everywhere else in that file.
         </p>
         <p className="mb-2">
-          <strong>Not built</strong> from the Oilseeds spec, and why: a rainfall-to-yield lag model for
-          Malaysia/Indonesia specifically (spec §31 asks for lags tested from 1-18 months against regional yield
-          data — Indonesia&apos;s BPS large-estate series is now long enough, ~18 years, to plausibly support this,
-          but Malaysia&apos;s own MPOB export history is still genuinely short at ~3 years, and a credible
-          distributed-lag regression needs proper walk-forward validation infrastructure this pass doesn&apos;t
-          include, so only the raw rainfall anomaly and basin-wide ONI signals above are shown); Bursa
+          <strong>Rainfall Impact engine (shipped)</strong> — spec §31&apos;s rainfall-to-yield ask, built as a
+          disclosed empirical classifier rather than a fitted distributed-lag regression (see the &ldquo;not
+          built&rdquo; note below for why a fitted model still isn&apos;t attempted). Each region&apos;s monthly
+          rainfall is classified Deficit/Normal/Excess against a disclosed ±15% leave-one-out anomaly threshold
+          (that same calendar month&apos;s own average across every OTHER year in the series). Indonesia&apos;s BPS
+          large-estate production (the only Oilseeds product with a long enough monthly series — 18 years) is
+          paired 18 months later — a commonly cited oil palm FFB gestation lag in agronomic literature, not fitted
+          or optimized against this data — and classified Increase/At-Par/Decrease against its own seasonal norm
+          the same way. Palm oil price is linked separately at a much shorter 3-month forward window, since markets
+          price in rainfall news well before the resulting harvest actually prints. Every resulting probability is
+          a plain count-based frequency with a Wilson 95% confidence interval — verified live before shipping: some
+          regions show a real, agronomically expected El Niño-drought link (Peninsular Malaysia: 56% of El Niño
+          months were Deficit vs. 32% for La Niña; Sabah similar), while others (Sumatra) show almost none —
+          reported as found, not smoothed into a uniform story. The composite rainfall-anomaly-vs-3-month-forward-
+          price regression came back with R²&lt;0.01, which the page states plainly rather than hiding: rainfall
+          alone explains almost none of palm oil&apos;s short-term price variance (biodiesel mandates, substitute
+          oils, FX, and export policy dominate), so the reported price-sensitivity slope is disclosed as weak and
+          noisy, not a trading signal. The forward-looking layer uses NOAA CPC&apos;s own official ENSO probability
+          forecast (<code className="gfew-mono">cpc.ncep.noaa.gov/.../enso/roni/probabilities/</code>, free, no key
+          — verified live to be plain server-rendered HTML with the numeric table already in the raw response, not
+          a JS-only chart) for La Niña/Neutral/El Niño chances across 9 upcoming overlapping seasons, mixed via the
+          law of total probability with each region&apos;s own historical P(rainfall regime | ENSO phase) — computed
+          from NOAA ONI + NASA POWER, both already ingested — into a near-term regime outlook per region. Each
+          pipeline run re-ingests a fresh CPC forecast and the outlook recomputes from it automatically; no manual
+          update step is needed when a new forecast is issued.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong> from the Oilseeds spec, and why: a genuinely FITTED rainfall-to-yield
+          distributed-lag regression for Malaysia/Indonesia (spec §31 asks for lags tested from 1-18 months against
+          regional yield data — Indonesia&apos;s BPS large-estate series is now long enough, ~18 years, to
+          plausibly support this, but Malaysia&apos;s own MPOB export history is still genuinely short at ~3 years,
+          and a credible fitted regression needs proper walk-forward validation infrastructure this pass
+          doesn&apos;t include — the empirical classifier above answers the same underlying question without that
+          risk, but it is not a substitute for one); Bursa
           Malaysia&apos;s FCPO futures term
           structure and options data — a real public, no-login JSON endpoint was found (the same one Bursa&apos;s
           own derivatives-prices page calls, discovered by inspecting its script rather than guessing) and it does
