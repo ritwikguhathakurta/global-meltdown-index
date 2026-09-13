@@ -30,6 +30,12 @@ function fmtPrice(v: number | null, unit: string): string {
   return `${v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} ${unit}`;
 }
 
+function fmtAsOfPeriod(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }) + " avg";
+}
+
 function fmtPct(v: number | null): string {
   if (v === null) return "—";
   return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
@@ -57,12 +63,20 @@ export default async function CommoditiesPage() {
           Oilseeds deep-dive (crush margins, country balances, positioning) →
         </Link>
       </div>
-      <p className="mb-6 max-w-3xl text-sm text-text-dim">
+      <p className="mb-2 max-w-3xl text-sm text-text-dim">
         Real monthly commodity prices from the World Bank Pink Sheet (free, no key, since 1960) and the IMF
         Primary Commodity Price System (free, no key, via DBnomics) across ~56 commodities, with a
         price-momentum signal — Phase 1 of a much larger planned build. See the disclosure below for what this
         is (and isn&apos;t) measuring yet.
       </p>
+      {heatmap?.asOf && (
+        <p className="mb-6 max-w-3xl text-xs text-text-dim/80">
+          Prices are <strong>monthly averages, published with roughly a one-month lag</strong> — the latest data
+          point across this table is &quot;{fmtAsOfPeriod(heatmap.asOf)}&quot; (also shown under each price), not
+          today&apos;s close. A commodity that has moved since that month-end will look stale here versus a live
+          quote by design of this source; today&apos;s spot price is not what this table measures.
+        </p>
+      )}
 
       {!heatmap && <p className="text-sm text-text-dim">Commodity data is not yet available.</p>}
 
@@ -118,7 +132,10 @@ export default async function CommoditiesPage() {
                       {rows.map((r) => (
                         <tr key={r.slug} className="border-t border-border align-top">
                           <td className="px-3 py-2 font-medium">{r.label}</td>
-                          <td className="gfew-mono px-3 py-2 text-text-dim">{fmtPrice(r.price, r.unit)}</td>
+                          <td className="px-3 py-2 text-text-dim">
+                            <div className="gfew-mono">{fmtPrice(r.price, r.unit)}</div>
+                            {r.asOf && <div className="text-[10px] text-text-dim/70">{fmtAsOfPeriod(r.asOf)}</div>}
+                          </td>
                           <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(r.change1m) }}>
                             {fmtPct(r.change1m)}
                           </td>
