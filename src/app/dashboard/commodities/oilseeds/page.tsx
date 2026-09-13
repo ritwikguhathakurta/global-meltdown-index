@@ -7,7 +7,9 @@ import {
   getVegetableOilSpreads,
   getOilseedPositioning,
   getSeAsiaPalmBalances,
+  getSoybeanTradeIntelligence,
 } from "@/lib/api/engineData";
+import type { CountryClass } from "@/lib/engines/oilseedsCountry";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
 
 const OILSEED_SLUGS = new Set([
@@ -41,6 +43,23 @@ function DirectionPill({ direction }: { direction: CommodityDirectionLabel }) {
   );
 }
 
+const CLASS_COLORS: Record<NonNullable<CountryClass>, string> = {
+  "Major Exporter": "#34c085",
+  "Net Exporter": "#3fa9f5",
+  Balanced: "#8b96a8",
+  "Net Importer": "#e0793d",
+  "Major Importer": "#e05a4d",
+};
+
+function ClassPill({ classification }: { classification: NonNullable<CountryClass> }) {
+  const color = CLASS_COLORS[classification];
+  return (
+    <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: `${color}22`, color }}>
+      {classification}
+    </span>
+  );
+}
+
 function fmt(v: number | null, decimals = 1): string {
   if (v === null) return "—";
   return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -57,7 +76,7 @@ function pctColor(v: number | null): string {
 }
 
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia] = await Promise.all([
+  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel] = await Promise.all([
     getCommodityHeatmap(),
     getCommodityBalances(),
     getSoybeanCountryBalances(),
@@ -65,6 +84,7 @@ export default async function OilseedsPage() {
     getVegetableOilSpreads(),
     getOilseedPositioning(),
     getSeAsiaPalmBalances(),
+    getSoybeanTradeIntelligence(),
   ]);
 
   const priceRows = (heatmap?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
@@ -134,7 +154,9 @@ export default async function OilseedsPage() {
         <section className="mb-10">
           <h2 className="mb-2 text-lg font-semibold">Soybean Country Balance Sheet</h2>
           <p className="mb-3 text-sm text-text-dim">
-            Real USDA PSD country-level data — the deepest single-commodity module per the spec (§10-15).
+            Real USDA PSD country-level data — the deepest single-commodity module per the spec (§10-15). Apparent
+            Consumption, Stocks/Use and Classification (spec §9, §106, §141) are computed from this same data via
+            the balance-sheet identity, not a new source.
           </p>
           <div className="overflow-x-auto rounded border border-border">
             <table className="w-full text-left text-sm">
@@ -149,6 +171,9 @@ export default async function OilseedsPage() {
                   <th className="px-3 py-2 font-medium">Exports</th>
                   <th className="px-3 py-2 font-medium">Net Trade</th>
                   <th className="px-3 py-2 font-medium">Ending Stocks</th>
+                  <th className="px-3 py-2 font-medium">Apparent Consum.</th>
+                  <th className="px-3 py-2 font-medium">Stocks/Use</th>
+                  <th className="px-3 py-2 font-medium">Classification</th>
                 </tr>
               </thead>
               <tbody>
@@ -167,10 +192,65 @@ export default async function OilseedsPage() {
                       {r.netTrade === null ? "—" : `${r.netTrade >= 0 ? "+" : ""}${r.netTrade.toFixed(1)} Mt`}
                     </td>
                     <td className="gfew-mono px-3 py-2 text-text-dim">{fmt(r.endingStocks)} Mt</td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">{r.apparentConsumption === null ? "—" : `${fmt(r.apparentConsumption)} Mt`}</td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">{r.stocksToUsePct === null ? "—" : `${r.stocksToUsePct.toFixed(1)}%`}</td>
+                    <td className="px-3 py-2">{r.classification ? <ClassPill classification={r.classification} /> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </section>
+      )}
+
+      {tradeIntel && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Soybean Trade Concentration &amp; China Import Demand</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            Export HHI (spec §50) and China&apos;s import demand (spec §15) — both computed directly from the
+            country balance data above, no new source.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="gfew-panel p-4">
+              <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">Export HHI (tracked countries)</div>
+              <div className="mb-3 flex items-baseline gap-3">
+                <span className="gfew-mono text-2xl font-semibold">
+                  {tradeIntel.concentration.exportHHI === null ? "—" : tradeIntel.concentration.exportHHI.toFixed(0)}
+                </span>
+                <span className="text-xs text-text-dim">0-10,000 · &gt;2,500 is considered highly concentrated</span>
+              </div>
+              <div className="space-y-1 text-xs text-text-dim">
+                {tradeIntel.concentration.topExporters.map((e) => (
+                  <div key={e.label} className="flex justify-between">
+                    <span>{e.label}</span>
+                    <span className="gfew-mono text-text">{e.shareOfTracked === null ? "—" : `${e.shareOfTracked.toFixed(1)}%`}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="gfew-panel p-4">
+              <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">China Soybean Import Demand</div>
+              <div className="mb-3 flex items-baseline gap-3">
+                <span className="gfew-mono text-2xl font-semibold" style={{ color: pctColor(tradeIntel.chinaImportDemand.indexValue) }}>
+                  {fmtPct(tradeIntel.chinaImportDemand.indexValue)}
+                </span>
+                <span className="text-xs text-text-dim">equal-weighted avg. of imports YoY + crush YoY</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs text-text-dim">
+                <div>
+                  <div className="uppercase tracking-wide">Imports YoY</div>
+                  <div className="gfew-mono font-semibold" style={{ color: pctColor(tradeIntel.chinaImportDemand.importsYoy) }}>
+                    {fmtPct(tradeIntel.chinaImportDemand.importsYoy)}
+                  </div>
+                </div>
+                <div>
+                  <div className="uppercase tracking-wide">Crush YoY</div>
+                  <div className="gfew-mono font-semibold" style={{ color: pctColor(tradeIntel.chinaImportDemand.crushYoy) }}>
+                    {fmtPct(tradeIntel.chinaImportDemand.crushYoy)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       )}
@@ -380,7 +460,10 @@ export default async function OilseedsPage() {
         product export volumes (CPO, PKO, biodiesel, oleochemicals, etc.) via MPOB; and a genuinely live daily
         palm oil price via CME&apos;s Crude Palm Oil Calendar Swap futures (CPO=F on Yahoo Finance) — cash-settled
         against MPOB&apos;s own posted Malaysian benchmark, added instead of scraping TradingView (which has no
-        public data API — its charts stream over a private, authenticated feed, not a documented endpoint).
+        public data API — its charts stream over a private, authenticated feed, not a documented endpoint);
+        apparent consumption, stocks/use, and exporter/importer classification per country, plus soybean export
+        concentration (HHI) and a China import-demand indicator — all computed directly from the USDA PSD data
+        above via the balance-sheet identity and standard HHI formula, no new source.
         <br />
         <br />
         <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a CFTC-reportable

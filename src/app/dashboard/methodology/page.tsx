@@ -2123,13 +2123,31 @@ export default function MethodologyPage() {
           both pages of the relevant subject&apos;s variable list.
         </p>
         <p className="mb-2">
+          <strong>Derived trade-intelligence layer (shipped)</strong> — spec §9, §15, §50, §105, §106, §141
+          computed entirely from the USDA PSD country data already ingested, zero new source calls: apparent
+          consumption per country via the balance-sheet identity (Beginning Stocks + Production + Imports − Exports
+          = Ending Stocks, rearranged, using the prior year&apos;s Ending Stocks as Beginning Stocks since both are
+          the same series); Stocks/Use%; a disclosed net-trade/production threshold classification (Major
+          Exporter &gt;50%, Net Exporter 5-50%, Balanced ±5%, Net Importer −5 to −50%, Major Importer &lt;−50%);
+          export HHI (standard Herfindahl-Hirschman formula) across the tracked exporters; and a China Soybean
+          Import Demand indicator as the disclosed equal-weighted average of China&apos;s own imports YoY and
+          crush YoY (explicitly not a validated/backtested index, since the spec names one but doesn&apos;t supply
+          its weights). Verified locally against live Supabase data before shipping — e.g. Brazil apparent
+          consumption ≈69.6M MT with 53% stocks/use, Export HHI ≈4,598 (Brazil+US ≈87% of tracked exports,
+          consistent with known concentration), China classified Major Importer.
+        </p>
+        <p className="mb-2">
           <strong>Not built</strong> from the Oilseeds spec, and why: weather/ENSO yield-risk modeling and crop
           calendars (needs a paid or complex agromet integration and a validated yield model — a shallow version
           risked more harm than a clear gap); futures term structure/basis/carry beyond spot positioning (needs a
           live futures curve feed this app doesn&apos;t have); freight/BDI, port congestion, and biofuel-mandate
-          policy tracking (no free live source found); and the spec&apos;s full scenario/shock propagation engine,
+          policy tracking (no free live source found); the spec&apos;s full scenario/shock propagation engine,
           systemic risk score, 150-indicator early-warning system, and AI integration (large net-new subsystems
-          beyond a single build pass).
+          beyond a single build pass); and USDA FAS&apos;s weekly Export Sales Reporting (ESR) API, which the spec
+          names explicitly (§13) — checked live and it is real (<code className="gfew-mono">apps.fas.usda.gov/OpenData</code>),
+          but gated behind a free registered API key this session doesn&apos;t have (confirmed via a live
+          &ldquo;Bad API Key&rdquo; response, not a guess) — same registration-required pattern as BPS above, held
+          pending a decision on whether to pursue it.
         </p>
         <p className="mb-2">
           <strong>Genuinely still to build</strong> (Commodities overall): the actual spec-weighted Commodity

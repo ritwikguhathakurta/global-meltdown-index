@@ -41,7 +41,14 @@ import { getEnergyTradeNetworkGraph as computeEnergyTradeNetworkGraph, type Ener
 import { getEnergyBacktestResult as computeEnergyBacktestResult, type EnergyBacktestResult } from "@/lib/engines/energyBacktest";
 import { getCommodityHeatmap as computeCommodityHeatmap, type CommodityHeatmapResult } from "@/lib/engines/commodities";
 import { getCommodityBalances as computeCommodityBalances, type CommodityBalanceResult } from "@/lib/engines/commodityBalance";
-import { getSoybeanCountryBalances as computeSoybeanCountryBalances, type SoybeanCountryRow } from "@/lib/engines/oilseedsCountry";
+import {
+  getSoybeanCountryBalances as computeSoybeanCountryBalances,
+  getSoybeanTradeConcentration as computeSoybeanTradeConcentration,
+  getChinaSoybeanImportDemand as computeChinaSoybeanImportDemand,
+  type SoybeanCountryRow,
+  type SoybeanTradeConcentration,
+  type ChinaImportDemand,
+} from "@/lib/engines/oilseedsCountry";
 import { getSoybeanCrushMargin as computeSoybeanCrushMargin, type CrushMarginResult } from "@/lib/engines/oilseedsCrush";
 import { getVegetableOilSpreads as computeVegetableOilSpreads, type OilSpreadRow } from "@/lib/engines/oilseedsSpreads";
 import { getOilseedPositioning as computeOilseedPositioning, type OilseedPositioningRow } from "@/lib/engines/oilseedsPositioning";
@@ -456,6 +463,24 @@ export async function getSoybeanCountryBalances(): Promise<SoybeanCountryRow[] |
   try {
     const db = await createServerSupabase();
     return await computeSoybeanCountryBalances(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export type SoybeanTradeIntelligence = {
+  concentration: SoybeanTradeConcentration;
+  chinaImportDemand: ChinaImportDemand;
+};
+
+export async function getSoybeanTradeIntelligence(): Promise<SoybeanTradeIntelligence | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    const [countries, chinaImportDemand] = await Promise.all([computeSoybeanCountryBalances(db), computeChinaSoybeanImportDemand(db)]);
+    const concentration = computeSoybeanTradeConcentration(countries);
+    return { concentration, chinaImportDemand };
   } catch (e) {
     console.error((e as Error).message);
     return null;
