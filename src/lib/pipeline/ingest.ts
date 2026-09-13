@@ -92,6 +92,7 @@ import { fetchFaostatProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
 import { fetchMpobMalaysiaExports } from "../sources/mpobMalaysia";
+import { fetchNoaaOni } from "../sources/noaaOni";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1176,6 +1177,21 @@ export async function ingestMpobMalaysia(db: SupabaseClient, runDate: string): P
   }
 }
 
+export async function ingestNoaaOni(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchNoaaOni();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_noaa_oni", status, detail);
+    return { stage: "ingest_noaa_oni", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_noaa_oni", "failed", detail);
+    return { stage: "ingest_noaa_oni", status: "failed", detail };
+  }
+}
+
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
   // Every stage races against a shared 150s safety net (see withStageTimeout
@@ -1236,6 +1252,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
     withTimeout("ingest_bps_indonesia", ingestBpsIndonesia(db, runDate)),
     withTimeout("ingest_mpob_malaysia", ingestMpobMalaysia(db, runDate)),
+    withTimeout("ingest_noaa_oni", ingestNoaaOni(db, runDate)),
   ]);
   return { runDate, results };
 }

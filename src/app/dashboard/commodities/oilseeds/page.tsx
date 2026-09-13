@@ -8,9 +8,13 @@ import {
   getOilseedPositioning,
   getSeAsiaPalmBalances,
   getSoybeanTradeIntelligence,
+  getEnsoState,
+  getOilseedsPriceCycles,
+  getOilseedsSeasonality,
 } from "@/lib/api/engineData";
 import type { CountryClass } from "@/lib/engines/oilseedsCountry";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
+import type { EnsoPhase } from "@/lib/engines/oilseedsEnso";
 
 const OILSEED_SLUGS = new Set([
   "soybeans",
@@ -60,6 +64,40 @@ function ClassPill({ classification }: { classification: NonNullable<CountryClas
   );
 }
 
+const ENSO_COLORS: Record<EnsoPhase, string> = {
+  "El Nino": "#e0793d",
+  "La Nina": "#3fa9f5",
+  Neutral: "#8b96a8",
+};
+
+function EnsoPill({ phase }: { phase: EnsoPhase }) {
+  const color = ENSO_COLORS[phase];
+  return (
+    <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: `${color}22`, color }}>
+      {phase}
+    </span>
+  );
+}
+
+const CROP_PHASE_COLORS: Record<string, string> = {
+  "Peak Crop": "#34c085",
+  "Rising Crop": "#3fa9f5",
+  "Low Crop": "#e0793d",
+  "Declining Crop": "#e0793d",
+  "Seasonal Bottom": "#e05a4d",
+};
+
+function CropPhasePill({ phase }: { phase: string }) {
+  const color = CROP_PHASE_COLORS[phase] ?? "#8b96a8";
+  return (
+    <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: `${color}22`, color }}>
+      {phase}
+    </span>
+  );
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function fmt(v: number | null, decimals = 1): string {
   if (v === null) return "—";
   return v.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -76,7 +114,7 @@ function pctColor(v: number | null): string {
 }
 
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel] = await Promise.all([
+  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality] = await Promise.all([
     getCommodityHeatmap(),
     getCommodityBalances(),
     getSoybeanCountryBalances(),
@@ -85,6 +123,9 @@ export default async function OilseedsPage() {
     getOilseedPositioning(),
     getSeAsiaPalmBalances(),
     getSoybeanTradeIntelligence(),
+    getEnsoState(),
+    getOilseedsPriceCycles(),
+    getOilseedsSeasonality(),
   ]);
 
   const priceRows = (heatmap?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
@@ -446,6 +487,114 @@ export default async function OilseedsPage() {
         </section>
       )}
 
+      {enso && enso.phase && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">ENSO Status (El Niño / La Niña)</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            NOAA&apos;s Oceanic Niño Index — the official basin-wide basis for El Niño/La Niña declarations.
+            Malaysia/Indonesia-specific rainfall, soil moisture, and yield-lag modeling are not built (see
+            disclosure below); this is the raw basin-wide signal those models would eventually sit on top of.
+          </p>
+          <div className="gfew-panel p-4">
+            <div className="mb-2 flex flex-wrap items-baseline gap-3">
+              <span className="gfew-mono text-2xl font-semibold">{enso.latestOni! >= 0 ? "+" : ""}{enso.latestOni!.toFixed(2)}°C</span>
+              <EnsoPill phase={enso.phase} />
+              <span className="text-xs text-text-dim">as of {enso.asOf?.slice(0, 7) ?? "—"}</span>
+            </div>
+            <p className="text-xs text-text-dim">
+              {enso.phase === "Neutral"
+                ? "Within the +/-0.5°C neutral band — no active episode."
+                : `${enso.consecutiveSeasons} consecutive overlapping 3-month season(s) at or beyond the +/-0.5°C threshold — ${
+                    enso.established ? "an established episode (NOAA's own 5-season convention)." : "still a developing signal, not yet NOAA's own 5-season threshold for a declared episode."
+                  }`}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {priceCycles && priceCycles.some((c) => c.currentPhase !== null) && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Price Cycle Engine</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            Bull/bear cycles detected from World Bank Pink Sheet history (monthly since 1960) using the standard
+            disclosed -20%/+20% peak-to-trough/trough-to-recovery convention — a mechanical drawdown detector, not
+            a fundamentals-based cycle call.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {priceCycles
+              .filter((c) => c.currentPhase !== null)
+              .map((c) => (
+                <div key={c.slug} className="gfew-panel p-4">
+                  <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">{c.label}</div>
+                  <div className="mb-2 flex items-baseline gap-3">
+                    <span
+                      className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                      style={{ background: c.currentPhase === "Bull" ? "#34c08522" : "#e05a4d22", color: c.currentPhase === "Bull" ? "#34c085" : "#e05a4d" }}
+                    >
+                      {c.currentPhase}
+                    </span>
+                    <span className="text-xs text-text-dim">as of {c.asOf?.slice(0, 7) ?? "—"}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs text-text-dim">
+                    <div>
+                      <div className="uppercase tracking-wide">Running Peak</div>
+                      <div className="gfew-mono font-semibold text-text">
+                        {fmt(c.runningPeakValue, 0)} {c.unit} <span className="text-text-dim">({c.runningPeakDate?.slice(0, 7)})</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="uppercase tracking-wide">Off Peak / Months Since</div>
+                      <div className="gfew-mono font-semibold" style={{ color: pctColor(c.distanceFromPeakPct) }}>
+                        {fmtPct(c.distanceFromPeakPct)} / {c.monthsSincePeak}mo
+                      </div>
+                    </div>
+                  </div>
+                  {c.cycles.length > 0 && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <div className="mb-1 text-[10px] uppercase tracking-wide text-text-dim">Most Recent Completed Bear Cycle</div>
+                      <div className="text-xs text-text-dim">
+                        {c.cycles[0].peakDate.slice(0, 7)} peak ({fmt(c.cycles[0].peakValue, 0)}) → {c.cycles[0].troughDate.slice(0, 7)} trough (
+                        {fmt(c.cycles[0].troughValue, 0)}), {c.cycles[0].drawdownPct.toFixed(0)}% over {c.cycles[0].durationMonths}mo
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
+      {seasonality && seasonality.some((s) => s.phase !== null) && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Production &amp; Export Seasonality</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            Monthly index = that month&apos;s value ÷ that year&apos;s own average monthly value, averaged across
+            all full calendar years available. History is short (well under the 20 years this would ideally use —
+            see the years-of-history figure on each card), so treat these as early, thin readings, not a mature
+            seasonal curve.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {seasonality
+              .filter((s) => s.phase !== null)
+              .map((s) => (
+                <div key={s.slug} className="gfew-panel p-4">
+                  <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">{s.label}</div>
+                  <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                    <span className="gfew-mono text-xl font-semibold">
+                      {s.currentMonth ? MONTH_NAMES[s.currentMonth - 1] : "—"} index {fmt(s.currentMonthIndex, 2)}
+                    </span>
+                    {s.phase && <CropPhasePill phase={s.phase} />}
+                  </div>
+                  <div className="text-xs text-text-dim">
+                    Based on {s.yearsOfHistory} full calendar year{s.yearsOfHistory === 1 ? "" : "s"} (as of {s.asOf?.slice(0, 7) ?? "—"}).
+                    An index of 1.00 = that month is exactly average for the year.
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
       <section className="gfew-panel p-4 text-xs text-text-dim">
         <strong className="text-text">What&apos;s real here</strong>: World Bank Pink Sheet prices for
         Soybeans/Soybean Oil/Soybean Meal/Rapeseed Oil/Sunflower Oil/Palm Oil/Palm Kernel Oil/Coconut Oil (monthly
@@ -463,7 +612,13 @@ export default async function OilseedsPage() {
         public data API — its charts stream over a private, authenticated feed, not a documented endpoint);
         apparent consumption, stocks/use, and exporter/importer classification per country, plus soybean export
         concentration (HHI) and a China import-demand indicator — all computed directly from the USDA PSD data
-        above via the balance-sheet identity and standard HHI formula, no new source.
+        above via the balance-sheet identity and standard HHI formula, no new source; NOAA&apos;s own Oceanic Niño
+        Index (ONI) for basin-wide El Niño/La Niña state, classified using NOAA&apos;s own 5-consecutive-season
+        convention; a price-cycle engine detecting bull/bear regimes in Palm Oil and Soybean Oil since 1960 via the
+        standard disclosed -20%/+20% drawdown/recovery threshold; and a production/export seasonality index for
+        Malaysia (MPOB) exports and Indonesia (BPS) large-estate production, computed from the same already-ingested
+        monthly series (explicitly labeled with how many full calendar years back each reading, since neither
+        series yet has more than ~1-2 years of history).
         <br />
         <br />
         <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a CFTC-reportable
@@ -482,14 +637,21 @@ export default async function OilseedsPage() {
         own published notes, with no replacement table found, so it isn&apos;t shown as a live figure.
         <br />
         <br />
-        <strong className="text-text">Not built</strong>, and why: weather/ENSO yield-risk modeling and crop
-        calendars (needs a paid or complex-to-integrate agromet data source and a validated yield model — a
-        shallow version risked more harm than a clear disclosure); futures term structure/basis/carry beyond spot
-        positioning (needs a live futures curve feed this app doesn&apos;t have); freight/BDI, port congestion,
-        and biofuel-mandate/policy tracking (no free live source found); the full scenario/shock propagation
-        engine, systemic risk score, early-warning indicator set, and AI integration (large net-new subsystems
-        beyond this pass&apos;s scope). None of this is faked — sections without real data simply don&apos;t
-        appear above.
+        <strong className="text-text">Not built</strong>, and why: a rainfall-to-yield lag model for
+        Malaysia/Indonesia specifically (the spec asks for lags tested from 1-18 months against station-level
+        rainfall and regional yield data — no free, no-key, station-level source for either country was found, and
+        fitting a lag without one would be fabrication, so only the basin-wide ONI signal above is shown, without a
+        derived production-impact estimate); Bursa Malaysia&apos;s FCPO futures term structure, open interest, and
+        options data (no public, no-key API — Bursa data is licensed); futures term structure/basis/carry beyond
+        spot positioning more generally (needs a live futures curve feed this app doesn&apos;t have); tree-age and
+        replanting-cohort modeling (MPOB/BPS don&apos;t publish age-cohort area breakdowns in a form this app can
+        ingest); freight/BDI, port congestion, and biofuel-mandate/policy realization tracking (no free live source
+        found); Monte Carlo simulation, Granger causality/VAR/regime-switching statistical testing, and a machine-learning
+        layer (these need a proper backtesting and model-validation infrastructure this app doesn&apos;t have yet —
+        building them without walk-forward validation would be exactly the unvalidated-model risk this project
+        avoids); the full scenario/shock propagation engine, systemic risk score, early-warning indicator set, daily
+        AI report generation, and price-alert/event-notification system (large net-new subsystems beyond this
+        pass&apos;s scope). None of this is faked — sections without real data simply don&apos;t appear above.
       </section>
     </div>
   );

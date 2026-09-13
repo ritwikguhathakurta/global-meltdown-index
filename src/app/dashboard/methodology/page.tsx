@@ -2137,14 +2137,39 @@ export default function MethodologyPage() {
           consistent with known concentration), China classified Major Importer.
         </p>
         <p className="mb-2">
-          <strong>Not built</strong> from the Oilseeds spec, and why: weather/ENSO yield-risk modeling and crop
-          calendars (needs a paid or complex agromet integration and a validated yield model — a shallow version
-          risked more harm than a clear gap); futures term structure/basis/carry beyond spot positioning (needs a
-          live futures curve feed this app doesn&apos;t have); freight/BDI, port congestion, and biofuel-mandate
-          policy tracking (no free live source found); the spec&apos;s full scenario/shock propagation engine,
-          systemic risk score, 150-indicator early-warning system, and AI integration (large net-new subsystems
-          beyond a single build pass); and USDA FAS&apos;s weekly Export Sales Reporting (ESR) API, which the spec
-          names explicitly (§13) — checked live and it is real (<code className="gfew-mono">apps.fas.usda.gov/OpenData</code>),
+          <strong>ENSO, price-cycle, and seasonality engines (shipped)</strong> — spec §18-20, §29-35, §100-101,
+          §144. NOAA&apos;s own Oceanic Niño Index (<code className="gfew-mono">cpc.ncep.noaa.gov/data/indices/oni.ascii.txt</code>,
+          free, no key, since 1950 — NOAA is item 1 on the spec&apos;s own weather-source priority list) feeds an
+          El Niño/La Niña classifier that follows NOAA&apos;s own convention: an episode is only called
+          &ldquo;established&rdquo; once the ±0.5°C threshold has held for 5 consecutive overlapping seasons,
+          otherwise it&apos;s labeled &ldquo;developing&rdquo;. A price-cycle engine detects bull/bear regimes in
+          Palm Oil and Soybean Oil directly from the existing Pink Sheet history (monthly since 1960, well beyond
+          the spec&apos;s 20-year ask) using the standard, disclosed −20%/+20% peak-to-trough/trough-to-recovery
+          convention — a mechanical drawdown detector, deliberately not a fundamentals-based cycle call. A
+          production/export seasonality index (Monthly Index = month&apos;s value ÷ that year&apos;s own average
+          monthly value, per the spec&apos;s own §18 formula) runs on Malaysia&apos;s MPOB export series and
+          Indonesia&apos;s BPS large-estate production series — both already ingested, no new source — with each
+          reading labeled by how many full calendar years actually back it, since neither series yet has close to
+          20 years of history (Malaysia&apos;s starts 2024, Indonesia&apos;s 2025).
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong> from the Oilseeds spec, and why: a rainfall-to-yield lag model for
+          Malaysia/Indonesia specifically (spec §31 asks for lags tested from 1-18 months against station-level
+          rainfall and regional yield data — no free, no-key, station-level source for either country was found,
+          and fitting a lag without one would be fabrication, so only the basin-wide ONI signal above is shown);
+          Bursa Malaysia&apos;s FCPO futures term structure, open interest, and options data (no public, no-key
+          API — Bursa data is licensed); futures term structure/basis/carry beyond spot positioning more generally
+          (needs a live futures curve feed this app doesn&apos;t have); tree-age and replanting-cohort modeling
+          (neither MPOB nor BPS publishes age-cohort area breakdowns in an ingestible form); freight/BDI, port
+          congestion, and biofuel-mandate policy-realization tracking (no free live source found); Monte Carlo
+          simulation, Granger causality/VAR/regime-switching statistical testing, and a machine-learning layer
+          (these need proper backtesting/walk-forward-validation infrastructure this app doesn&apos;t have yet —
+          building them without that would be exactly the kind of unvalidated model this project avoids); the
+          spec&apos;s full scenario/shock propagation engine, systemic risk score, 150-indicator early-warning
+          system, daily AI report generation, price-alert/event-notification system, and Bursa/BAPPEBTI/MPOB-report
+          scraping beyond the one confirmed-working endpoint (large net-new subsystems beyond a single build
+          pass); and USDA FAS&apos;s weekly Export Sales Reporting (ESR) API, which the spec names explicitly
+          (§13) — checked live and it is real (<code className="gfew-mono">apps.fas.usda.gov/OpenData</code>),
           but gated behind a free registered API key this session doesn&apos;t have (confirmed via a live
           &ldquo;Bad API Key&rdquo; response, not a guess) — same registration-required pattern as BPS above, held
           pending a decision on whether to pursue it.

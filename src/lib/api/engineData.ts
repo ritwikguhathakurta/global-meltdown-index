@@ -53,6 +53,9 @@ import { getSoybeanCrushMargin as computeSoybeanCrushMargin, type CrushMarginRes
 import { getVegetableOilSpreads as computeVegetableOilSpreads, type OilSpreadRow } from "@/lib/engines/oilseedsSpreads";
 import { getOilseedPositioning as computeOilseedPositioning, type OilseedPositioningRow } from "@/lib/engines/oilseedsPositioning";
 import { getSeAsiaPalmBalances as computeSeAsiaPalmBalances, type SeAsiaPalmResult } from "@/lib/engines/oilseedsSeAsia";
+import { getEnsoState as computeEnsoState, type EnsoState } from "@/lib/engines/oilseedsEnso";
+import { getOilseedsPriceCycles as computeOilseedsPriceCycles, type PriceCycleResult } from "@/lib/engines/oilseedsPriceCycles";
+import { getOilseedsSeasonality as computeOilseedsSeasonality, type SeasonalityResult } from "@/lib/engines/oilseedsSeasonality";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -525,6 +528,39 @@ export async function getSeAsiaPalmBalances(): Promise<SeAsiaPalmResult | null> 
   try {
     const db = await createServerSupabase();
     return await computeSeAsiaPalmBalances(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getEnsoState(): Promise<EnsoState | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeEnsoState(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getOilseedsPriceCycles(): Promise<PriceCycleResult[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeOilseedsPriceCycles(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getOilseedsSeasonality(): Promise<SeasonalityResult[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeOilseedsSeasonality(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;
