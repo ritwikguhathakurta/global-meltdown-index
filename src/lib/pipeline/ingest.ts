@@ -94,7 +94,7 @@ import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
 import { fetchMpobMalaysiaExports } from "../sources/mpobMalaysia";
 import { fetchNoaaOni } from "../sources/noaaOni";
 import { fetchNasaPowerRainfall } from "../sources/nasaPowerRainfall";
-import { fetchMpobMirrorStocks } from "../sources/mpobMirrorStocks";
+import { fetchMpobMirror } from "../sources/mpobMirror";
 import { fetchIsoNeGridSnapshot } from "../sources/isoNe";
 import { fetchCaisoGridSnapshot } from "../sources/caisoOutlook";
 import { fetchNyisoGridSnapshot } from "../sources/nyisoOutlook";
@@ -1224,18 +1224,18 @@ export async function ingestFaostatOilseedsCountryProduction(db: SupabaseClient,
   }
 }
 
-export async function ingestMpobMirrorStocks(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+export async function ingestMpobMirror(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
-    const points = await fetchMpobMirrorStocks();
+    const points = await fetchMpobMirror();
     await upsertMetrics(db, points);
     const status = points.length > 0 ? "ok" : "warning";
     const detail = { points: points.length };
-    await logRun(db, runDate, "ingest_mpob_mirror_stocks", status, detail);
-    return { stage: "ingest_mpob_mirror_stocks", status, detail };
+    await logRun(db, runDate, "ingest_mpob_mirror", status, detail);
+    return { stage: "ingest_mpob_mirror", status, detail };
   } catch (e) {
     const detail = { error: (e as Error).message };
-    await logRun(db, runDate, "ingest_mpob_mirror_stocks", "failed", detail);
-    return { stage: "ingest_mpob_mirror_stocks", status: "failed", detail };
+    await logRun(db, runDate, "ingest_mpob_mirror", "failed", detail);
+    return { stage: "ingest_mpob_mirror", status: "failed", detail };
   }
 }
 
@@ -1302,7 +1302,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_noaa_oni", ingestNoaaOni(db, runDate)),
     withTimeout("ingest_nasa_power_rainfall", ingestNasaPowerRainfall(db, runDate)),
     withTimeout("ingest_faostat_oilseeds_country", ingestFaostatOilseedsCountryProduction(db, runDate)),
-    withTimeout("ingest_mpob_mirror_stocks", ingestMpobMirrorStocks(db, runDate)),
+    withTimeout("ingest_mpob_mirror", ingestMpobMirror(db, runDate)),
   ]);
   return { runDate, results };
 }

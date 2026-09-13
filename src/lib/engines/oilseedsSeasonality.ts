@@ -4,18 +4,23 @@ import type { Point } from "../metrics/stats";
 
 /**
  * Production/Export Seasonality Engine — Oilseeds engine, spec §18-20.
- * Computed entirely from monthly series already ingested (MPOB Malaysia
- * exports, BPS Indonesia large-estate production) — no new source.
+ * Computed entirely from monthly series already ingested (MPOB mirror
+ * exports for Malaysia, BPS large-estate production for Indonesia) — no
+ * new source calls.
  *
  * Monthly Index = that month's value / that calendar year's own average
  * monthly value (spec §18's own formula, applied literally), then averaged
- * across all available years per calendar month. Malaysia's MPOB export
- * history via this app's report code starts in 2024 (disclosed elsewhere);
- * Indonesia's BPS monthly large-estate series starts January 2025. Neither
- * is close to the spec's 20-year ask, so this is explicitly labeled with
- * how many calendar years actually back each seasonal reading rather than
- * presented as a mature 20-year curve — a 2-year (or 1-year) seasonal
- * average is real but statistically thin, and the UI must say so.
+ * across all available years per calendar month. Malaysia uses the
+ * palmoileconomics.com MPOB mirror's po_export field rather than MPOB's own
+ * site (which only goes back to 2024) specifically because that mirror,
+ * despite having real gaps in other years, has 6 fully complete calendar
+ * years (2013/2014/2017/2021/2024/2025) — the buildSeasonality loop below
+ * already discards any year missing even one month, so the gaps simply
+ * mean fewer contributing years, not corrupted ones. Indonesia's BPS
+ * monthly large-estate series runs 2009-present (~18 years). Neither is
+ * close to the spec's 20-year ask, so this is explicitly labeled with how
+ * many calendar years actually back each seasonal reading rather than
+ * presented as a mature curve.
  *
  * Phase classification (spec §20) ranks the 12 monthly index values for the
  * current month: highest -> Peak Crop, lowest -> Seasonal Bottom, bottom
@@ -116,7 +121,7 @@ async function buildSeasonality(db: SupabaseClient, metricKey: string, slug: str
 
 export async function getOilseedsSeasonality(db: SupabaseClient): Promise<SeasonalityResult[]> {
   return Promise.all([
-    buildSeasonality(db, "commodity.palm_oil.malaysia.export.total", "malaysia_exports", "Malaysia Palm Oil Exports (MPOB)"),
+    buildSeasonality(db, "commodity.palm_oil.malaysia.mpob_mirror.po_export", "malaysia_exports", "Malaysia Palm Oil Exports (MPOB)"),
     buildSeasonality(db, "commodity.palm_oil.indonesia.production_monthly_large_estate", "indonesia_production", "Indonesia Oil Palm Production, Large Estates (BPS)"),
   ]);
 }

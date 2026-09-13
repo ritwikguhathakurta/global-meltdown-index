@@ -2149,13 +2149,15 @@ export default function MethodologyPage() {
           the spec&apos;s 20-year ask) using the standard, disclosed −20%/+20% peak-to-trough/trough-to-recovery
           convention — a mechanical drawdown detector, deliberately not a fundamentals-based cycle call. A
           production/export seasonality index (Monthly Index = month&apos;s value ÷ that year&apos;s own average
-          monthly value, per the spec&apos;s own §18 formula) runs on Malaysia&apos;s MPOB export series and
-          Indonesia&apos;s BPS large-estate production series — both already ingested, no new source — with each
-          reading labeled by how many full calendar years actually back it. Malaysia&apos;s MPOB export series is
-          still genuinely short (starts 2024, per the report-restructuring boundary above); Indonesia&apos;s BPS
-          large-estate series, once the BPS API key was registered, turned out to be verified live back to 2009 —
-          18 years, not the 1 year originally assumed — by requesting a wider year range and letting BPS&apos;s own
-          per-year data-availability flag decide what actually exists, rather than guessing a cutoff. NASA&apos;s
+          monthly value, per the spec&apos;s own §18 formula) runs on Indonesia&apos;s BPS large-estate production
+          series and, for Malaysia, the MPOB mirror&apos;s export field (see above) rather than MPOB&apos;s own
+          site — MPOB&apos;s own export report only starts 2024 (2 full calendar years), while the mirror, despite
+          real gaps in other years, has 6 fully complete calendar years (2013/2014/2017/2021/2024/2025); the
+          seasonality calculation already discards any year missing even one month, so those gaps reduce the count
+          of contributing years rather than corrupting the ones that are used. Indonesia&apos;s BPS large-estate
+          series, once the BPS API key was registered, turned out to be verified live back to 2009 — 18 years, not
+          the 1 year originally assumed — by requesting a wider year range and letting BPS&apos;s own per-year
+          data-availability flag decide what actually exists, rather than guessing a cutoff. NASA&apos;s
           POWER API (free, no key, point-based MERRA-2 reanalysis since 1981, since 2006 here to match the
           spec&apos;s own 20-year ask) adds monthly precipitation for six representative Malaysia/Indonesia
           oil-palm-growing points, shown as a raw anomaly against each region&apos;s own historical average for

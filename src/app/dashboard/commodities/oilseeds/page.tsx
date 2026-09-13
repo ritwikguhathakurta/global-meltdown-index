@@ -675,10 +675,12 @@ export default async function OilseedsPage() {
         Index (ONI) for basin-wide El Niño/La Niña state, classified using NOAA&apos;s own 5-consecutive-season
         convention; a price-cycle engine detecting bull/bear regimes in Palm Oil and Soybean Oil since 1960 via the
         standard disclosed -20%/+20% drawdown/recovery threshold; a production/export seasonality index for
-        Malaysia (MPOB) exports and Indonesia (BPS) large-estate production, computed from the same already-ingested
-        monthly series (explicitly labeled with how many full calendar years back each reading — Indonesia&apos;s
-        BPS large-estate series now runs 2009-present, ~18 years, while Malaysia&apos;s MPOB export series is still
-        genuinely short at ~3 years, per MPOB&apos;s own report-numbering restructuring noted below); NASA POWER
+        Malaysia (MPOB, via the mirror below) exports and Indonesia (BPS) large-estate production, computed from
+        already-ingested monthly series (explicitly labeled with how many full calendar years back each reading —
+        Indonesia&apos;s BPS large-estate series now runs 2009-present, ~18 years; Malaysia&apos;s seasonality
+        specifically draws on the MPOB mirror&apos;s export field rather than MPOB&apos;s own site, since that
+        mirror has 6 fully complete calendar years — 2013/2014/2017/2021/2024/2025 — versus 2 years from MPOB&apos;s
+        own site restructuring noted below); NASA POWER
         regional rainfall (point-based MERRA-2 reanalysis, no key, no GIS processing needed) for six
         Malaysia/Indonesia plantation regions, shown as a raw monthly anomaly vs. each region&apos;s own historical
         average for that calendar month; FAOSTAT&apos;s own bulk production data (free, no key) for Malaysia and
