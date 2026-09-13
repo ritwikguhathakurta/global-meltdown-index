@@ -2150,26 +2150,43 @@ export default function MethodologyPage() {
           monthly value, per the spec&apos;s own §18 formula) runs on Malaysia&apos;s MPOB export series and
           Indonesia&apos;s BPS large-estate production series — both already ingested, no new source — with each
           reading labeled by how many full calendar years actually back it, since neither series yet has close to
-          20 years of history (Malaysia&apos;s starts 2024, Indonesia&apos;s 2025).
+          20 years of history (Malaysia&apos;s starts 2024, Indonesia&apos;s 2025). NASA&apos;s POWER API (free, no
+          key, point-based MERRA-2 reanalysis since 1981, since 2006 here to match the spec&apos;s own 20-year ask)
+          adds monthly precipitation for six representative Malaysia/Indonesia oil-palm-growing points, shown as a
+          raw anomaly against each region&apos;s own historical average for that calendar month — deliberately not
+          run through CHIRPS/AgERA5&apos;s gridded NetCDF/GeoTIFF products, which need raster/GIS zonal-statistics
+          processing this app has no infrastructure for; NASA POWER&apos;s point API avoids that entirely.
         </p>
         <p className="mb-2">
           <strong>Not built</strong> from the Oilseeds spec, and why: a rainfall-to-yield lag model for
-          Malaysia/Indonesia specifically (spec §31 asks for lags tested from 1-18 months against station-level
-          rainfall and regional yield data — no free, no-key, station-level source for either country was found,
-          and fitting a lag without one would be fabrication, so only the basin-wide ONI signal above is shown);
-          Bursa Malaysia&apos;s FCPO futures term structure, open interest, and options data (no public, no-key
-          API — Bursa data is licensed); futures term structure/basis/carry beyond spot positioning more generally
-          (needs a live futures curve feed this app doesn&apos;t have); tree-age and replanting-cohort modeling
-          (neither MPOB nor BPS publishes age-cohort area breakdowns in an ingestible form); freight/BDI, port
-          congestion, and biofuel-mandate policy-realization tracking (no free live source found); Monte Carlo
-          simulation, Granger causality/VAR/regime-switching statistical testing, and a machine-learning layer
-          (these need proper backtesting/walk-forward-validation infrastructure this app doesn&apos;t have yet —
-          building them without that would be exactly the kind of unvalidated model this project avoids); the
+          Malaysia/Indonesia specifically (spec §31 asks for lags tested from 1-18 months against regional yield
+          data — Malaysia&apos;s and Indonesia&apos;s own monthly production/export history is currently well
+          under 2 years, nowhere near enough observations to fit a credible distributed-lag regression, so only the
+          raw rainfall anomaly and basin-wide ONI signals above are shown); Bursa Malaysia&apos;s FCPO futures term
+          structure and options data — a real public, no-login JSON endpoint was found (the same one Bursa&apos;s
+          own derivatives-prices page calls, discovered by inspecting its script rather than guessing) and it does
+          return full 24-contract-month settlement/volume/open-interest data, but it sits behind Cloudflare bot
+          protection that specifically blocks Node&apos;s own fetch client — verified live: <code className="gfew-mono">curl</code>{" "}
+          gets HTTP 200 from this exact URL with an identical User-Agent, while Node&apos;s{" "}
+          <code className="gfew-mono">fetch</code>, even with a full realistic browser header set, gets HTTP 403
+          and a Cloudflare JS-challenge page every time. Since this app&apos;s ingestion pipeline runs as a Node
+          serverless function on Vercel, that block is unconditional in production, not a header this app forgot to
+          send — this was caught by testing the actual runtime&apos;s fetch client before shipping, not by trusting
+          the curl-only check that initially looked like a pass; futures term structure/basis/carry beyond spot
+          positioning more generally (needs a live futures curve feed this app can actually reach); tree-age and
+          replanting-cohort modeling (would need a genuine satellite remote-sensing pipeline — concession-boundary
+          overlay and cloud-based raster processing — a separate specialized project, not an ingestion task);
+          freight/BDI (checked live — FRED carries no Baltic Dry Index series at all), AIS-based port congestion
+          (needs vessel-position-stream processing infrastructure this app doesn&apos;t have), and biofuel-mandate
+          policy-realization tracking (no free live source found); Monte Carlo simulation, Granger
+          causality/VAR/regime-switching statistical testing, and a machine-learning layer (these would mean
+          standing up a separate Python analytics service alongside this app&apos;s TypeScript/Supabase stack, and
+          even done right, that kind of model is prone to overfitting on series this short — building it without
+          proper walk-forward validation would be exactly the kind of unvalidated model this project avoids); the
           spec&apos;s full scenario/shock propagation engine, systemic risk score, 150-indicator early-warning
-          system, daily AI report generation, price-alert/event-notification system, and Bursa/BAPPEBTI/MPOB-report
-          scraping beyond the one confirmed-working endpoint (large net-new subsystems beyond a single build
-          pass); and USDA FAS&apos;s weekly Export Sales Reporting (ESR) API, which the spec names explicitly
-          (§13) — checked live and it is real (<code className="gfew-mono">apps.fas.usda.gov/OpenData</code>),
+          system, daily AI report generation, and price-alert/event-notification system (large net-new subsystems
+          beyond a single build pass); and USDA FAS&apos;s weekly Export Sales Reporting (ESR) API, which the spec
+          names explicitly (§13) — checked live and it is real (<code className="gfew-mono">apps.fas.usda.gov/OpenData</code>),
           but gated behind a free registered API key this session doesn&apos;t have (confirmed via a live
           &ldquo;Bad API Key&rdquo; response, not a guess) — same registration-required pattern as BPS above, held
           pending a decision on whether to pursue it.

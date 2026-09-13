@@ -11,6 +11,7 @@ import {
   getEnsoState,
   getOilseedsPriceCycles,
   getOilseedsSeasonality,
+  getOilseedsRainfall,
 } from "@/lib/api/engineData";
 import type { CountryClass } from "@/lib/engines/oilseedsCountry";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
@@ -114,7 +115,7 @@ function pctColor(v: number | null): string {
 }
 
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality] = await Promise.all([
+  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall] = await Promise.all([
     getCommodityHeatmap(),
     getCommodityBalances(),
     getSoybeanCountryBalances(),
@@ -126,6 +127,7 @@ export default async function OilseedsPage() {
     getEnsoState(),
     getOilseedsPriceCycles(),
     getOilseedsSeasonality(),
+    getOilseedsRainfall(),
   ]);
 
   const priceRows = (heatmap?.rows ?? []).filter((r) => OILSEED_SLUGS.has(r.slug));
@@ -512,6 +514,35 @@ export default async function OilseedsPage() {
         </section>
       )}
 
+      {rainfall && rainfall.some((r) => r.latestValue !== null) && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Regional Rainfall (NASA POWER)</h2>
+          <p className="mb-3 text-sm text-text-dim">
+            Monthly precipitation (MERRA-2 reanalysis) for one representative point per major oil-palm-growing
+            region. Anomaly = latest month vs. that same calendar month&apos;s own historical average. This is a
+            raw rainfall signal, not a fitted rainfall-to-yield lag model — see disclosure below.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {rainfall
+              .filter((r) => r.latestValue !== null)
+              .map((r) => (
+                <div key={r.slug} className="gfew-panel p-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-text-dim">
+                    {r.country} — {r.label}
+                  </div>
+                  <div className="mb-1 flex items-baseline gap-2">
+                    <span className="gfew-mono text-lg font-semibold">{fmt(r.latestValue, 1)} mm/day</span>
+                    <span className="text-[10px] text-text-dim">{r.asOf?.slice(0, 7) ?? "—"}</span>
+                  </div>
+                  <div className="gfew-mono text-xs font-semibold" style={{ color: pctColor(r.anomalyPct) }}>
+                    {fmtPct(r.anomalyPct)} vs. {r.yearsOfHistory}y avg for this month
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
       {priceCycles && priceCycles.some((c) => c.currentPhase !== null) && (
         <section className="mb-10">
           <h2 className="mb-2 text-lg font-semibold">Price Cycle Engine</h2>
@@ -618,7 +649,9 @@ export default async function OilseedsPage() {
         standard disclosed -20%/+20% drawdown/recovery threshold; and a production/export seasonality index for
         Malaysia (MPOB) exports and Indonesia (BPS) large-estate production, computed from the same already-ingested
         monthly series (explicitly labeled with how many full calendar years back each reading, since neither
-        series yet has more than ~1-2 years of history).
+        series yet has more than ~1-2 years of history); and NASA POWER regional rainfall (point-based MERRA-2
+        reanalysis, no key, no GIS processing needed) for six Malaysia/Indonesia plantation regions, shown as a raw
+        monthly anomaly vs. each region&apos;s own historical average for that calendar month.
         <br />
         <br />
         <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a CFTC-reportable
@@ -638,19 +671,28 @@ export default async function OilseedsPage() {
         <br />
         <br />
         <strong className="text-text">Not built</strong>, and why: a rainfall-to-yield lag model for
-        Malaysia/Indonesia specifically (the spec asks for lags tested from 1-18 months against station-level
-        rainfall and regional yield data — no free, no-key, station-level source for either country was found, and
-        fitting a lag without one would be fabrication, so only the basin-wide ONI signal above is shown, without a
-        derived production-impact estimate); Bursa Malaysia&apos;s FCPO futures term structure, open interest, and
-        options data (no public, no-key API — Bursa data is licensed); futures term structure/basis/carry beyond
-        spot positioning more generally (needs a live futures curve feed this app doesn&apos;t have); tree-age and
-        replanting-cohort modeling (MPOB/BPS don&apos;t publish age-cohort area breakdowns in a form this app can
-        ingest); freight/BDI, port congestion, and biofuel-mandate/policy realization tracking (no free live source
-        found); Monte Carlo simulation, Granger causality/VAR/regime-switching statistical testing, and a machine-learning
-        layer (these need a proper backtesting and model-validation infrastructure this app doesn&apos;t have yet —
-        building them without walk-forward validation would be exactly the unvalidated-model risk this project
-        avoids); the full scenario/shock propagation engine, systemic risk score, early-warning indicator set, daily
-        AI report generation, and price-alert/event-notification system (large net-new subsystems beyond this
+        Malaysia/Indonesia specifically (the spec asks for lags tested from 1-18 months against regional yield
+        data — Indonesia&apos;s and Malaysia&apos;s own monthly production/export history is currently well under
+        2 years, nowhere near enough observations to fit a credible distributed-lag regression, so only the raw
+        rainfall anomaly and basin-wide ONI signals above are shown, without a derived production-impact estimate);
+        Bursa Malaysia&apos;s FCPO futures term structure and options data — a real, public, no-login JSON endpoint
+        was actually found (the same one Bursa&apos;s own price page calls), and it returns full 24-contract-month
+        settlement/volume/open-interest data when tested with <code className="gfew-mono">curl</code>, but it sits
+        behind Cloudflare bot protection that specifically blocks Node&apos;s own fetch client (confirmed live —
+        curl gets HTTP 200, Node&apos;s <code className="gfew-mono">fetch</code>, with an identical User-Agent and a
+        full browser header set, gets HTTP 403 and a JS challenge page) — since this app&apos;s ingestion pipeline
+        runs as a Node serverless function, that block is unconditional in production, not a fixable header
+        omission; tree-age and replanting-cohort modeling (this would need a genuine satellite remote-sensing
+        analysis pipeline — concession-boundary overlay and cloud-based raster processing — a separate specialized
+        project, not an ingestion task); freight/BDI, port congestion via AIS, and biofuel-mandate/policy
+        realization tracking (checked live — FRED carries no Baltic Dry Index series at all, and AIS-based port
+        congestion needs vessel-position-stream processing infrastructure this app doesn&apos;t have); Monte Carlo
+        simulation, Granger causality/VAR/regime-switching statistical testing, and a machine-learning layer (these
+        would mean standing up a separate Python analytics service alongside this app&apos;s TypeScript/Supabase
+        stack, and even done right, that kind of model is prone to overfitting on series this short — building it
+        without proper walk-forward validation would be exactly the unvalidated-model risk this project avoids);
+        the full scenario/shock propagation engine, systemic risk score, early-warning indicator set, daily AI
+        report generation, and price-alert/event-notification system (large net-new subsystems beyond this
         pass&apos;s scope). None of this is faked — sections without real data simply don&apos;t appear above.
       </section>
     </div>

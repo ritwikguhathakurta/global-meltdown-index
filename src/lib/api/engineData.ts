@@ -56,6 +56,7 @@ import { getSeAsiaPalmBalances as computeSeAsiaPalmBalances, type SeAsiaPalmResu
 import { getEnsoState as computeEnsoState, type EnsoState } from "@/lib/engines/oilseedsEnso";
 import { getOilseedsPriceCycles as computeOilseedsPriceCycles, type PriceCycleResult } from "@/lib/engines/oilseedsPriceCycles";
 import { getOilseedsSeasonality as computeOilseedsSeasonality, type SeasonalityResult } from "@/lib/engines/oilseedsSeasonality";
+import { getOilseedsRainfall as computeOilseedsRainfall, type RainfallRegionResult } from "@/lib/engines/oilseedsRainfall";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -566,6 +567,18 @@ export async function getOilseedsSeasonality(): Promise<SeasonalityResult[] | nu
     return null;
   }
 }
+
+export async function getOilseedsRainfall(): Promise<RainfallRegionResult[] | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeOilseedsRainfall(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
 
 export type OilseedsHistoryResult = {
   prices: { slug: string; label: string; unit: string; points: { t: string; v: number }[] }[];
