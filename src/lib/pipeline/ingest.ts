@@ -84,7 +84,7 @@ import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
 import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
-import { fetchUnComtradeEnergyFlows, fetchUnComtradeOleochemicalFlows } from "../sources/unComtrade";
+import { fetchUnComtradeEnergyFlows, fetchUnComtradeOleochemicalFlowsForCommodity, OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
 import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances, fetchUsdaPsdCountryBalances } from "../sources/usdaPsd";
@@ -1048,22 +1048,28 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
 }
 
 export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
-  try {
-    const { points, errors } = await fetchUnComtradeOleochemicalFlows();
-    await upsertMetrics(db, points);
-    // Per-commodity isolation (see unComtrade.ts) means one HS code hitting
-    // Comtrade's rate limit no longer drops every other commodity's data —
-    // status/detail mirror the ok/total/errors shape this app's other
-    // partial-success stages already use, rather than a binary ok/failed.
-    const status = errors.length === 0 ? "ok" : points.length > 0 ? "warning" : "failed";
-    const detail = { points: points.length, errors };
-    await logRun(db, runDate, "ingest_un_comtrade_oleochemical_flows", status, detail);
-    return { stage: "ingest_un_comtrade_oleochemical_flows", status, detail };
-  } catch (e) {
-    const detail = { error: (e as Error).message };
-    await logRun(db, runDate, "ingest_un_comtrade_oleochemical_flows", "failed", detail);
-    return { stage: "ingest_un_comtrade_oleochemical_flows", status: "failed", detail };
+  // Upserts after EACH commodity, not once at the end — going from 4 to 7 HS
+  // codes pushed this aggressively-rate-limited endpoint close enough to (and
+  // once, past) the 150s stage timeout that a slow/rate-limited commodity
+  // could otherwise cost every other commodity's already-fetched data too,
+  // whether the failure is a thrown error or the whole stage being abandoned
+  // on timeout. This way, whatever finished before that point is already
+  // safely in Supabase regardless of what happens to the rest.
+  let totalPoints = 0;
+  const errors: string[] = [];
+  for (const commodity of OLEOCHEMICAL_TRADE_COMMODITIES) {
+    try {
+      const points = await fetchUnComtradeOleochemicalFlowsForCommodity(commodity);
+      await upsertMetrics(db, points);
+      totalPoints += points.length;
+    } catch (e) {
+      errors.push(`${commodity.slug}: ${(e as Error).message}`);
+    }
   }
+  const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
+  const detail = { points: totalPoints, errors };
+  await logRun(db, runDate, "ingest_un_comtrade_oleochemical_flows", status, detail);
+  return { stage: "ingest_un_comtrade_oleochemical_flows", status, detail };
 }
 
 export async function ingestWorldBankCommodities(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
