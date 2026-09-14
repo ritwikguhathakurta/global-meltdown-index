@@ -1049,10 +1049,14 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
 
 export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
-    const points = await fetchUnComtradeOleochemicalFlows();
+    const { points, errors } = await fetchUnComtradeOleochemicalFlows();
     await upsertMetrics(db, points);
-    const status = points.length > 0 ? "ok" : "warning";
-    const detail = { points: points.length };
+    // Per-commodity isolation (see unComtrade.ts) means one HS code hitting
+    // Comtrade's rate limit no longer drops every other commodity's data —
+    // status/detail mirror the ok/total/errors shape this app's other
+    // partial-success stages already use, rather than a binary ok/failed.
+    const status = errors.length === 0 ? "ok" : points.length > 0 ? "warning" : "failed";
+    const detail = { points: points.length, errors };
     await logRun(db, runDate, "ingest_un_comtrade_oleochemical_flows", status, detail);
     return { stage: "ingest_un_comtrade_oleochemical_flows", status, detail };
   } catch (e) {

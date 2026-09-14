@@ -181,42 +181,59 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
   return points;
 }
 
-/** Same methodology as fetchUnComtradeEnergyFlows, applied to the Oleochemical country/HS universe above. */
-export async function fetchUnComtradeOleochemicalFlows(): Promise<MetricPoint[]> {
+export type OleochemicalTradeFlowsResult = { points: MetricPoint[]; errors: string[] };
+
+/** Same methodology as fetchUnComtradeEnergyFlows, applied to the Oleochemical
+ * country/HS universe above — with two differences forced by going from 4 to
+ * 7 HS codes (verified live to still return real data, but pushing this
+ * aggressively-rate-limited endpoint harder): longer inter-call delays, and
+ * per-commodity isolation. Without the latter, one commodity hitting a 429
+ * after retries (observed live once the 3 extra HS codes were added) threw
+ * out of the whole function and silently dropped every OTHER commodity's
+ * already-fetchable data too — the same all-or-nothing failure mode this
+ * app's other partial-success stages (e.g. ingest_gov_bond_yields) already
+ * avoid via an ok/total/errors shape, applied here the same way. */
+export async function fetchUnComtradeOleochemicalFlows(): Promise<OleochemicalTradeFlowsResult> {
   const slugByCode = new Map(Object.entries(OLEOCHEM_COMTRADE_CODES).map(([slug, code]) => [code, slug]));
   const allCodes = Object.values(OLEOCHEM_COMTRADE_CODES);
 
   const points: MetricPoint[] = [];
+  const errors: string[] = [];
   for (const commodity of OLEOCHEMICAL_TRADE_COMMODITIES) {
-    const year = await findLatestAvailableYear(commodity.hsCode);
-    await delay(1500);
-    const REPORTER_CHUNK_SIZE = 4;
-    const valueByPair = new Map<string, number>();
-    for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
-      const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
-      const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
-      for (const row of rows) {
-        if (row.flowCode !== "X" || row.motCode !== 0 || row.partner2Code !== 0) continue;
-        if (row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
-        const reporterSlug = slugByCode.get(String(row.reporterCode));
-        const partnerSlug = slugByCode.get(String(row.partnerCode));
-        if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
-        const pairKey = `${reporterSlug}_to_${partnerSlug}`;
-        valueByPair.set(pairKey, row.primaryValue);
-      }
+    try {
+      const year = await findLatestAvailableYear(commodity.hsCode);
       await delay(2000);
+      const REPORTER_CHUNK_SIZE = 4;
+      const valueByPair = new Map<string, number>();
+      for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
+        const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
+        const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
+        for (const row of rows) {
+          if (row.flowCode !== "X" || row.motCode !== 0 || row.partner2Code !== 0) continue;
+          if (row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
+          const reporterSlug = slugByCode.get(String(row.reporterCode));
+          const partnerSlug = slugByCode.get(String(row.partnerCode));
+          if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
+          const pairKey = `${reporterSlug}_to_${partnerSlug}`;
+          valueByPair.set(pairKey, row.primaryValue);
+        }
+        await delay(2500);
+      }
+      for (const [pairKey, value] of valueByPair) {
+        points.push({
+          metric_key: `chemical.oleochemical_trade.${commodity.slug}.${pairKey}`,
+          observed_at: `${year}-12-31`,
+          value,
+          unit: "USD",
+          source_key: "un_comtrade",
+          source_tier: 1,
+          frequency: "annual",
+        });
+      }
+    } catch (e) {
+      errors.push(`${commodity.slug}: ${(e as Error).message}`);
     }
-    for (const [pairKey, value] of valueByPair) {
-      points.push({
-        metric_key: `chemical.oleochemical_trade.${commodity.slug}.${pairKey}`,
-        observed_at: `${year}-12-31`,
-        value,
-        unit: "USD",
-        source_key: "un_comtrade",
-        source_tier: 1,
-        frequency: "annual",
-      });
-    }
+    await delay(1500);
   }
-  return points;
+  return { points, errors };
 }
