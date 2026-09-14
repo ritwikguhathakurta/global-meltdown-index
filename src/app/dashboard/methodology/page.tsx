@@ -2418,12 +2418,44 @@ export default function MethodologyPage() {
         <p className="mb-2">
           <strong>Not built</strong>, and why: PFAD, Fatty Alcohol, and Methyl Ester as separately priced or traded
           products — their trade is bundled inside broader HS codes (3823, 3826) that aren&apos;t separable by
-          customs classification, and no free source prices the individual compounds; Trade Flow Surprise/
-          seasonality (spec §50) — UN Comtrade here holds only one year of history per commodity so far, so no
-          year-over-year surprise is statistically meaningful yet (this becomes possible as the daily pipeline
-          accumulates more years going forward); everything already declared out of scope in Phase 1 above
-          (company/plant/shipment intelligence, conversion margin, Monte Carlo/ML, Python-dependent analysis, and
-          report/alert/UI infrastructure) remains out of scope for the same reasons.
+          customs classification, and no free source prices the individual compounds; everything already declared
+          out of scope in Phase 1 above (company/plant/shipment intelligence, conversion margin, Monte Carlo/ML,
+          Python-dependent analysis, and report/alert/UI infrastructure) remains out of scope for the same reasons.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Oleochemicals — Trade Price &amp; Volume Trend (shipped)</h2>
+        <p className="mb-2">
+          Asked for the Oleochemical Trade Flows table&apos;s 5-year/3-year/current-year price averages and
+          export/import trend that Phase 2 had explicitly deferred (&ldquo;UN Comtrade here holds only one year of
+          history per commodity so far&rdquo;). Rather than approximate a price, a live check of the UN Comtrade
+          preview API&apos;s own response fields (and its QuantityUnits reference table) confirmed each row already
+          carries a declared weight (netWgt, verified as kilograms when qtyUnitCode is exactly 8) alongside the
+          declared trade value — so <code>value ÷ weight × 1000</code> is a genuine customs unit price in USD/mt,
+          not an estimate, computed only when Comtrade itself reports the weight in kilograms.
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real and new</strong>: for Malaysia and Indonesia, world-aggregate (all-partners)
+          export and import value and weight, for all seven oleochemical HS codes, is now fetched every pipeline run
+          alongside the existing bilateral trade-flow network (one extra Comtrade call per reporter, reusing the
+          same probed year — verified live not to meaningfully add to the stage&apos;s run time); a genuine customs
+          unit price (USD/mt) derived from that value and weight; current-year price, and 3Y/5Y averages computed
+          over however many years are actually available (never padded to a fixed window); and year-over-year
+          export and import value momentum. The four original HS codes (Palm Oil, Palm Kernel/Coconut Oil, Fatty
+          Acids/Acid Oils/Alcohols, Surfactants) were also backfilled with a one-time historical pull covering the
+          five most recent completed years, so real 3Y/5Y averages exist immediately rather than needing five years
+          of daily pipeline runs to accumulate; the three HS codes added in Phase 2 (Glycerine, FAME, Soap Noodles)
+          were included in that same backfill and so have the same five-year depth.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong>, and why: the same unit-price treatment for each individual reporter→partner
+          pair in the bilateral Trade Flows table — extending that would multiply the Comtrade call count by the
+          number of tracked partner countries (currently up to ten per commodity) against an endpoint that&apos;s
+          already aggressively rate-limited, so this build stayed at the world-aggregate level per reporter, which
+          is what a 3Y/5Y price trend and export/import momentum actually need; a market spot price — this is a
+          customs-declared unit value, the standard trade-statistics proxy for price when no exchange-quoted price
+          exists, and is labeled as such everywhere it appears, not implied to be a spot quote.
         </p>
       </section>
 

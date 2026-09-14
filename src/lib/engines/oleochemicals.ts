@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
-import { latest, pctChangeOverDays, zScore, zToRiskScore, type Point } from "../metrics/stats";
+import { latest, pctChangeOverDays, previousOf, zScore, zToRiskScore, type Point } from "../metrics/stats";
 import { OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
 import { VALUE_CHAINS, VALUE_CHAIN_NODES } from "../commodities/oleochemValueChain";
 
@@ -89,6 +89,38 @@ export type OleochemicalConcentration = {
   hhi: number; // standard 0-10,000 scale (sum of squared percentage shares)
 };
 
+export type OleochemicalTradeTrendYear = {
+  year: number;
+  exportValueUsd: number | null;
+  exportUnitPriceUsdPerMt: number | null;
+  importValueUsd: number | null;
+  importUnitPriceUsdPerMt: number | null;
+};
+
+/** Multi-year export/import value + customs unit-price trend for one
+ * (commodity, reporter) pair — spec §44/45 "price avg + trend" ask, built
+ * from real UN Comtrade declared value/weight, not a market spot price. See
+ * unComtrade.ts's fetchOleochemicalTradeTrendYear for how the unit price is
+ * derived and why it's only trusted when Comtrade reports the weight in
+ * kilograms (qtyUnitCode 8). History depth varies by commodity: the four
+ * original oleochemical HS codes were backfilled to 5 years; the three added
+ * later (Glycerine/FAME/Soap Noodles) only accumulate one more year per
+ * pipeline run until they catch up — avgPrice3y/avgPrice5y are always an
+ * average of however many years are actually available, never padded. */
+export type OleochemicalTradeTrend = {
+  commoditySlug: string;
+  commodityLabel: string;
+  reporterSlug: string;
+  reporter: string;
+  years: OleochemicalTradeTrendYear[];
+  currentYearPrice: number | null;
+  avgPrice3y: number | null;
+  avgPrice5y: number | null;
+  yearsAvailable: number;
+  exportYoyPct: number | null;
+  importYoyPct: number | null;
+};
+
 export type OleochemicalLeadingIndicatorComponent = {
   key: string;
   label: string;
@@ -134,6 +166,7 @@ export type OleochemicalsResult = {
   exportVolumes: OleochemicalExportVolume[];
   tradeFlows: OleochemicalTradeFlow[];
   tradeFlowsAsOfYear: number | null;
+  tradeTrends: OleochemicalTradeTrend[];
   concentration: OleochemicalConcentration[];
   leadingIndicator: OleochemicalLeadingIndicator;
   valueChains: typeof VALUE_CHAINS;
@@ -216,6 +249,88 @@ async function fetchTradeFlowsForCommodity(
   return { flows, year };
 }
 
+const TRADE_TREND_REPORTERS: { slug: string; label: string }[] = [
+  { slug: "malaysia", label: "Malaysia" },
+  { slug: "indonesia", label: "Indonesia" },
+];
+
+/** Joins a value series (USD) against a weight series (kg, same observed_at
+ * dates) into a $/mt unit-price series. A year present in value but missing
+ * from qty (e.g. Comtrade reported the flow in a non-kilogram unit that
+ * unComtrade.ts already declined to trust) is dropped, not estimated. */
+function unitPriceSeries(valueSeries: Point[], qtyKgSeries: Point[]): Point[] {
+  const qtyByDate = new Map(qtyKgSeries.map((p) => [p.t, p.v]));
+  const out: Point[] = [];
+  for (const p of valueSeries) {
+    const qtyKg = qtyByDate.get(p.t);
+    if (!qtyKg || qtyKg <= 0) continue;
+    out.push({ t: p.t, v: (p.v / qtyKg) * 1000 });
+  }
+  return out;
+}
+
+function lastNAverage(points: Point[], n: number): number | null {
+  if (points.length === 0) return null;
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const tail = sorted.slice(-n);
+  return tail.reduce((a, p) => a + p.v, 0) / tail.length;
+}
+
+function yoyPct(series: Point[]): number | null {
+  const cur = latest(series);
+  const prev = previousOf(series);
+  if (!cur || !prev || prev.v === 0) return null;
+  return ((cur.v - prev.v) / Math.abs(prev.v)) * 100;
+}
+
+async function buildTradeTrend(
+  db: SupabaseClient,
+  commoditySlug: string,
+  commodityLabel: string,
+  reporterSlug: string,
+  reporterLabel: string,
+  sinceIso: string
+): Promise<OleochemicalTradeTrend | null> {
+  const prefix = `chemical.oleochemical_trade_trend.${commoditySlug}.${reporterSlug}`;
+  const [exportValue, exportQty, importValue, importQty] = await Promise.all([
+    fetchSeries(db, `${prefix}.export.value_usd`, sinceIso),
+    fetchSeries(db, `${prefix}.export.qty_kg`, sinceIso),
+    fetchSeries(db, `${prefix}.import.value_usd`, sinceIso),
+    fetchSeries(db, `${prefix}.import.qty_kg`, sinceIso),
+  ]);
+  if (exportValue.length === 0 && importValue.length === 0) return null;
+
+  const exportPrice = unitPriceSeries(exportValue, exportQty);
+  const importPrice = unitPriceSeries(importValue, importQty);
+  const exportPriceByDate = new Map(exportPrice.map((p) => [p.t, p.v]));
+  const importPriceByDate = new Map(importPrice.map((p) => [p.t, p.v]));
+  const exportValueByDate = new Map(exportValue.map((p) => [p.t, p.v]));
+  const importValueByDate = new Map(importValue.map((p) => [p.t, p.v]));
+
+  const allDates = [...new Set([...exportValue.map((p) => p.t), ...importValue.map((p) => p.t)])].sort();
+  const years: OleochemicalTradeTrendYear[] = allDates.map((t) => ({
+    year: new Date(t).getUTCFullYear(),
+    exportValueUsd: exportValueByDate.get(t) ?? null,
+    exportUnitPriceUsdPerMt: exportPriceByDate.get(t) ?? null,
+    importValueUsd: importValueByDate.get(t) ?? null,
+    importUnitPriceUsdPerMt: importPriceByDate.get(t) ?? null,
+  }));
+
+  return {
+    commoditySlug,
+    commodityLabel,
+    reporterSlug,
+    reporter: reporterLabel,
+    years,
+    currentYearPrice: latest(exportPrice)?.v ?? null,
+    avgPrice3y: lastNAverage(exportPrice, 3),
+    avgPrice5y: lastNAverage(exportPrice, 5),
+    yearsAvailable: exportPrice.length,
+    exportYoyPct: yoyPct(exportValue),
+    importYoyPct: yoyPct(importValue),
+  };
+}
+
 /** HHI/top-N export concentration (spec §44/45) computed directly from the
  * trade-flow rows already fetched above — no new data source, just a
  * post-processing pass over real UN Comtrade export values. */
@@ -295,6 +410,7 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
   const [
     priceSeriesList,
     tradeResults,
+    tradeTrendResults,
     exportVolumeSeriesList,
     totalPoStockSeries,
     gscpiSeries,
@@ -305,6 +421,11 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
   ] = await Promise.all([
     Promise.all(PRICE_CONTEXT_SERIES.map((p) => fetchSeries(db, p.metricKey, sinceIso))),
     Promise.all(OLEOCHEMICAL_TRADE_COMMODITIES.map((c) => fetchTradeFlowsForCommodity(db, c.slug, c.label, c.hsCode))),
+    Promise.all(
+      OLEOCHEMICAL_TRADE_COMMODITIES.flatMap((c) =>
+        TRADE_TREND_REPORTERS.map((r) => buildTradeTrend(db, c.slug, c.label, r.slug, r.label, sinceIso))
+      )
+    ),
     Promise.all(EXPORT_VOLUME_SERIES.map((p) => fetchSeries(db, `commodity.palm_oil.malaysia.export.${p.slug}`, sinceIso))),
     fetchSeries(db, "commodity.palm_oil.malaysia.mpob_mirror.total_po_stock", sinceIso),
     fetchSeries(db, "supplychain.gscpi", sinceIso),
@@ -341,6 +462,7 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
 
   const tradeFlows = tradeResults.flatMap((r) => r.flows).sort((a, b) => b.valueUsd - a.valueUsd);
   const tradeFlowsAsOfYear = tradeResults.map((r) => r.year).filter((y): y is number => y !== null)[0] ?? null;
+  const tradeTrends = tradeTrendResults.filter((t): t is OleochemicalTradeTrend => t !== null);
   const concentration = computeConcentration(tradeFlows);
 
   const [palmOilSeries, pkoSeries, fattyAcidsSeries, surfactantsSeries, soapsSeries] = priceSeriesList;
@@ -366,6 +488,7 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
     exportVolumes,
     tradeFlows,
     tradeFlowsAsOfYear,
+    tradeTrends,
     concentration,
     leadingIndicator,
     valueChains: VALUE_CHAINS,

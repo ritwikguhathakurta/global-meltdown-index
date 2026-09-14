@@ -231,6 +231,61 @@ export default async function OleochemicalsPage() {
             </section>
           )}
 
+          {oleo.tradeTrends.length > 0 && (
+            <section className="mb-10">
+              <h2 className="mb-2 text-lg font-semibold">Trade Price &amp; Volume Trend</h2>
+              <p className="mb-3 text-sm text-text-dim">
+                Customs unit price (declared export value ÷ declared export weight, converted to USD/mt) and
+                year-over-year export/import value momentum for Malaysia and Indonesia, world-aggregate (all
+                partners combined) — a genuine price derived from the same UN Comtrade customs data as the trade
+                flows above, not a market spot price and not fabricated. 3Y/5Y averages use however many years are
+                actually available for that commodity (shown in the &quot;Years&quot; column) — never padded to a
+                fixed window. Only trusted when Comtrade itself reports the weight in kilograms; a year without a
+                trustworthy weight shows a value trend with no price.
+              </p>
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-panel-raised text-text-dim">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Product</th>
+                      <th className="px-3 py-2 font-medium">Reporter</th>
+                      <th className="px-3 py-2 font-medium">Years</th>
+                      <th className="px-3 py-2 font-medium">Current-Year Price</th>
+                      <th className="px-3 py-2 font-medium">3Y Avg Price</th>
+                      <th className="px-3 py-2 font-medium">5Y Avg Price</th>
+                      <th className="px-3 py-2 font-medium">Export YoY</th>
+                      <th className="px-3 py-2 font-medium">Import YoY</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oleo.tradeTrends.map((t) => (
+                      <tr key={`${t.commoditySlug}-${t.reporterSlug}`} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium">{t.commodityLabel}</td>
+                        <td className="px-3 py-2 text-text-dim">{t.reporter}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{t.yearsAvailable}</td>
+                        <td className="gfew-mono px-3 py-2 text-text">
+                          {t.currentYearPrice !== null ? `$${t.currentYearPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mt` : "—"}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">
+                          {t.avgPrice3y !== null ? `$${t.avgPrice3y.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mt` : "—"}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">
+                          {t.avgPrice5y !== null ? `$${t.avgPrice5y.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mt` : "—"}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(t.exportYoyPct) }}>
+                          {fmtPct(t.exportYoyPct)}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: pctColor(t.importYoyPct) }}>
+                          {fmtPct(t.importYoyPct)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           {oleo.concentration.length > 0 && (
             <section className="mb-10">
               <h2 className="mb-2 text-lg font-semibold">Export Concentration</h2>
@@ -320,9 +375,14 @@ export default async function OleochemicalsPage() {
         (3826), and Soap/Noodles (3401.20) — among Malaysia, Indonesia, and eight major trading partners (Malaysia
         and Indonesia were verified live as working Comtrade reporters; they aren&apos;t in the 16-country set the
         Energy Trade Network already uses, so a separate, smaller country universe was built for this module
-        specifically); export concentration (HHI/top-share) computed from that same trade data; a real-chemistry
-        value-chain map (spec §21); and an Oleochemical Leading Indicator (spec §52) built only from the
-        spec-named inputs this app can source for free, with coverage disclosed component-by-component above.
+        specifically); export concentration (HHI/top-share) computed from that same trade data; a Trade Price &amp;
+        Volume Trend for Malaysia/Indonesia (world-aggregate export and import value and, where Comtrade reports the
+        weight in kilograms, a genuine customs unit price in USD/mt) with 3Y/5Y averages and year-over-year
+        export/import momentum — the four original HS codes were backfilled with a one-time historical pull to five
+        years of history; the three added later (Glycerine, FAME, Soap Noodles) accumulate one more year per
+        pipeline run; a real-chemistry value-chain map (spec §21); and an Oleochemical Leading Indicator (spec §52)
+        built only from the spec-named inputs this app can source for free, with coverage disclosed
+        component-by-component above.
         <br />
         <br />
         <strong className="text-text">Not built</strong>, and why: PFAD, individual fatty acids (Lauric/Palmitic/
@@ -330,9 +390,10 @@ export default async function OleochemicalsPage() {
         live (including a FRED series search) and confirmed no free source publishes per-compound prices for any of
         these, and their trade is bundled inside broader HS codes (3823, 3826) rather than separable; a genuine
         oleochemical conversion margin (Palm Oil/PKO in → Fatty Acid/PFAD out, spec §36) — needs a fatty-acid price
-        in $/mt, not a PPI index, so it isn&apos;t computed (see the price-context note above); Trade Flow Surprise
-        / seasonality (spec §50) — UN Comtrade here has only one year of history per commodity so far, so no
-        year-over-year surprise is computable yet (it becomes possible as the pipeline accumulates more years);
+        in $/mt, not a PPI index, so it isn&apos;t computed (see the price-context note above); bilateral
+        per-partner-pair Trade Flow Surprise / seasonality (spec §50) — the world-aggregate trend above now has
+        multi-year YoY momentum, but each individual reporter→partner pair in the Trade Flows table still has only
+        one year of history, so a per-partner-pair surprise isn&apos;t computable yet;
         company-level oleochemical producer/trader intelligence (Wilmar, IOI, KLK, Musim Mas, etc.), plant capacity
         and outage tracking, and a producer margin engine (spec §26-29, 37-40, 46-47) — these need continuous
         company/plant discovery from customs filings, annual reports and commercial trade databases (Panjiva/Volza/

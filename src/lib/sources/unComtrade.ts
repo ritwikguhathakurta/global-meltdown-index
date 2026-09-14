@@ -87,8 +87,25 @@ export const OLEOCHEMICAL_TRADE_COMMODITIES: { hsCode: string; slug: string; lab
   { hsCode: "340120", slug: "soap_noodles", label: "Soap, Other Forms incl. Noodles (HS 3401.20)" },
 ];
 
-type ComtradeRow = { reporterCode: number; partnerCode: number; flowCode: string; period: string; primaryValue: number | null; motCode: number; partner2Code: number };
+type ComtradeRow = {
+  reporterCode: number;
+  partnerCode: number;
+  flowCode: string;
+  period: string;
+  primaryValue: number | null;
+  motCode: number;
+  partner2Code: number;
+  qtyUnitCode?: number;
+  netWgt?: number | null;
+};
 type ComtradeResponse = { data?: ComtradeRow[] };
+
+// The two dominant oleochemical exporters (spec §44/45), reused for the
+// world-aggregate export/import trend queries below.
+const OLEOCHEM_TREND_REPORTERS: { slug: string; code: string }[] = [
+  { slug: "malaysia", code: OLEOCHEM_COMTRADE_CODES.malaysia },
+  { slug: "indonesia", code: OLEOCHEM_COMTRADE_CODES.indonesia },
+];
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -181,6 +198,68 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
   return points;
 }
 
+/** Pulls the grand-total (motCode=0, partner2Code=0) export (X) and import
+ * (M) rows out of a world-aggregate (partnerCode=0) Comtrade response,
+ * keeping the declared weight (netWgt, kilograms — verified live against
+ * Comtrade's own QuantityUnits reference table: qtyUnitCode 8 = "Weight in
+ * kilograms") alongside the declared trade value. Dividing value by weight
+ * gives a genuine customs unit price ($/mt), not a market spot price, but a
+ * real one — computed from the same declared customs data as the trade
+ * flows above, not fabricated. Only trusted when qtyUnitCode is exactly 8;
+ * any other unit is left null rather than silently treated as kilograms. */
+function extractTradeTrendTotals(rows: ComtradeRow[]): {
+  exportValueUsd: number | null;
+  exportQtyKg: number | null;
+  importValueUsd: number | null;
+  importQtyKg: number | null;
+} {
+  let exportValueUsd: number | null = null;
+  let exportQtyKg: number | null = null;
+  let importValueUsd: number | null = null;
+  let importQtyKg: number | null = null;
+  for (const row of rows) {
+    if (row.motCode !== 0 || row.partner2Code !== 0) continue;
+    if (row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
+    const qtyKg = row.qtyUnitCode === 8 && row.netWgt && row.netWgt > 0 ? row.netWgt : null;
+    if (row.flowCode === "X") {
+      exportValueUsd = row.primaryValue;
+      exportQtyKg = qtyKg;
+    } else if (row.flowCode === "M") {
+      importValueUsd = row.primaryValue;
+      importQtyKg = qtyKg;
+    }
+  }
+  return { exportValueUsd, exportQtyKg, importValueUsd, importQtyKg };
+}
+
+/** Fetches one (commodity, reporter, year)'s world-aggregate export/import
+ * value + weight — a single Comtrade call returns both flow directions at
+ * once (partnerCode=0 already includes both X and M grand-total rows, see
+ * live verification notes above), so this is one HTTP request per
+ * reporter/year, not two. Used both by the ongoing per-run ingest (current
+ * year only, appended below) and by the one-time historical backfill script. */
+export async function fetchOleochemicalTradeTrendYear(
+  hsCode: string,
+  slug: string,
+  reporterSlug: string,
+  reporterCode: string,
+  year: string
+): Promise<MetricPoint[]> {
+  const rows = await comtradeQuery({ reporterCode, partnerCode: "0", period: year, cmdCode: hsCode });
+  const totals = extractTradeTrendTotals(rows);
+  const prefix = `chemical.oleochemical_trade_trend.${slug}.${reporterSlug}`;
+  const observedAt = `${year}-12-31`;
+  const points: MetricPoint[] = [];
+  const push = (suffix: string, value: number | null, unit: string) => {
+    if (value !== null) points.push({ metric_key: `${prefix}.${suffix}`, observed_at: observedAt, value, unit, source_key: "un_comtrade", source_tier: 1, frequency: "annual" });
+  };
+  push("export.value_usd", totals.exportValueUsd, "USD");
+  push("export.qty_kg", totals.exportQtyKg, "kg");
+  push("import.value_usd", totals.importValueUsd, "USD");
+  push("import.qty_kg", totals.importQtyKg, "kg");
+  return points;
+}
+
 /** Fetches ONE commodity's oleochemical trade flows. Split out from the
  * batch loop below so the caller (ingest.ts) can upsert each commodity's
  * points to Supabase as soon as they land, rather than waiting for all 7 HS
@@ -223,5 +302,22 @@ export async function fetchUnComtradeOleochemicalFlowsForCommodity(commodity: { 
       frequency: "annual",
     });
   }
+
+  // World-aggregate export/import value+weight trend for Malaysia/Indonesia
+  // (spec-adjacent: a genuine customs unit price, see extractTradeTrendTotals
+  // above) — reuses the same probed `year`, so no extra year-probe calls.
+  // Isolated in its own try/catch per reporter: a failure here must never
+  // cost the bilateral network points already gathered above.
+  for (const reporter of OLEOCHEM_TREND_REPORTERS) {
+    await delay(1500);
+    try {
+      const trendPoints = await fetchOleochemicalTradeTrendYear(commodity.hsCode, commodity.slug, reporter.slug, reporter.code, year);
+      points.push(...trendPoints);
+    } catch {
+      // best-effort — the bilateral trade-flow points above are this
+      // function's primary output and are already safe regardless.
+    }
+  }
+
   return points;
 }
