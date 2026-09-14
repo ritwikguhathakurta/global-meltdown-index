@@ -16,9 +16,14 @@ export default async function ChemicalsPage() {
       </div>
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-2xl font-semibold">Chemicals</h1>
-        <Link href="/dashboard/commodities/chemicals/oleochemicals" className="text-xs text-accent hover:underline">
-          Oleochemicals deep-dive (palm-linked fatty acids, surfactants, trade flows) →
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/dashboard/commodities/chemicals/products" className="text-xs text-accent hover:underline">
+            Chemical Products Master (CAS/HS reference database) →
+          </Link>
+          <Link href="/dashboard/commodities/chemicals/oleochemicals" className="text-xs text-accent hover:underline">
+            Oleochemicals deep-dive (palm-linked fatty acids, surfactants, trade flows) →
+          </Link>
+        </div>
       </div>
       <p className="mb-8 max-w-3xl text-sm text-text-dim">
         Phase 1 of a much larger planned Chemicals engine, scoped to what&apos;s genuinely free and live. There is no

@@ -2474,6 +2474,38 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Chemical Products Master (reference database)</h2>
+        <p className="mb-2">
+          After another dead end on free chemical spot pricing (checked and confirmed api-ninjas.com has no
+          chemistry data — only 30 already-covered commodities and a paywalled forward-curve endpoint; checked a
+          Tendata blog post&apos;s linked sources and found only paid company/shipment lead-gen tools and a
+          subscription trade journal), the user asked to build the reference &ldquo;database&rdquo; layer first —
+          spec §3-9&apos;s Chemical Taxonomy / Global Chemical Product Hierarchy — and defer spot pricing rather
+          than keep chasing a source that doesn&apos;t exist for free.
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real</strong>: 91 named chemicals across Basic Inorganic/Organic Chemicals,
+          Petrochemicals, Polymers, Fertilizers, Agrochemicals, and the full Oleochemical taxonomy (extending
+          oleochemValueChain.ts&apos;s structural graph with actual CAS numbers), each with a CAS Registry Number
+          and WCO Harmonized System code — public, standardized identifiers, not proprietary market data, but
+          checked against multiple independent tariff/chemical-database sources before entry since a wrong
+          identifier is still a factual error presented as authoritative. Rows that already connect to a real live
+          PPI proxy or UN Comtrade trade flow are flagged as such; the rest are explicitly reference-only.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong>, and why: HS codes for a handful of items (DEG, TEG, elemental carbon
+          monoxide, ethane) were left blank rather than guessed — each genuinely has ambiguous or unconfirmed
+          6-digit classification (varies by declared end-use or wasn&apos;t independently confirmable across
+          sources), a real gap in the classification systems themselves, not an omission of convenience; individual
+          named products under spec §9&apos;s Specialty Chemicals categories — the spec itself lists only broad
+          categories there (additives, solvents, coatings, etc.), not specific compounds, so populating rows would
+          mean inventing product identity the spec never specified; and, as flagged throughout, live spot/per-unit
+          prices for the large majority of these rows — that gap is unchanged by this database existing and remains
+          exactly what the Chemicals Overview and Oleochemicals pages already disclose.
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">What we don&apos;t do</h2>
         <ul className="list-inside list-disc">
           <li>We do not fabricate market prices, quotes, speeches, filings or sources.</li>
