@@ -59,6 +59,32 @@ export const FRED_SERIES: FredSeriesDef[] = [
   { metricKey: "energy.copper_price", seriesId: "PCOPPUSDM", frequency: "monthly", unit: "USD/tonne" },
   { metricKey: "energy.uranium_price", seriesId: "PURANUSDM", frequency: "monthly", unit: "USD/lb" },
 
+  // Chemicals engine — no free global chemical spot-price source exists
+  // (ICIS/Platts/ChemAnalyst are paywalled industry data); FRED's own
+  // Producer Price Index by Commodity series is the genuine free
+  // alternative, verified live before use. This is a US PRODUCER PRICE
+  // INDEX (1982=100), not a global per-unit spot price — disclosed as such
+  // everywhere it's shown, never presented as a "chemical price" the way
+  // World Bank Pink Sheet commodity prices are. Fatty Acids and Surfactants
+  // are the two series that matter most for the Oleochemicals module, since
+  // they're the only genuine free proxy connecting this app's existing
+  // Palm Oil/PKO price data to a real downstream chemical price signal.
+  { metricKey: "chemical.basic_organic.ppi", seriesId: "WPU0614", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.basic_inorganic.ppi", seriesId: "WPU0613", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.industrial_chemicals.ppi", seriesId: "WPU061", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.fertilizer_materials.ppi", seriesId: "WPU0652", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.plastic_resins.ppi", seriesId: "WPU066", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.thermoplastic_resins.ppi", seriesId: "WPU0662", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.sodium_hydroxide.ppi", seriesId: "WPU061303024", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.sulfuric_acid.ppi", seriesId: "WPU0613020T1", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.ethanol.ppi", seriesId: "WPU06140341", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.ammonia_urea.ppi", seriesId: "WPU0652013A", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.phosphate_fertilizer.ppi", seriesId: "WPU0652026A", frequency: "monthly", unit: "index 1982=100" },
+  // Oleochemicals — the two series linking directly to this app's existing
+  // Palm Oil/PKO price and country data (see oleochemicals.ts).
+  { metricKey: "chemical.fatty_acids.ppi", seriesId: "WPU061403991", frequency: "monthly", unit: "index 1982=100" },
+  { metricKey: "chemical.surfactants.ppi", seriesId: "WPU06790502", frequency: "monthly", unit: "index 1982=100" },
+
   // Banking engine (V3 §22) — Fed H.8 weekly release + delinquency/charge-off series
   { metricKey: "banking.deposits_total", seriesId: "DPSACBW027SBOG", frequency: "weekly", unit: "USD bn" },
   { metricKey: "banking.delinquency_rate_all_loans", seriesId: "DRALACBS", frequency: "quarterly", unit: "%" },

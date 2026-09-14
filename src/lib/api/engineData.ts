@@ -68,6 +68,8 @@ import {
 } from "@/lib/engines/commodityCountryBalance";
 import type { CommodityCategory } from "@/lib/commodities/taxonomy";
 import type { CountryBalanceCommodityDef } from "@/lib/commodities/countryBalanceTaxonomy";
+import { getChemicalsOverview as computeChemicalsOverview, type ChemicalsOverviewResult } from "@/lib/engines/chemicals";
+import { getOleochemicals as computeOleochemicals, type OleochemicalsResult } from "@/lib/engines/oleochemicals";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -653,6 +655,28 @@ export async function getCommodityCountryBalancesForCategory(
   try {
     const db = await createServerSupabase();
     return await computeCommodityCountryBalancesForCategory(db, category);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getChemicalsOverview(): Promise<ChemicalsOverviewResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeChemicalsOverview(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getOleochemicals(): Promise<OleochemicalsResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeOleochemicals(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;

@@ -2336,6 +2336,54 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Chemicals engine — Phase 1 (shipped)</h2>
+        <p className="mb-2">
+          A 126-section master spec asked for a full institutional chemical-market intelligence platform: company
+          and shipment-level trade data, capacity/plant/outage tracking, Monte Carlo simulation, machine learning
+          (XGBoost/LightGBM/regime-switching), commercial vendor integrations (Panjiva, Volza, ImportGenius), a
+          Python/FastAPI microservice, and billions of shipment records. Before writing any code, a gap analysis was
+          produced and put to the user: most of that spec depends on paid data (chemical spot prices are ICIS/Platts/
+          ChemAnalyst — paywalled, checked and confirmed) or infrastructure this app doesn&apos;t have (it&apos;s
+          TypeScript/Next.js/Supabase only, no Python runtime). The user chose to ship the genuinely buildable
+          first phase now rather than either faking the rest or building nothing.
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real</strong>: FRED&apos;s own Producer Price Index by Commodity series — a real,
+          free, official (BLS-sourced) government price series, verified live before use, covering Basic Organic
+          Chemicals, Ethanol, Basic Inorganic Chemicals, Industrial Chemicals, Sodium Hydroxide, Sulfuric Acid,
+          Plastic Resins, Thermoplastic Resins, Fertilizer Materials, Synthetic Ammonia/Urea, Phosphate Fertilizer
+          Materials, and — the two series that matter most — Fatty Acids and Surfactants, with history back to as
+          early as 1933 for the broadest series. This is explicitly a <strong>US producer price index</strong>, not
+          a global $/unit spot price, and is labeled as such everywhere it appears rather than presented the way a
+          Pink Sheet commodity price is; the same horizon-weighted z-scored-momentum methodology from the main
+          Commodities engine is reused unchanged. A dedicated <strong>Oleochemicals</strong> module fulfills the
+          spec&apos;s own §2 mandatory-connection requirement (Chemicals must connect to Commodity → Oilseeds → Palm
+          Oil): it reuses the existing Palm Oil/PKO Pink Sheet prices directly (no new source) alongside the Fatty
+          Acids/Surfactants PPI, plus genuine UN Comtrade bilateral trade flows for Palm Oil (HS 1511), Palm
+          Kernel/Coconut Oil (HS 1513), industrial Fatty Acids/Acid Oils/Fatty Alcohols (HS 3823 — verified against
+          the spec&apos;s own note that oleochemical trade genuinely spans HS 15/29/34/38, not one code), and
+          Surfactants (HS 3402). Malaysia and Indonesia — the two dominant oleochemical exporters — were verified
+          live as working Comtrade reporters and added to a dedicated 10-country universe for this module, since
+          neither is in the Energy Trade Network&apos;s existing 16-country set.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong>, and why: a genuine oleochemical conversion margin (Palm Oil/PKO feedstock →
+          Fatty Acid/PFAD output) — that needs a fatty-acid price in the same $/mt terms as the feedstock, and the
+          only free series found is a PPI index, not a spot price, so dividing one by the other would produce a
+          number that looks like a margin but isn&apos;t; shown as two independent trends instead, never merged.
+          Individual named compounds from the spec&apos;s taxonomy (Lauric/Palmitic/Stearic/Oleic acid, fatty
+          alcohols, methyl esters, FAME, glycerine, PFAD specifically, PE/PP/PVC individually) — FRED&apos;s PPI
+          only breaks chemicals out to the family level, not named compounds, so none of these get a fabricated
+          per-compound row. Company-level production/trade/shipment intelligence, capacity/plant/outage tracking, a
+          Chemical Supply Risk Index, Demand Index, Flow Leading Indicator, and Market Regime classifier (all need
+          the company/capacity/inventory data layer above, which isn&apos;t built — no free live source exists for
+          any of it, and commercial vendors are a real cost/licensing decision, not a coding task); Monte Carlo,
+          ML, Granger causality/VAR (no Python runtime in this stack); daily/weekly automated reports, an alert
+          engine, and an &ldquo;Ask Chemicals&rdquo; AI assistant (depend on the data layers above existing first).
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">What we don&apos;t do</h2>
         <ul className="list-inside list-disc">
           <li>We do not fabricate market prices, quotes, speeches, filings or sources.</li>

@@ -73,6 +73,7 @@ export default async function CommoditiesPage() {
           { href: "/dashboard/commodities/livestock-dairy", label: "Livestock / Dairy" },
           { href: "/dashboard/commodities/fertilizers", label: "Fertilizers" },
           { href: "/dashboard/commodities/forestry", label: "Forestry / Other Raw Materials" },
+          { href: "/dashboard/commodities/chemicals", label: "Chemicals" },
         ].map((c) => (
           <Link key={c.href} href={c.href} className="text-accent hover:underline">
             {c.label} deep-dive →

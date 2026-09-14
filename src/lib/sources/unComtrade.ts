@@ -50,6 +50,37 @@ export const TRADE_COMMODITIES: { hsCode: string; slug: string; label: string }[
   { hsCode: "2711", slug: "gas", label: "Petroleum Gases (incl. LNG)" },
 ];
 
+// Oleochemical Trade Flows (Chemicals engine, spec §48/§82) — Malaysia and
+// Indonesia together produce ~85% of the world's palm/palm-kernel oil and
+// are the dominant oleochemical exporters, but neither is in the 16-country
+// universe above (that set was built for the Energy Trade Network). Both
+// verified live as working Comtrade reporters before use. HS codes follow
+// the spec's own crosswalk notes (oleochemical trade in Malaysia genuinely
+// spans HS 15/29/34/38, not one code): 1511 (palm oil), 1513 (palm
+// kernel/coconut oil), 3823 (industrial monocarboxylic fatty acids, acid
+// oils from refining, and industrial fatty alcohols — the actual
+// PFAD/fatty-acid/fatty-alcohol trade classification), 3402 (organic
+// surface-active agents / surfactants).
+const OLEOCHEM_COMTRADE_CODES: Record<string, string> = {
+  malaysia: "458",
+  indonesia: "360",
+  china: "156",
+  india: "699",
+  united_states: "842",
+  netherlands: "528",
+  germany: "276",
+  pakistan: "586",
+  japan: "392",
+  south_korea: "410",
+};
+
+export const OLEOCHEMICAL_TRADE_COMMODITIES: { hsCode: string; slug: string; label: string }[] = [
+  { hsCode: "1511", slug: "palm_oil", label: "Palm Oil (HS 1511)" },
+  { hsCode: "1513", slug: "palm_kernel_coconut_oil", label: "Palm Kernel/Coconut Oil (HS 1513)" },
+  { hsCode: "3823", slug: "fatty_acids", label: "Industrial Fatty Acids/Acid Oils/Fatty Alcohols (HS 3823)" },
+  { hsCode: "3402", slug: "surfactants", label: "Organic Surface-Active Agents (HS 3402)" },
+];
+
 type ComtradeRow = { reporterCode: number; partnerCode: number; flowCode: string; period: string; primaryValue: number | null; motCode: number; partner2Code: number };
 type ComtradeResponse = { data?: ComtradeRow[] };
 
@@ -132,6 +163,46 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
     for (const [pairKey, value] of valueByPair) {
       points.push({
         metric_key: `energy.trade.${commodity.slug}.${pairKey}`,
+        observed_at: `${year}-12-31`,
+        value,
+        unit: "USD",
+        source_key: "un_comtrade",
+        source_tier: 1,
+        frequency: "annual",
+      });
+    }
+  }
+  return points;
+}
+
+/** Same methodology as fetchUnComtradeEnergyFlows, applied to the Oleochemical country/HS universe above. */
+export async function fetchUnComtradeOleochemicalFlows(): Promise<MetricPoint[]> {
+  const slugByCode = new Map(Object.entries(OLEOCHEM_COMTRADE_CODES).map(([slug, code]) => [code, slug]));
+  const allCodes = Object.values(OLEOCHEM_COMTRADE_CODES);
+
+  const points: MetricPoint[] = [];
+  for (const commodity of OLEOCHEMICAL_TRADE_COMMODITIES) {
+    const year = await findLatestAvailableYear(commodity.hsCode);
+    await delay(1500);
+    const REPORTER_CHUNK_SIZE = 4;
+    const valueByPair = new Map<string, number>();
+    for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
+      const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
+      const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
+      for (const row of rows) {
+        if (row.flowCode !== "X" || row.motCode !== 0 || row.partner2Code !== 0) continue;
+        if (row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
+        const reporterSlug = slugByCode.get(String(row.reporterCode));
+        const partnerSlug = slugByCode.get(String(row.partnerCode));
+        if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
+        const pairKey = `${reporterSlug}_to_${partnerSlug}`;
+        valueByPair.set(pairKey, row.primaryValue);
+      }
+      await delay(2000);
+    }
+    for (const [pairKey, value] of valueByPair) {
+      points.push({
+        metric_key: `chemical.oleochemical_trade.${commodity.slug}.${pairKey}`,
         observed_at: `${year}-12-31`,
         value,
         unit: "USD",

@@ -84,7 +84,7 @@ import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
 import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
-import { fetchUnComtradeEnergyFlows } from "../sources/unComtrade";
+import { fetchUnComtradeEnergyFlows, fetchUnComtradeOleochemicalFlows } from "../sources/unComtrade";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
 import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances, fetchUsdaPsdCountryBalances } from "../sources/usdaPsd";
@@ -1047,6 +1047,21 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
   }
 }
 
+export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchUnComtradeOleochemicalFlows();
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_un_comtrade_oleochemical_flows", status, detail);
+    return { stage: "ingest_un_comtrade_oleochemical_flows", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_un_comtrade_oleochemical_flows", "failed", detail);
+    return { stage: "ingest_un_comtrade_oleochemical_flows", status: "failed", detail };
+  }
+}
+
 export async function ingestWorldBankCommodities(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     // The Pink Sheet workbook itself has genuine monthly data back to 1960
@@ -1352,6 +1367,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_eia_grid_monitor", ingestEiaGridMonitor(db, runDate)),
     withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
     withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
+    withTimeout("ingest_un_comtrade_oleochemical_flows", ingestUnComtradeOleochemicalFlows(db, runDate)),
     withTimeout("ingest_energy_backtest_series", ingestEnergyBacktestSeries(db, runDate)),
     withTimeout("ingest_world_bank_commodities", ingestWorldBankCommodities(db, runDate)),
     withTimeout("ingest_critical_minerals", ingestCriticalMinerals(db, runDate)),
