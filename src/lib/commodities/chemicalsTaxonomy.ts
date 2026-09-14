@@ -40,6 +40,7 @@ export const CHEMICALS: ChemicalDef[] = [
   { slug: "phosphate_fertilizer", label: "Phosphoric Acid, Superphosphates & Other Phosphate Fertilizer Materials", category: "Fertilizer Materials (PPI)", metricKey: "chemical.phosphate_fertilizer.ppi", historyStart: "2014-12-01" },
   { slug: "fatty_acids", label: "Fatty Acids", category: "Oleochemicals", metricKey: "chemical.fatty_acids.ppi", historyStart: "2007-12-01" },
   { slug: "surfactants", label: "Surfactants (Bulk Surface Active Agents)", category: "Oleochemicals", metricKey: "chemical.surfactants.ppi", historyStart: "1983-12-01" },
+  { slug: "soaps_detergents", label: "Soaps & Detergents (soap-noodle-adjacent finished goods)", category: "Oleochemicals", metricKey: "chemical.soaps_detergents.ppi", historyStart: "1933-01-01" },
 ];
 
 export const CHEMICAL_CATEGORIES: ChemicalCategory[] = ["Basic Organic", "Basic Inorganic", "Plastics & Resins", "Fertilizer Materials (PPI)", "Oleochemicals"];

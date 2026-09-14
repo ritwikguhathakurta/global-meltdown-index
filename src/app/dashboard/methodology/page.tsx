@@ -2384,6 +2384,50 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Oleochemicals — Phase 2 (shipped)</h2>
+        <p className="mb-2">
+          Asked to go further on Oleochemicals specifically (spec §10-21, §44-52), a live research pass checked
+          three candidate approaches: scraping paywalled chemical-price platforms (declined — evades commercial
+          anti-bot measures on data that&apos;s the platform&apos;s own product, and this app has no Python
+          runtime); a feedstock×multiplier &ldquo;estimated spot price&rdquo; proxy (declined — inventing a
+          historical base factor to manufacture a number that looks like a real price is fabrication, which this
+          project&apos;s standing rules and the spec&apos;s own &ldquo;DO NOT FAKE IT&rdquo; instruction both
+          prohibit); and parsing genuine official trade/price sources (pursued — the same discipline as every other
+          source in this app).
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real and new</strong>: three additional live-verified UN Comtrade HS codes — Glycerine
+          (2905.45), Biodiesel/FAME mixtures (3826), and Soap/Noodles (3401.20) — each checked against both the
+          probe reporter and Malaysia/Indonesia before being wired in, bringing the trade-flow module to seven HS
+          codes; a Soaps &amp; Detergents US PPI series (FRED WPU0671, since 1933) as an adjacent proxy for soap
+          noodles&apos; finished-goods market (an explicit FRED series search confirmed no methanol, glycerine,
+          fatty-alcohol, or individual-fatty-acid price series exist); Malaysia MPOB&apos;s own real monthly export
+          tonnage for Oleochemicals, Biodiesel, and Finished Products — already ingested for the Oilseeds SE Asia
+          page, now surfaced in the Chemicals section directly; export concentration (HHI, top-1/top-3 share, spec
+          §44/45) computed as a pure post-processing pass over the trade-flow data already fetched, no new source;
+          a real-chemistry Oleochemical Value-Chain Graph (spec §21) reproducing the spec&apos;s own worked
+          examples (CPO→PFAD→Fatty Acid→Methyl Ester→FAME→Biodiesel; PKO→Lauric Acid→Methyl Laurate→Surfactants;
+          etc.) as static structural data, not a live series — flagging which real product nodes this app tracks
+          and which it doesn&apos;t, rather than fabricating a number for either; and an Oleochemical Leading
+          Indicator (spec §52), built with the same methodology as the Leading Banking Stress Score: a weighted
+          composite of z-scored momentum across only the subset of the spec&apos;s 19 named inputs this app has
+          genuine free data for (11 of 19 — Palm Oil, PKO, CPO, Fatty Acid, Biodiesel, Freight/GSCPI, Crude Oil,
+          Natural Gas, FX, Stocks, Trade), renormalized to what&apos;s available and disclosed input-by-input on
+          the page rather than silently treated as complete.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong>, and why: PFAD, Fatty Alcohol, and Methyl Ester as separately priced or traded
+          products — their trade is bundled inside broader HS codes (3823, 3826) that aren&apos;t separable by
+          customs classification, and no free source prices the individual compounds; Trade Flow Surprise/
+          seasonality (spec §50) — UN Comtrade here holds only one year of history per commodity so far, so no
+          year-over-year surprise is statistically meaningful yet (this becomes possible as the daily pipeline
+          accumulates more years going forward); everything already declared out of scope in Phase 1 above
+          (company/plant/shipment intelligence, conversion margin, Monte Carlo/ML, Python-dependent analysis, and
+          report/alert/UI infrastructure) remains out of scope for the same reasons.
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">What we don&apos;t do</h2>
         <ul className="list-inside list-disc">
           <li>We do not fabricate market prices, quotes, speeches, filings or sources.</li>

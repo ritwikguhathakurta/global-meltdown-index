@@ -84,6 +84,11 @@ export const FRED_SERIES: FredSeriesDef[] = [
   // Palm Oil/PKO price and country data (see oleochemicals.ts).
   { metricKey: "chemical.fatty_acids.ppi", seriesId: "WPU061403991", frequency: "monthly", unit: "index 1982=100" },
   { metricKey: "chemical.surfactants.ppi", seriesId: "WPU06790502", frequency: "monthly", unit: "index 1982=100" },
+  // Added for the oleochemicals value-chain build-out — soap noodles (spec
+  // §20) feed directly into soap/detergent manufacturing; no dedicated soap
+  // noodle PPI exists, but this adjacent finished-goods series is real and
+  // verified live back to 1933, unlike a fabricated pass-through.
+  { metricKey: "chemical.soaps_detergents.ppi", seriesId: "WPU0671", frequency: "monthly", unit: "index 1982=100" },
 
   // Banking engine (V3 §22) — Fed H.8 weekly release + delinquency/charge-off series
   { metricKey: "banking.deposits_total", seriesId: "DPSACBW027SBOG", frequency: "weekly", unit: "USD bn" },

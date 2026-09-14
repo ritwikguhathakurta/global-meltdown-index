@@ -79,6 +79,12 @@ export const OLEOCHEMICAL_TRADE_COMMODITIES: { hsCode: string; slug: string; lab
   { hsCode: "1513", slug: "palm_kernel_coconut_oil", label: "Palm Kernel/Coconut Oil (HS 1513)" },
   { hsCode: "3823", slug: "fatty_acids", label: "Industrial Fatty Acids/Acid Oils/Fatty Alcohols (HS 3823)" },
   { hsCode: "3402", slug: "surfactants", label: "Organic Surface-Active Agents (HS 3402)" },
+  // Added for the oleochemicals value-chain build-out (spec §21/§82 HS
+  // crosswalk) — each verified live for both the US (the findLatestAvailableYear
+  // probe reporter) and Malaysia/Indonesia before being wired in.
+  { hsCode: "290545", slug: "glycerine", label: "Glycerol/Glycerine, Crude (HS 2905.45)" },
+  { hsCode: "3826", slug: "fame_biodiesel", label: "Biodiesel & FAME Mixtures (HS 3826)" },
+  { hsCode: "340120", slug: "soap_noodles", label: "Soap, Other Forms incl. Noodles (HS 3401.20)" },
 ];
 
 type ComtradeRow = { reporterCode: number; partnerCode: number; flowCode: string; period: string; primaryValue: number | null; motCode: number; partner2Code: number };
