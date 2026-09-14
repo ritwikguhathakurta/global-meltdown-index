@@ -64,6 +64,15 @@ import { lookbackDaysFor } from "../metrics/lookback";
  *    the real vessel-level throughput signal spec's Maritime Chokepoint
  *    Engine (§43) and Oil Chokepoint Engine (§15) call for, superseding the
  *    original build's "no free chokepoint data exists" assumption.
+ *  - ELECTRICITY (added alongside the ENTSO-E-based European Grid Monitor,
+ *    entsoe.ts/europeanGrid.ts): German + French day-ahead power price |z| —
+ *    like Critical Minerals, extremity in EITHER direction counts as risk,
+ *    since a European day-ahead price crash (near-zero/negative, forcing
+ *    renewable curtailment) is a genuine market-stress signal, not "cheap
+ *    energy is good." Only two of Europe's ~30 bidding zones stand in for
+ *    the whole continent (the same simplification Brent+WTI make for global
+ *    oil) — Germany and France are its two largest, most liquid, most
+ *    interconnected markets.
  *
  * MARKET: the Energy Select Sector SPDR (XLE, energy.xle_price) own-history
  * price z-score (60%, price below trend = stress) blended with realized-
@@ -73,9 +82,12 @@ import { lookbackDaysFor } from "../metrics/lookback";
  * for how markets price producer/company financial stress (spec's own
  * Energy Corporate Credit/Financing Risk concepts, §25-27, 59).
  *
- * STRUCTURAL = Oil 35% + Natural Gas 25% + Critical Minerals/Nuclear Fuel
- * 20% + Shipping 20% (weighted toward oil's outsized share of global energy
- * trade value and price-shock transmission, spec's own emphasis throughout).
+ * STRUCTURAL = Oil 30% + Natural Gas 21% + Critical Minerals/Nuclear Fuel
+ * 17% + Shipping 17% + Electricity 15% (the original Oil 35/Gas 25/Minerals
+ * 20/Shipping 20 split, each scaled by 0.85 to make room for Electricity
+ * without overriding their relative weight to each other — still weighted
+ * toward oil's outsized share of global energy trade value and price-shock
+ * transmission, spec's own emphasis throughout).
  * COMPOSITE = Structural 40% + Market 35% + Convergence 25% — this app's
  * standard split, applied verbatim.
  *
@@ -171,10 +183,20 @@ export function energyStageFor(compositeScore: number | null, hiddenRisk: boolea
   return ENERGY_STAGES[Math.min(stage, 7) - 1];
 }
 
-export const STRUCTURAL_WEIGHTS = { oil: 0.35, gas: 0.25, minerals: 0.2, shipping: 0.2 };
+// Rebalanced (0.85x each of the prior four) to make room for the new
+// Electricity domain below rather than bolting it on unweighted — the four
+// original weights keep their prior relative proportions to each other.
+export const STRUCTURAL_WEIGHTS = { oil: 0.3, gas: 0.21, minerals: 0.17, shipping: 0.17, electricity: 0.15 };
 export const COMPOSITE_WEIGHTS = { structural: 0.4, market: 0.35, convergence: 0.25 };
 
-export type EnergyDomainScores = { oilScore: number | null; gasScore: number | null; mineralsScore: number | null; shippingScore: number | null; marketScore: number | null };
+export type EnergyDomainScores = {
+  oilScore: number | null;
+  gasScore: number | null;
+  mineralsScore: number | null;
+  shippingScore: number | null;
+  electricityScore: number | null;
+  marketScore: number | null;
+};
 
 export type EnergyComposite = {
   structuralScore: number | null;
@@ -193,16 +215,17 @@ export type EnergyComposite = {
 // today's domain scores and get back a result computed by the identical
 // production methodology — not a parallel reimplementation of it.
 export function composeEnergyComposite(domains: EnergyDomainScores): EnergyComposite {
-  const { oilScore, gasScore, mineralsScore, shippingScore, marketScore } = domains;
+  const { oilScore, gasScore, mineralsScore, shippingScore, electricityScore, marketScore } = domains;
   const structuralParts = [
     oilScore !== null ? { score: oilScore, weight: STRUCTURAL_WEIGHTS.oil } : null,
     gasScore !== null ? { score: gasScore, weight: STRUCTURAL_WEIGHTS.gas } : null,
     mineralsScore !== null ? { score: mineralsScore, weight: STRUCTURAL_WEIGHTS.minerals } : null,
     shippingScore !== null ? { score: shippingScore, weight: STRUCTURAL_WEIGHTS.shipping } : null,
+    electricityScore !== null ? { score: electricityScore, weight: STRUCTURAL_WEIGHTS.electricity } : null,
   ].filter((p): p is { score: number; weight: number } => p !== null);
   const structuralScore = structuralParts.length > 0 ? Math.round(structuralParts.reduce((a, b) => a + b.score * b.weight, 0) / structuralParts.reduce((a, b) => a + b.weight, 0)) : null;
 
-  const domainScores = [oilScore, gasScore, mineralsScore, shippingScore];
+  const domainScores = [oilScore, gasScore, mineralsScore, shippingScore, electricityScore];
   const domainsWithData = domainScores.filter((v) => v !== null) as number[];
   const domainsStressed = domainsWithData.filter((v) => v >= 60).length;
   const convergenceScore = domainsWithData.length >= 3 ? Math.round((domainsStressed / domainsWithData.length) * 100) : null;
@@ -239,6 +262,13 @@ const COPPER_KEY = "energy.copper_price";
 const URANIUM_KEY = "energy.uranium_price";
 const GSCPI_KEY = "supplychain.gscpi";
 const XLE_KEY = "energy.xle_price";
+// Electricity domain — European day-ahead power prices from ENTSO-E
+// (entsoe.ts). Germany and France are the two largest, most liquid, most
+// interconnected European markets (see the European Grid page), so they
+// stand in for the whole continent the same way Brent+WTI stand in for
+// global oil rather than every producer.
+const DE_DAY_AHEAD_KEY = "energy.eu_grid.germany.day_ahead_price";
+const FR_DAY_AHEAD_KEY = "energy.eu_grid.france.day_ahead_price";
 
 // The four chokepoints through which most seaborne oil/LNG physically moves
 // — see imfPortwatch.ts. A drop in tanker transits below trend scores as risk.
@@ -269,6 +299,8 @@ export type EnergySystemicRiskResult = {
   shippingReading: EnergyIndicatorReading;
   shippingScore: number | null;
   chokepointReadings: { slug: string; label: string; value: number | null; asOf: string | null; score: number | null; previousValue: number | null }[];
+  electricityReading: { germany: EnergyIndicatorReading; france: EnergyIndicatorReading };
+  electricityScore: number | null;
   marketReading: EnergyIndicatorReading;
   marketScore: number | null;
   structuralScore: number | null;
@@ -292,7 +324,7 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   const sinceStorage = new Date();
   sinceStorage.setUTCFullYear(sinceStorage.getUTCFullYear() - 5);
 
-  const [brentSeries, wtiSeries, ovxSeries, henryHubSeries, storageSeries, copperSeries, uraniumSeries, gscpiSeries, xleSeries, chokepointSeriesList] = await Promise.all([
+  const [brentSeries, wtiSeries, ovxSeries, henryHubSeries, storageSeries, copperSeries, uraniumSeries, gscpiSeries, xleSeries, chokepointSeriesList, deDayAheadSeries, frDayAheadSeries] = await Promise.all([
     fetchSeries(db, BRENT_KEY, sinceDaily.toISOString()),
     fetchSeries(db, WTI_KEY, sinceDaily.toISOString()),
     fetchSeries(db, OVX_KEY, sinceDaily.toISOString()),
@@ -303,6 +335,8 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
     fetchSeries(db, GSCPI_KEY, sinceMonthly.toISOString()),
     fetchSeries(db, XLE_KEY, sinceDaily.toISOString()),
     Promise.all(CHOKEPOINT_TANKER_KEYS.map((c) => fetchSeries(db, `energy.chokepoint.${c.slug}.transits_tanker`, sinceDaily.toISOString()))),
+    fetchSeries(db, DE_DAY_AHEAD_KEY, sinceDaily.toISOString()),
+    fetchSeries(db, FR_DAY_AHEAD_KEY, sinceDaily.toISOString()),
   ]);
 
   // Oil domain: Brent + WTI level (rising price = risk) blended with OVX
@@ -354,6 +388,23 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   ].filter((p): p is { score: number; weight: number } => p !== null);
   const shippingScore = shippingParts.length > 0 ? Math.round(shippingParts.reduce((a, b) => a + b.score * b.weight, 0) / shippingParts.reduce((a, b) => a + b.weight, 0)) : null;
 
+  // Electricity domain: German + French day-ahead price |z| — extremity in
+  // EITHER direction counts as risk, the same reasoning as the minerals
+  // domain: a price spike is real scarcity/tightness, while a very low or
+  // negative price (oversupply forcing curtailment) is its own genuine
+  // stress signal in European power markets, not a benign "cheap energy"
+  // reading. Germany weighted higher as the larger, more central market.
+  const deZ = zScore(deDayAheadSeries, DAILY_WINDOW);
+  const deElectricityScore = zToRiskScore(deZ !== null ? Math.abs(deZ) : null, 1);
+  const frZ = zScore(frDayAheadSeries, DAILY_WINDOW);
+  const frElectricityScore = zToRiskScore(frZ !== null ? Math.abs(frZ) : null, 1);
+  const electricityParts = [
+    deElectricityScore !== null ? { score: deElectricityScore, weight: 0.6 } : null,
+    frElectricityScore !== null ? { score: frElectricityScore, weight: 0.4 } : null,
+  ].filter((p): p is { score: number; weight: number } => p !== null);
+  const electricityScore =
+    electricityParts.length > 0 ? Math.round(electricityParts.reduce((a, b) => a + b.score * b.weight, 0) / electricityParts.reduce((a, b) => a + b.weight, 0)) : null;
+
   // Market domain: XLE price (below trend = stress) + realized vol.
   const xlePriceScore = zToRiskScore(zScore(xleSeries, DAILY_WINDOW), -1);
   const xleVolScore = zToRiskScore(zScore(rollingRealizedVolSeries(xleSeries), DAILY_WINDOW), 1);
@@ -368,6 +419,7 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
     gasScore,
     mineralsScore,
     shippingScore,
+    electricityScore,
     marketScore,
   });
 
@@ -380,8 +432,10 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
   const uraniumLast = latestPoint(uraniumSeries);
   const gscpiLast = latestPoint(gscpiSeries);
   const xleLast = latestPoint(xleSeries);
+  const deDayAheadLast = latestPoint(deDayAheadSeries);
+  const frDayAheadLast = latestPoint(frDayAheadSeries);
 
-  const applicableScores = [oilScore, gasScore, mineralsScore, shippingScore, marketScore];
+  const applicableScores = [oilScore, gasScore, mineralsScore, shippingScore, electricityScore, marketScore];
   const indicatorsAvailable = applicableScores.filter((v) => v !== null).length;
   const dataCompleteness = Math.round((indicatorsAvailable / applicableScores.length) * 100) / 100;
 
@@ -409,6 +463,11 @@ export async function getEnergySystemicRiskResult(db: SupabaseClient): Promise<E
       const last = latestPoint(series);
       return { slug: c.slug, label: c.label, value: last?.v ?? null, asOf: last?.t ?? null, score: chokepointScores[i], previousValue: previousOf(series)?.v ?? null };
     }),
+    electricityReading: {
+      germany: { value: deDayAheadLast?.v ?? null, asOf: deDayAheadLast?.t ?? null, score: deElectricityScore, previousValue: previousOf(deDayAheadSeries)?.v ?? null },
+      france: { value: frDayAheadLast?.v ?? null, asOf: frDayAheadLast?.t ?? null, score: frElectricityScore, previousValue: previousOf(frDayAheadSeries)?.v ?? null },
+    },
+    electricityScore,
     marketReading: { value: xleLast?.v ?? null, asOf: xleLast?.t ?? null, score: marketScore, previousValue: previousOf(xleSeries)?.v ?? null },
     marketScore,
     structuralScore,

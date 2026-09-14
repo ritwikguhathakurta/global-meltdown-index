@@ -70,6 +70,7 @@ import type { CommodityCategory } from "@/lib/commodities/taxonomy";
 import type { CountryBalanceCommodityDef } from "@/lib/commodities/countryBalanceTaxonomy";
 import { getChemicalsOverview as computeChemicalsOverview, type ChemicalsOverviewResult } from "@/lib/engines/chemicals";
 import { getOleochemicals as computeOleochemicals, type OleochemicalsResult } from "@/lib/engines/oleochemicals";
+import { getEuropeanGrid as computeEuropeanGrid, type EuropeanGridResult } from "@/lib/engines/europeanGrid";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
 
@@ -677,6 +678,17 @@ export async function getOleochemicals(): Promise<OleochemicalsResult | null> {
   try {
     const db = await createServerSupabase();
     return await computeOleochemicals(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getEuropeanGrid(): Promise<EuropeanGridResult | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeEuropeanGrid(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;

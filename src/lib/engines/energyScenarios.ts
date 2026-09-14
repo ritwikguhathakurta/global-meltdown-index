@@ -27,6 +27,7 @@ export type EnergyScenarioShock = {
   gasDelta?: number;
   mineralsDelta?: number;
   shippingDelta?: number;
+  electricityDelta?: number;
   marketDelta?: number;
 };
 
@@ -224,6 +225,7 @@ export function applyEnergyScenario(baseline: EnergyDomainScores, scenario: Ener
     gasScore: applyDelta(baseline.gasScore, scenario.shock.gasDelta),
     mineralsScore: applyDelta(baseline.mineralsScore, scenario.shock.mineralsDelta),
     shippingScore: applyDelta(baseline.shippingScore, scenario.shock.shippingDelta),
+    electricityScore: applyDelta(baseline.electricityScore, scenario.shock.electricityDelta),
     marketScore: applyDelta(baseline.marketScore, scenario.shock.marketDelta),
   };
   const composite = composeEnergyComposite(shocked);

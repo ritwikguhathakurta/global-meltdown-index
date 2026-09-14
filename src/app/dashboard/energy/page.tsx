@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getLatestEngine, getEnergySystemicRiskResult, getCountryEnergyBalanceTable, getCountryRenewablesTable, getGridSnapshots, getEnergyTradeNetworkGraph, getEnergyBacktestResult } from "@/lib/api/engineData";
 import { HISTORICAL_ENERGY_CRISES, LEAD_LOOKBACK_MONTHS } from "@/lib/engines/energyBacktest";
 import type { EnergyTradeNetworkResult } from "@/lib/engines/energyTradeNetwork";
@@ -225,6 +226,7 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
         gasScore: gesri.gasScore,
         mineralsScore: gesri.mineralsScore,
         shippingScore: gesri.shippingScore,
+        electricityScore: gesri.electricityScore,
         marketScore: gesri.marketScore,
       })
     : null;
@@ -232,7 +234,12 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Energy</h1>
+      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Energy</h1>
+        <Link href="/dashboard/energy/european-grid" className="text-xs text-accent hover:underline">
+          European Grid Monitor &amp; Trade Network (ENTSO-E) →
+        </Link>
+      </div>
       <EngineDetail title="Energy" rows={rows} />
 
       <h2 className="mb-2 mt-12 text-xl font-semibold">Global Energy Systemic Risk (GESRI)</h2>
@@ -355,6 +362,19 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
                     </td>
                     <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(gesri.shippingScore) }}>
                       {gesri.shippingScore ?? "—"}
+                    </td>
+                  </tr>
+                  <tr className="border-t border-border align-top">
+                    <td className="px-3 py-2 font-medium">Electricity (European Day-Ahead)</td>
+                    <td className="gfew-mono px-3 py-2 text-text-dim">
+                      Germany {fmt(gesri.electricityReading.germany.value, "EUR/MWh", 1)}
+                      <TrendIndicator value={gesri.electricityReading.germany.value} previous={gesri.electricityReading.germany.previousValue} />
+                      {" · "}France {fmt(gesri.electricityReading.france.value, "EUR/MWh", 1)}
+                      <TrendIndicator value={gesri.electricityReading.france.value} previous={gesri.electricityReading.france.previousValue} />
+                      {" — |z|-scored: price spikes AND sub-zero/near-zero prices both score as stress (see European Grid page)"}
+                    </td>
+                    <td className="gfew-mono px-3 py-2 font-semibold" style={{ color: scoreColor(gesri.electricityScore) }}>
+                      {gesri.electricityScore ?? "—"}
                     </td>
                   </tr>
                   <tr className="border-t border-border align-top">
@@ -533,8 +553,9 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
           <section className="mb-8">
             <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-text-dim">Score Breakdown</h2>
             <p className="mb-3 max-w-3xl text-xs text-text-dim">
-              Weights are fixed (Structural 40% / Market 35% / Convergence 25% of composite; Oil 35% /
-              Natural Gas 25% / Critical Minerals 20% / Shipping 20% of Structural).
+              Weights are fixed (Structural 40% / Market 35% / Convergence 25% of composite; Oil 30% /
+              Natural Gas 21% / Critical Minerals 17% / Shipping 17% / Electricity 15% of Structural — the
+              original four were rebalanced by a common factor, not overridden, to make room for Electricity).
             </p>
             <div className="gfew-panel p-3">
               <ContributionBar
@@ -556,6 +577,7 @@ export default async function EnergyPage({ searchParams }: { searchParams: Promi
                     { label: "Natural Gas", value: contribution(gesri.gasScore, STRUCTURAL_WEIGHTS.gas), color: "#e0b93d" },
                     { label: "Minerals", value: contribution(gesri.mineralsScore, STRUCTURAL_WEIGHTS.minerals), color: "#8b96a8" },
                     { label: "Shipping", value: contribution(gesri.shippingScore, STRUCTURAL_WEIGHTS.shipping), color: "#3fa9f5" },
+                    { label: "Electricity", value: contribution(gesri.electricityScore, STRUCTURAL_WEIGHTS.electricity), color: "#9d7fe0" },
                   ]}
                 />
               </div>

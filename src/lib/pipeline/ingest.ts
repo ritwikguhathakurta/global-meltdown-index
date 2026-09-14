@@ -85,6 +85,7 @@ import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
 import { fetchUnComtradeEnergyFlows, fetchUnComtradeOleochemicalFlowsForCommodity, OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
+import { fetchEntsoeDayAheadPrices, fetchEntsoeLoad, fetchEntsoeGeneration, fetchEntsoeCrossBorderFlowsForBorder, EU_GRID_BORDERS } from "../sources/entsoe";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
 import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances, fetchUsdaPsdCountryBalances } from "../sources/usdaPsd";
@@ -1072,6 +1073,76 @@ export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runD
   return { stage: "ingest_un_comtrade_oleochemical_flows", status, detail };
 }
 
+/** ENTSO-E Transparency Platform — European Grid Monitor (spec §23-25
+ * equivalent, extended to Europe) + Cross-Border Electricity Trade Network.
+ * Free, official, all TSOs' own reported data via ENTSO-E's central hub. */
+export async function ingestEntsoeDayAheadPrices(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const { points, errors } = await fetchEntsoeDayAheadPrices();
+    await upsertMetrics(db, points);
+    const status = errors.length === 0 ? "ok" : points.length > 0 ? "warning" : "failed";
+    const detail = { points: points.length, errors };
+    await logRun(db, runDate, "ingest_entsoe_day_ahead_prices", status, detail);
+    return { stage: "ingest_entsoe_day_ahead_prices", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_entsoe_day_ahead_prices", "failed", detail);
+    return { stage: "ingest_entsoe_day_ahead_prices", status: "failed", detail };
+  }
+}
+
+export async function ingestEntsoeLoad(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const { points, errors } = await fetchEntsoeLoad();
+    await upsertMetrics(db, points);
+    const status = errors.length === 0 ? "ok" : points.length > 0 ? "warning" : "failed";
+    const detail = { points: points.length, errors };
+    await logRun(db, runDate, "ingest_entsoe_load", status, detail);
+    return { stage: "ingest_entsoe_load", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_entsoe_load", "failed", detail);
+    return { stage: "ingest_entsoe_load", status: "failed", detail };
+  }
+}
+
+export async function ingestEntsoeGeneration(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const { points, errors } = await fetchEntsoeGeneration();
+    await upsertMetrics(db, points);
+    const status = errors.length === 0 ? "ok" : points.length > 0 ? "warning" : "failed";
+    const detail = { points: points.length, errors };
+    await logRun(db, runDate, "ingest_entsoe_generation", status, detail);
+    return { stage: "ingest_entsoe_generation", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_entsoe_generation", "failed", detail);
+    return { stage: "ingest_entsoe_generation", status: "failed", detail };
+  }
+}
+
+export async function ingestEntsoeCrossBorderFlows(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  // Same per-item-isolation + incremental-upsert lesson as the oleochemical
+  // trade flows above: 18 borders x 2 directions x a 1-month ENTSO-E query
+  // each is enough calls that one border's failure (or the stage running
+  // long) shouldn't cost every other border's already-fetched data.
+  let totalPoints = 0;
+  const errors: string[] = [];
+  for (const border of EU_GRID_BORDERS) {
+    try {
+      const points = await fetchEntsoeCrossBorderFlowsForBorder(border);
+      await upsertMetrics(db, points);
+      totalPoints += points.length;
+    } catch (e) {
+      errors.push(`${border.outSlug}-${border.inSlug}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
+  const detail = { points: totalPoints, errors };
+  await logRun(db, runDate, "ingest_entsoe_cross_border_flows", status, detail);
+  return { stage: "ingest_entsoe_cross_border_flows", status, detail };
+}
+
 export async function ingestWorldBankCommodities(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     // The Pink Sheet workbook itself has genuine monthly data back to 1960
@@ -1378,6 +1449,10 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
     withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
     withTimeout("ingest_un_comtrade_oleochemical_flows", ingestUnComtradeOleochemicalFlows(db, runDate)),
+    withTimeout("ingest_entsoe_day_ahead_prices", ingestEntsoeDayAheadPrices(db, runDate)),
+    withTimeout("ingest_entsoe_load", ingestEntsoeLoad(db, runDate)),
+    withTimeout("ingest_entsoe_generation", ingestEntsoeGeneration(db, runDate)),
+    withTimeout("ingest_entsoe_cross_border_flows", ingestEntsoeCrossBorderFlows(db, runDate)),
     withTimeout("ingest_energy_backtest_series", ingestEnergyBacktestSeries(db, runDate)),
     withTimeout("ingest_world_bank_commodities", ingestWorldBankCommodities(db, runDate)),
     withTimeout("ingest_critical_minerals", ingestCriticalMinerals(db, runDate)),
