@@ -123,6 +123,17 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// The fixed inter-call delays below exist to stay under each tier's rate
+// limit, not out of an arbitrary caution — so they scale with which tier is
+// actually active. Live burst-testing found the registered tier tolerates
+// near-zero delay (only 1 of 5 zero-delay rapid-fire calls hit a 429, vs.
+// 429s after 2-3 calls on the keyless preview tier), and this matters in
+// practice: without shortening these, migrating to the registered tier alone
+// left the oleochemical ingest stage still hitting its 150s timeout, because
+// the fixed delays — not 429 retries — were the dominant cost all along.
+const PROBE_DELAY_MS = UN_COMTRADE_SUBSCRIPTION_KEY ? 300 : 1500;
+const CHUNK_DELAY_MS = UN_COMTRADE_SUBSCRIPTION_KEY ? 400 : 2000;
+
 async function comtradeQuery(params: { reporterCode: string; partnerCode: string; period: string; cmdCode: string }): Promise<ComtradeRow[]> {
   const url = new URL(BASE_URL);
   url.searchParams.set("reporterCode", params.reporterCode);
@@ -150,7 +161,7 @@ async function findLatestAvailableYear(cmdCode: string): Promise<string> {
   for (let y = currentYear - 1; y >= currentYear - 4; y--) {
     const rows = await comtradeQuery({ reporterCode: "842", partnerCode: "0", period: String(y), cmdCode });
     if (rows.some((r) => r.flowCode === "X" && r.motCode === 0 && r.partner2Code === 0 && r.primaryValue !== null)) return String(y);
-    await delay(1500);
+    await delay(PROBE_DELAY_MS);
   }
   throw new Error(`UN Comtrade: no export data found for cmdCode ${cmdCode} in the last 4 years`);
 }
@@ -162,7 +173,7 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
   const points: MetricPoint[] = [];
   for (const commodity of TRADE_COMMODITIES) {
     const year = await findLatestAvailableYear(commodity.hsCode);
-    await delay(1500);
+    await delay(PROBE_DELAY_MS);
     // Batch reporters in groups of 4 (both dimensions accept comma-separated
     // codes) rather than one call per reporter — cuts ~16 calls down to ~4
     // per commodity, which is what keeps this stage inside its 150s budget
@@ -194,7 +205,7 @@ export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
         const pairKey = `${reporterSlug}_to_${partnerSlug}`;
         valueByPair.set(pairKey, row.primaryValue);
       }
-      await delay(2000);
+      await delay(CHUNK_DELAY_MS);
     }
     for (const [pairKey, value] of valueByPair) {
       points.push({
@@ -285,7 +296,7 @@ export async function fetchUnComtradeOleochemicalFlowsForCommodity(commodity: { 
   const allCodes = Object.values(OLEOCHEM_COMTRADE_CODES);
 
   const year = await findLatestAvailableYear(commodity.hsCode);
-  await delay(1500);
+  await delay(PROBE_DELAY_MS);
   const REPORTER_CHUNK_SIZE = 4;
   const valueByPair = new Map<string, number>();
   for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
@@ -300,7 +311,7 @@ export async function fetchUnComtradeOleochemicalFlowsForCommodity(commodity: { 
       const pairKey = `${reporterSlug}_to_${partnerSlug}`;
       valueByPair.set(pairKey, row.primaryValue);
     }
-    await delay(2000);
+    await delay(CHUNK_DELAY_MS);
   }
 
   const points: MetricPoint[] = [];
@@ -322,7 +333,7 @@ export async function fetchUnComtradeOleochemicalFlowsForCommodity(commodity: { 
   // Isolated in its own try/catch per reporter: a failure here must never
   // cost the bilateral network points already gathered above.
   for (const reporter of OLEOCHEM_TREND_REPORTERS) {
-    await delay(1500);
+    await delay(PROBE_DELAY_MS);
     try {
       const trendPoints = await fetchOleochemicalTradeTrendYear(commodity.hsCode, commodity.slug, reporter.slug, reporter.code, year);
       points.push(...trendPoints);
