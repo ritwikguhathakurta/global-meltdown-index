@@ -90,6 +90,7 @@ import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
 import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances, fetchUsdaPsdCountryBalances } from "../sources/usdaPsd";
 import { fetchUsgsMineralCommodities } from "../sources/usgsMineralCommodities";
+import { fetchUsgsCommodityCountryTradeForCommodity, USGS_TRADE_COMMODITIES, ComtradeQuotaExceededError } from "../sources/unComtradeCommodityTrade";
 import { fetchFaostatProduction, fetchFaostatOilseedsCountryProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
@@ -1252,6 +1253,40 @@ export async function ingestUsgsMineralCommodities(db: SupabaseClient, runDate: 
   }
 }
 
+export async function ingestUsgsCommodityCountryTrade(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  // Same per-commodity incremental-upsert lesson as the oleochemical UN
+  // Comtrade connector: ~18 commodities x up to 10 countries each, each
+  // needing 1-5 probe calls to find that country's own latest reportable
+  // year, must never let one slow/gap-heavy commodity cost every other
+  // commodity's already-fetched data.
+  let totalPoints = 0;
+  const errors: string[] = [];
+  for (const commodity of USGS_TRADE_COMMODITIES) {
+    try {
+      const { points, errors: commodityErrors } = await fetchUsgsCommodityCountryTradeForCommodity(commodity);
+      await upsertMetrics(db, points);
+      totalPoints += points.length;
+      errors.push(...commodityErrors);
+    } catch (e) {
+      // The registered key's DAILY call-volume quota (distinct from the
+      // per-burst rate limit) is shared across every UN Comtrade stage in
+      // this pipeline — once exhausted, every remaining call fails
+      // identically, so stop here rather than recording the same failure
+      // once per remaining commodity. Whatever already upserted above stays
+      // safe; the rest fills in on a later run once the quota resets.
+      if (e instanceof ComtradeQuotaExceededError) {
+        errors.push(`stopped early: ${e.message} (${commodity.slug} onward deferred to a later run)`);
+        break;
+      }
+      errors.push(`${commodity.slug}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
+  const detail = { points: totalPoints, errors };
+  await logRun(db, runDate, "ingest_usgs_commodity_country_trade", status, detail);
+  return { stage: "ingest_usgs_commodity_country_trade", status, detail };
+}
+
 export async function ingestFaostatProduction(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchFaostatProduction();
@@ -1469,6 +1504,12 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_usda_psd_soybean_countries", ingestUsdaPsdSoybeanCountries(db, runDate)),
     withTimeout("ingest_usda_psd_country_balances", ingestUsdaPsdCountryBalances(db, runDate)),
     withTimeout("ingest_usgs_mineral_commodities", ingestUsgsMineralCommodities(db, runDate)),
+    // ~18 commodities x up to 10 countries x 1-5 probe calls each — same
+    // reasoning as the oleochemical stage's own 250s override: measured
+    // wall-clock cost is close enough to the shared 150s budget that normal
+    // network jitter would routinely trip the "abandoned" fallback even
+    // though the underlying per-commodity upserts land safely regardless.
+    withStageTimeout("ingest_usgs_commodity_country_trade", ingestUsgsCommodityCountryTrade(db, runDate), 250_000, db, runDate),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
     withTimeout("ingest_bps_indonesia", ingestBpsIndonesia(db, runDate)),

@@ -2550,6 +2550,66 @@ export default function MethodologyPage() {
           built to route around, so a deeper rewrite to also cut the call count was left as a lower-priority
           follow-up rather than bundled into this change.
         </p>
+        <p className="mb-2">
+          <strong>Correction discovered later the same day</strong>: the registered key&apos;s higher tolerance for
+          rapid-fire requests (the burst test above) is a separate limit from a DAILY call-volume quota Azure APIM
+          also enforces — found live, the hard way, when the extensive verification testing for the Country Balance
+          Sheet build below (over a thousand calls across backfills, manual pipeline triggers, and live spot-checks
+          in one session) exhausted it, returning an HTTP 403 with the message &ldquo;Out of call volume quota. Quota
+          will be replenished in HH:MM:SS.&rdquo; Every Comtrade connector now treats this specific 403
+          distinctly from the retryable 429: it stops the whole ingest run immediately (further calls all fail
+          identically until reset) rather than burning through every remaining call on guaranteed failures, and
+          whatever already upserted before the quota hit stays safe. A normal single daily cron run uses far fewer
+          calls than this session&apos;s manual testing did, but it&apos;s a real shared constraint worth knowing
+          about if a Comtrade-dependent stage ever reports a quota-exceeded error.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Country Balance Sheet — Real Trade Data for Metals/Fertilizers (shipped)</h2>
+        <p className="mb-2">
+          The Base Metals/Precious Metals/Critical Minerals/Fertilizers Country Balance Sheet had shown Production
+          and YoY only since it was built — USGS&apos;s Mineral Commodity Summaries is a production-only source, so
+          Imports/Exports/Net Trade/Apparent Consumption/Classification all read &ldquo;—&rdquo; for every one of
+          those 18 commodities&apos; ~150 country rows (Ending Stocks/Stocks-to-Use, spec-wide, still do — no free
+          country-level stocks source exists for any of them). The generic country-balance engine
+          (commodityCountryBalance.ts) already computes all of those fields from real imports/exports the moment
+          they exist, unchanged — this build was entirely about sourcing that missing trade data via UN Comtrade&apos;s
+          registered tier, for all 52 countries across the 18 commodities, not an engine rewrite.
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real and new</strong>: a UN M49 reporter code for all 52 countries and a live-verified
+          HS trade code for all 18 commodities (countryBalanceTaxonomy.ts&apos;s new <code>comtradeM49Code</code>/
+          <code>comtradeHsCodes</code> fields); a new connector (unComtradeCommodityTrade.ts) that probes each
+          country&apos;s own latest reportable year independently (countries report to Comtrade on different lags —
+          a single shared &ldquo;latest year&rdquo; would wrongly skip faster- or slower-reporting countries) and
+          only trusts a kilogram-denominated grand-total row, exactly like the oleochemical trend connector; real
+          Imports/Exports (and the Net Trade/Apparent Consumption/Classification the existing engine derives from
+          them) now populated for the countries that have usable Comtrade data.
+        </p>
+        <p className="mb-2">
+          <strong>A real bug caught before shipping</strong>: the first version summed two nickel HS codes (unwrought
+          nickel 7502 + ferronickel 720260) to avoid undercounting Indonesia. Live-tested, this made Indonesia&apos;s
+          &ldquo;exports&rdquo; come out to 11.6M tonnes against 2.6M tonnes of USGS mine production — physically
+          impossible-looking, because ferronickel is an iron-diluted alloy (roughly 10-40% nickel by weight), not a
+          weight-comparable product to refined nickel metal. Reverted to HS 7502 alone: Indonesia and the Philippines
+          now correctly show small unwrought-nickel exports relative to their mine production, reflecting that they
+          convert most of it domestically (stainless steel, battery precursors, ferronickel) rather than exporting
+          raw metal — a real fact, not an undercount to fix further. The same single-dominant-trade-form principle
+          (never a multi-code sum) was applied to the other 17 commodities for the same reason.
+        </p>
+        <p className="mb-2">
+          <strong>Other genuine data-quality findings, all disclosed on their category pages rather than patched
+          over</strong>: South Africa (platinum) and Mexico (silver) — each metal&apos;s single largest producer —
+          report trade value but not a physical weight to Comtrade, so those specific rows still read &ldquo;—&rdquo;
+          for imports/exports; the DRC barely reports to Comtrade at all for cobalt (its own total-trade figure comes
+          back mirror-estimated with no weight), so its real cobalt export figure is a significant, disclosed
+          undercount, not a data error; and Lithium&apos;s trade figure is shown in lithium-carbonate mass (HS
+          283691, the dominant traded compound) rather than the elemental-lithium-content basis USGS uses for
+          production — Chile&apos;s figures convert to a consistent number once you account for carbonate being
+          ~19% lithium by mass, but look ~4x larger side by side without that conversion, which isn&apos;t performed
+          here rather than assume a specific carbonate purity this app has no per-shipment basis for.
+        </p>
       </section>
 
       <section className="mb-8">
