@@ -1,10 +1,13 @@
 import { fetchWorldNews } from "@/lib/sources/gdeltNews";
 
-// Six sequential, deliberately-throttled GDELT calls (see gdeltNews.ts) are
-// too slow for Next.js's one-time build-time prerender attempt to tolerate —
-// force this route to only ever render per-request on the deployed server,
-// never during `next build`.
+// Six staggered GDELT calls (see gdeltNews.ts) are too slow/unreliable for
+// Next.js's one-time build-time prerender attempt to tolerate — force this
+// route to only ever render per-request on the deployed server, never
+// during `next build`.
 export const dynamic = "force-dynamic";
+// Generous safety margin above the ~12s worst-case (6 regions x 1.2s stagger
+// + one 6s request) — comfortably within the Hobby-plan ceiling.
+export const maxDuration = 60;
 
 function timeAgo(iso: string): string {
   if (!iso) return "";
@@ -24,7 +27,7 @@ export default async function WorldNewsPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-semibold text-text">World News</h1>
       <p className="mb-2 mt-2 max-w-3xl text-sm text-text-dim">
-        Real, live English-language headlines from the last 2 days, pulled directly from{" "}
+        Real, live headlines from the last 2 days, pulled directly from{" "}
         <a href="https://www.gdeltproject.org/" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
           GDELT
         </a>{" "}
@@ -48,7 +51,7 @@ export default async function WorldNewsPage() {
               <p className="text-xs text-text-dim">Temporarily unavailable ({error}) — try reloading in a moment.</p>
             )}
             {articles.length === 0 && !error && (
-              <p className="text-xs text-text-dim">No recent English-language coverage matched in the last 2 days.</p>
+              <p className="text-xs text-text-dim">No recent coverage matched in the last 2 days.</p>
             )}
 
             <ul className="space-y-2.5">
@@ -65,6 +68,7 @@ export default async function WorldNewsPage() {
                   <div className="mt-0.5 text-[11px] text-text-dim">
                     {a.domain}
                     {a.sourceCountry ? ` · ${a.sourceCountry}` : ""}
+                    {a.language && a.language.toLowerCase() !== "english" ? ` · ${a.language}` : ""}
                     {a.seenAt ? ` · ${timeAgo(a.seenAt)}` : ""}
                   </div>
                 </li>

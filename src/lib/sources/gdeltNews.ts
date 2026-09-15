@@ -82,8 +82,13 @@ const TIMESPAN = "2d";
 // given client; this app fetches regions sequentially (never in parallel)
 // with margin above that, and Next.js's fetch cache (revalidate below) means
 // most page views hit the cache rather than GDELT at all.
-const INTER_REQUEST_DELAY_MS = 1500;
+const INTER_REQUEST_DELAY_MS = 1200;
 const REVALIDATE_SECONDS = 600;
+// Vercel's default function timeout (10s on Hobby) is shorter than six
+// sequential, deliberately-throttled GDELT calls can reliably finish in —
+// this bounds each individual call so one slow/hanging request can't eat
+// the whole budget; the page itself also declares a longer maxDuration.
+const PER_REQUEST_TIMEOUT_MS = 6000;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -118,7 +123,12 @@ export type WorldNewsRegionResult = {
 
 async function fetchRegionArticles(region: WorldNewsRegion): Promise<WorldNewsRegionResult> {
   const params = new URLSearchParams({
-    query: `${region.query} sourcelang:english`,
+    // No sourcelang: filter — live-tested and found to zero out results even
+    // for broad, heavily-covered terms (Gaza, Ukraine, China) across every
+    // region, so it's dropped rather than shipped as a silent "no coverage"
+    // bug. Region keywords are common English proper nouns, which already
+    // biases results toward English/wire coverage without a hard filter.
+    query: region.query,
     mode: "ArtList",
     format: "json",
     sort: "DateDesc",
@@ -130,6 +140,7 @@ async function fetchRegionArticles(region: WorldNewsRegion): Promise<WorldNewsRe
     const res = await fetch(`${GDELT_BASE}?${params.toString()}`, {
       next: { revalidate: REVALIDATE_SECONDS },
       headers: { "User-Agent": "GlobalMeltdownIndex/1.0 (+https://globalmeltdownindex.net)" },
+      signal: AbortSignal.timeout(PER_REQUEST_TIMEOUT_MS),
     });
     const text = await res.text();
 
@@ -165,15 +176,17 @@ async function fetchRegionArticles(region: WorldNewsRegion): Promise<WorldNewsRe
 }
 
 /**
- * Fetches all regions SEQUENTIALLY with a delay between calls — GDELT's own
- * throttle message asks for this, and doing it in parallel from a shared
- * hosting IP is exactly what triggers it.
+ * Fetches all regions with STAGGERED START times (not fully sequential
+ * wait-for-completion) — spaced per GDELT's own throttle guidance, but
+ * running concurrently once kicked off so total wall time is roughly
+ * (regions × stagger) + one request's duration, not the sum of all of them.
+ * A first version awaited each call fully before starting the next, which
+ * could exceed 40s across six calls and tripped Vercel's function timeout —
+ * this fixes that while still not bursting all six requests at once.
  */
 export async function fetchWorldNews(): Promise<WorldNewsRegionResult[]> {
-  const results: WorldNewsRegionResult[] = [];
-  for (let i = 0; i < WORLD_NEWS_REGIONS.length; i++) {
-    results.push(await fetchRegionArticles(WORLD_NEWS_REGIONS[i]));
-    if (i < WORLD_NEWS_REGIONS.length - 1) await delay(INTER_REQUEST_DELAY_MS);
-  }
-  return results;
+  const staggered = WORLD_NEWS_REGIONS.map((region, i) =>
+    delay(i * INTER_REQUEST_DELAY_MS).then(() => fetchRegionArticles(region))
+  );
+  return Promise.all(staggered);
 }
