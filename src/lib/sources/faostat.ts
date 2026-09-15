@@ -39,6 +39,32 @@ const FAOSTAT_ZIP_URL = "https://bulks-faostat.fao.org/production/Production_Cro
 const WORLD_AREA_CODE = "5000";
 const PRODUCTION_ELEMENT_CODE = "5510";
 
+/** Both fetch functions below need the same 25MB zip's NOFLAG CSV entry.
+ * ingest.ts runs both concurrently in the same pipeline invocation — without
+ * this, that meant two full downloads and two synchronous AdmZip
+ * decompressions of the same file back to back, which is real, measurable
+ * CPU/network waste that (live-verified during the UN Comtrade rate-limit
+ * fix) was blocking the Node event loop enough to help push OTHER
+ * concurrently-running pipeline stages over their own 150s timeout. Cached
+ * per serverless invocation (module-scope), not persisted anywhere — a cold
+ * invocation always re-fetches fresh data, so there's no staleness risk for
+ * data that only changes annually anyway. */
+let cachedCsvBuffer: Promise<Buffer> | null = null;
+async function getFaostatCsvBuffer(): Promise<Buffer> {
+  if (!cachedCsvBuffer) {
+    cachedCsvBuffer = (async () => {
+      const res = await fetch(FAOSTAT_ZIP_URL, { next: { revalidate: 0 } });
+      if (!res.ok) throw new Error(`FAOSTAT bulk download: HTTP ${res.status}`);
+      const zipBuffer = Buffer.from(await res.arrayBuffer());
+      const zip = new AdmZip(zipBuffer);
+      const entry = zip.getEntries().find((e) => e.entryName.toUpperCase().includes("NOFLAG") && e.entryName.toLowerCase().endsWith(".csv"));
+      if (!entry) throw new Error("FAOSTAT bulk download: no NOFLAG CSV entry found in zip");
+      return entry.getData();
+    })();
+  }
+  return cachedCsvBuffer;
+}
+
 function parseCsvLine(line: string): string[] {
   const out: string[] = [];
   let cur = "";
@@ -73,14 +99,7 @@ export async function fetchFaostatProduction(): Promise<MetricPoint[]> {
   const wantedItems = new Map(BALANCE_COMMODITIES.filter((c) => c.source === "faostat").map((c) => [c.sourceCode, c]));
   if (wantedItems.size === 0) return [];
 
-  const res = await fetch(FAOSTAT_ZIP_URL, { next: { revalidate: 0 } });
-  if (!res.ok) throw new Error(`FAOSTAT bulk download: HTTP ${res.status}`);
-  const zipBuffer = Buffer.from(await res.arrayBuffer());
-
-  const zip = new AdmZip(zipBuffer);
-  const entry = zip.getEntries().find((e) => e.entryName.toUpperCase().includes("NOFLAG") && e.entryName.toLowerCase().endsWith(".csv"));
-  if (!entry) throw new Error("FAOSTAT bulk download: no NOFLAG CSV entry found in zip");
-  const csvBuffer = entry.getData();
+  const csvBuffer = await getFaostatCsvBuffer();
 
   const rl = readline.createInterface({ input: Readable.from(csvBuffer), crlfDelay: Infinity });
   let header: string[] | null = null;
@@ -147,14 +166,7 @@ const OILSEEDS_COUNTRY_ITEMS: { itemCode: string; commoditySlug: string }[] = [
 ];
 
 export async function fetchFaostatOilseedsCountryProduction(): Promise<MetricPoint[]> {
-  const res = await fetch(FAOSTAT_ZIP_URL, { next: { revalidate: 0 } });
-  if (!res.ok) throw new Error(`FAOSTAT bulk download: HTTP ${res.status}`);
-  const zipBuffer = Buffer.from(await res.arrayBuffer());
-
-  const zip = new AdmZip(zipBuffer);
-  const entry = zip.getEntries().find((e) => e.entryName.toUpperCase().includes("NOFLAG") && e.entryName.toLowerCase().endsWith(".csv"));
-  if (!entry) throw new Error("FAOSTAT bulk download: no NOFLAG CSV entry found in zip");
-  const csvBuffer = entry.getData();
+  const csvBuffer = await getFaostatCsvBuffer();
 
   const itemBySlug = new Map(OILSEEDS_COUNTRY_ITEMS.map((i) => [i.itemCode, i.commoditySlug]));
 
