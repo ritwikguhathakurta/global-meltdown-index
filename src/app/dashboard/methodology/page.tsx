@@ -2522,6 +2522,37 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">UN Comtrade — Registered-Key Tier (shipped)</h2>
+        <p className="mb-2">
+          The user registered a free comtradeplus.un.org account and supplied its subscription key, plus the
+          official OpenAPI spec for the keyless preview tier this app had been using since the Energy Trade Network
+          build. Rather than assume the key would help, both tiers were tested live side by side first: the keyless
+          preview endpoint still rejects a 2-period request even with the key attached (confirming the spec&apos;s
+          own &ldquo;maximum 1 period for preview&rdquo; limit is enforced regardless of authentication), but the
+          separate registered endpoint (<code>data/v1/get</code>, unlocked by the same key via an
+          <code>Ocp-Apim-Subscription-Key</code> header) accepted 5 comma-separated years AND 4 comma-separated
+          commodity codes in single calls, and only hit a rate limit on 1 of 5 rapid-fire requests with no delay at
+          all — versus the preview tier&apos;s observed 429s after 2-3 rapid calls.
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real and new</strong>: every UN Comtrade call across the Energy Trade Network,
+          Oleochemical trade flows, and the Trade Price &amp; Volume Trend now automatically uses the registered
+          endpoint when <code>UN_COMTRADE_SUBSCRIPTION_KEY</code> is configured, with the exact same response shape
+          (<code>{"{"} data: [...] {"}"}</code>) so no downstream parsing changed — and transparently falls back to
+          the original keyless preview tier when the key isn&apos;t set, so this file keeps working in any
+          environment. The immediate benefit is resilience against the rate-limit/150s-stage-timeout issue this
+          engine hit twice during its own build, not a new dataset.
+        </p>
+        <p className="mb-2">
+          <strong>Not built yet</strong>, and why: restructuring the existing per-commodity loops to actually batch
+          multiple years/commodity-codes into single calls (what the registered tier&apos;s test above showed is
+          now possible) — the higher rate-limit ceiling alone already fixes the timeout risk these connectors were
+          built to route around, so a deeper rewrite to also cut the call count was left as a lower-priority
+          follow-up rather than bundled into this change.
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">European Grid Monitor &amp; Trade Network (ENTSO-E)</h2>
         <p className="mb-2">
           The user supplied a free ENTSO-E Transparency Platform API token (the official hub every European

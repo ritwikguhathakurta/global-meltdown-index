@@ -2,27 +2,39 @@ import type { MetricPoint } from "../metrics/store";
 import { EIA_COUNTRIES } from "./eiaApi";
 
 /**
- * UN Comtrade — free, no key, no login "data preview" API for official
- * bilateral trade statistics. Verified live before wiring in:
- * https://comtradeapi.un.org/public/v1/preview/C/A/HS
+ * UN Comtrade — official bilateral trade statistics. Two tiers, both
+ * verified live before use:
+ *
+ *  - Keyless "data preview" API (https://comtradeapi.un.org/public/v1/
+ *    preview/C/A/HS): no registration, but capped at 1 period and 1
+ *    commodity code per call (both confirmed live — a 2-period request
+ *    returns an error even with a subscription key attached), and
+ *    aggressively rate-limited (observed 429s after 2-3 rapid calls).
+ *  - Registered "data get" API (https://comtradeapi.un.org/data/v1/get/C/A/
+ *    HS), unlocked by a free comtradeplus.un.org account's subscription
+ *    key, passed as an `Ocp-Apim-Subscription-Key` header: live-verified to
+ *    accept multiple comma-separated periods AND multiple commodity codes
+ *    in a single call, with a visibly higher rate-limit ceiling (only 1 of
+ *    5 rapid-fire calls hit a 429, vs. 2-3 for the keyless tier) — same
+ *    response shape (`{ data: [...] }`), so no parsing changes needed.
+ *
+ * UN_COMTRADE_SUBSCRIPTION_KEY selects the registered tier automatically;
+ * without it, every call below transparently falls back to the keyless
+ * preview tier (unchanged behavior, still fully functional, just more
+ * rate-limit-constrained) — so this file works in any environment.
  *
  * This is what makes the trade network graph real rather than a geographic
  * proxy: genuine country-to-country export values (reported in USD) for
  * crude oil (HS 2709) and natural/petroleum gas (HS 2711), among the same
  * 16-country universe used elsewhere (eiaApi.ts's EIA_COUNTRIES).
  *
- * The preview endpoint has NO documented daily quota but is aggressively
- * rate-limited per request burst (observed 429s after 2-3 rapid calls) and
- * caps each response at 500 records — both handled below: one batched call
- * per reporter (all 15 other countries as partners in a single request,
- * comfortably under the 500-record cap) with a fixed delay and retry-with-
- * backoff between calls. A free registered API key (comtradeplus.un.org)
- * would raise these limits for deeper/more frequent pulls later.
- *
  * Global Energy Trade Network Graph (spec §82-84, 122-123).
  */
 
-const BASE_URL = "https://comtradeapi.un.org/public/v1/preview/C/A/HS";
+const UN_COMTRADE_SUBSCRIPTION_KEY = process.env.UN_COMTRADE_SUBSCRIPTION_KEY;
+const BASE_URL = UN_COMTRADE_SUBSCRIPTION_KEY
+  ? "https://comtradeapi.un.org/data/v1/get/C/A/HS"
+  : "https://comtradeapi.un.org/public/v1/preview/C/A/HS";
 
 // UN M49 numeric country codes, verified live against comtradeapi.un.org's
 // own Reporters reference list for each of the 16 countries.
@@ -118,8 +130,9 @@ async function comtradeQuery(params: { reporterCode: string; partnerCode: string
   url.searchParams.set("period", params.period);
   url.searchParams.set("cmdCode", params.cmdCode);
 
+  const headers: HeadersInit | undefined = UN_COMTRADE_SUBSCRIPTION_KEY ? { "Ocp-Apim-Subscription-Key": UN_COMTRADE_SUBSCRIPTION_KEY } : undefined;
   for (let attempt = 0; attempt <= 2; attempt++) {
-    const res = await fetch(url.toString(), { next: { revalidate: 0 } });
+    const res = await fetch(url.toString(), { next: { revalidate: 0 }, headers });
     if (res.status === 429) {
       if (attempt === 2) throw new Error(`UN Comtrade: rate limited after retries (cmd ${params.cmdCode}, reporter ${params.reporterCode})`);
       await delay(4000 * (attempt + 1));
