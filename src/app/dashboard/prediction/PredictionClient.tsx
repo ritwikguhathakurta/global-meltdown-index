@@ -8,6 +8,9 @@ type AnalyzeResponse = {
   commodity: { slug: string; label: string; unit: string; category: string };
   dataPoints: number;
   dataRange: { from: string; to: string };
+  annualYearsUsed: number;
+  covariatesUsed: string[];
+  covariatesDropped: { label: string; reason: string }[];
   analysisText: string;
   codeExecuted: string[];
 };
@@ -117,9 +120,29 @@ export function PredictionClient({ commodities }: { commodities: CommodityOption
             <h2 className="text-lg font-semibold text-text">{result.commodity.label}</h2>
             <span className="text-xs text-text-dim">
               {result.dataPoints} real observations · {result.dataRange.from.slice(0, 10)} to{" "}
-              {result.dataRange.to.slice(0, 10)}
+              {result.dataRange.to.slice(0, 10)} · {result.annualYearsUsed} annual data points used in the model
             </span>
           </div>
+
+          <div className="flex flex-wrap gap-2 text-xs">
+            {result.covariatesUsed.length > 0 ? (
+              result.covariatesUsed.map((c) => (
+                <span key={c} className="rounded bg-panel-raised px-2 py-1 text-[#34c085]">
+                  ✓ {c}
+                </span>
+              ))
+            ) : (
+              <span className="rounded bg-panel-raised px-2 py-1 text-text-dim">
+                No real covariate had enough overlapping history — price history only
+              </span>
+            )}
+            {result.covariatesDropped.map((d) => (
+              <span key={d.label} className="rounded bg-panel-raised px-2 py-1 text-text-dim" title={d.reason}>
+                ✕ {d.label}
+              </span>
+            ))}
+          </div>
+
           <p className="whitespace-pre-wrap text-sm text-text">{result.analysisText}</p>
           {result.codeExecuted.length > 0 && (
             <details className="text-xs">
