@@ -1448,7 +1448,16 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_eia_grid_monitor", ingestEiaGridMonitor(db, runDate)),
     withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
     withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
-    withTimeout("ingest_un_comtrade_oleochemical_flows", ingestUnComtradeOleochemicalFlows(db, runDate)),
+    // 7 commodities x (1 probe + 3 reporter-chunks + 2 trend calls) each with
+    // its own 429-retry risk measured live at ~130-140s end-to-end even on
+    // the registered-key tier — comfortably reports "ok" within 250s rather
+    // than relying on the "keeps running in the background after the
+    // timeout fires" fallback (still safe either way, but this way the
+    // pipeline_runs row reflects reality). Other stages are unaffected: this
+    // only raises THIS stage's own individual ceiling, still under the
+    // route's shared 300s maxDuration, and Promise.all already waits for
+    // whichever stage is slowest regardless.
+    withStageTimeout("ingest_un_comtrade_oleochemical_flows", ingestUnComtradeOleochemicalFlows(db, runDate), 250_000, db, runDate),
     withTimeout("ingest_entsoe_day_ahead_prices", ingestEntsoeDayAheadPrices(db, runDate)),
     withTimeout("ingest_entsoe_load", ingestEntsoeLoad(db, runDate)),
     withTimeout("ingest_entsoe_generation", ingestEntsoeGeneration(db, runDate)),
