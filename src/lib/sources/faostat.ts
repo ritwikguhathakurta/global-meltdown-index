@@ -128,8 +128,23 @@ export async function fetchFaostatProduction(): Promise<MetricPoint[]> {
 // Indonesia in particular, which otherwise only has ~1-2 years of monthly
 // BPS data. Cross-checked live: Malaysia's 2023 figure here (18.55M MT)
 // matches MPOB's own monthly-aggregated 2023 total almost exactly.
-const OILSEEDS_COUNTRY_AREA_CODES: Record<string, string> = { "101": "indonesia", "131": "malaysia" };
+//
+// Extended for the Oleochemicals engine's lauric-oil feedstock chain
+// (PKO/coconut oil -> lauric acid -> surfactants, oleochemValueChain.ts) with
+// Coconut Oil (item 252) for the Philippines, Indonesia and Malaysia — the
+// world's three largest producers, in that order. Area/item codes verified
+// live against this same bulk file before use (Philippines = Area Code 171,
+// Coconut oil = Item Code 252, both cross-checked against the file's own
+// Area/Item name columns, not guessed); the resulting 2022-2023 figures
+// (Philippines ~1.2-1.4M MT, Indonesia ~650K MT, Malaysia ~55K MT) match the
+// known real-world production ranking.
+const OILSEEDS_COUNTRY_AREA_CODES: Record<string, string> = { "101": "indonesia", "131": "malaysia", "171": "philippines" };
 const PALM_OIL_ITEM_CODE = "257";
+const COCONUT_OIL_ITEM_CODE = "252";
+const OILSEEDS_COUNTRY_ITEMS: { itemCode: string; commoditySlug: string }[] = [
+  { itemCode: PALM_OIL_ITEM_CODE, commoditySlug: "palm_oil" },
+  { itemCode: COCONUT_OIL_ITEM_CODE, commoditySlug: "coconut_oil" },
+];
 
 export async function fetchFaostatOilseedsCountryProduction(): Promise<MetricPoint[]> {
   const res = await fetch(FAOSTAT_ZIP_URL, { next: { revalidate: 0 } });
@@ -140,6 +155,8 @@ export async function fetchFaostatOilseedsCountryProduction(): Promise<MetricPoi
   const entry = zip.getEntries().find((e) => e.entryName.toUpperCase().includes("NOFLAG") && e.entryName.toLowerCase().endsWith(".csv"));
   if (!entry) throw new Error("FAOSTAT bulk download: no NOFLAG CSV entry found in zip");
   const csvBuffer = entry.getData();
+
+  const itemBySlug = new Map(OILSEEDS_COUNTRY_ITEMS.map((i) => [i.itemCode, i.commoditySlug]));
 
   const rl = readline.createInterface({ input: Readable.from(csvBuffer), crlfDelay: Infinity });
   let header: string[] | null = null;
@@ -155,7 +172,8 @@ export async function fetchFaostatOilseedsCountryProduction(): Promise<MetricPoi
     const country = OILSEEDS_COUNTRY_AREA_CODES[fields[0]];
     if (!country) continue;
     const itemCode = fields[3].replace(/^'/, "");
-    if (itemCode !== PALM_OIL_ITEM_CODE) continue;
+    const commoditySlug = itemBySlug.get(itemCode);
+    if (!commoditySlug) continue;
     const elementCode = fields[6];
     if (elementCode !== PRODUCTION_ELEMENT_CODE) continue;
 
@@ -167,7 +185,7 @@ export async function fetchFaostatOilseedsCountryProduction(): Promise<MetricPoi
       const tonnes = parseFloat(raw);
       if (Number.isNaN(tonnes)) continue;
       points.push({
-        metric_key: `commodity.palm_oil.${country}.production_annual`,
+        metric_key: `commodity.${commoditySlug}.${country}.production_annual`,
         observed_at: `${yearMatch[1]}-12-31`,
         value: tonnes / 1_000_000,
         unit: "million MT",

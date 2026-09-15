@@ -79,6 +79,20 @@ export type OleochemicalExportVolume = {
   yoy: number | null;
 };
 
+/** Real annual feedstock production (FAOSTAT bulk data, already ingested for
+ * the Oilseeds SE Asia page's palm-oil series and now extended with Coconut
+ * Oil — see faostat.ts), surfaced here directly: the supply side of the
+ * value chain this module's price/trade/export data covers the demand and
+ * flow side of. No new source, same "surface already-ingested-but-unused
+ * data" pattern as the MPOB export volumes above. */
+export type OleochemicalFeedstockProduction = {
+  slug: string;
+  label: string;
+  latestValueMillionMt: number | null;
+  latestYear: number | null;
+  yoyPct: number | null;
+};
+
 export type OleochemicalConcentration = {
   commoditySlug: string;
   commodityLabel: string;
@@ -164,6 +178,7 @@ export const SPEC_OLI_INPUTS: SpecOliInput[] = [
 export type OleochemicalsResult = {
   priceContext: OleochemicalPriceContext[];
   exportVolumes: OleochemicalExportVolume[];
+  feedstockProduction: OleochemicalFeedstockProduction[];
   tradeFlows: OleochemicalTradeFlow[];
   tradeFlowsAsOfYear: number | null;
   tradeTrends: OleochemicalTradeTrend[];
@@ -185,6 +200,14 @@ const EXPORT_VOLUME_SERIES: { slug: string; label: string }[] = [
   { slug: "oleochemicals", label: "Oleochemicals" },
   { slug: "biodiesel", label: "Biodiesel" },
   { slug: "finished_products", label: "Finished Products" },
+];
+
+const FEEDSTOCK_PRODUCTION_SERIES: { slug: string; label: string; metricKey: string }[] = [
+  { slug: "palm_oil_malaysia", label: "Palm Oil — Malaysia", metricKey: "commodity.palm_oil.malaysia.production_annual" },
+  { slug: "palm_oil_indonesia", label: "Palm Oil — Indonesia", metricKey: "commodity.palm_oil.indonesia.production_annual" },
+  { slug: "coconut_oil_philippines", label: "Coconut Oil — Philippines", metricKey: "commodity.coconut_oil.philippines.production_annual" },
+  { slug: "coconut_oil_indonesia", label: "Coconut Oil — Indonesia", metricKey: "commodity.coconut_oil.indonesia.production_annual" },
+  { slug: "coconut_oil_malaysia", label: "Coconut Oil — Malaysia", metricKey: "commodity.coconut_oil.malaysia.production_annual" },
 ];
 
 function windowForFreq(freq: "daily" | "monthly"): number {
@@ -412,6 +435,7 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
     tradeResults,
     tradeTrendResults,
     exportVolumeSeriesList,
+    feedstockProductionSeriesList,
     totalPoStockSeries,
     gscpiSeries,
     wtiSeries,
@@ -427,6 +451,7 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
       )
     ),
     Promise.all(EXPORT_VOLUME_SERIES.map((p) => fetchSeries(db, `commodity.palm_oil.malaysia.export.${p.slug}`, sinceIso))),
+    Promise.all(FEEDSTOCK_PRODUCTION_SERIES.map((p) => fetchSeries(db, p.metricKey, sinceIso))),
     fetchSeries(db, "commodity.palm_oil.malaysia.mpob_mirror.total_po_stock", sinceIso),
     fetchSeries(db, "supplychain.gscpi", sinceIso),
     fetchSeries(db, "commodity.wti", sinceIso),
@@ -460,6 +485,18 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
     };
   }).filter((r) => r.latestValue !== null);
 
+  const feedstockProduction: OleochemicalFeedstockProduction[] = FEEDSTOCK_PRODUCTION_SERIES.map((p, i) => {
+    const series = feedstockProductionSeriesList[i];
+    const last = latest(series);
+    return {
+      slug: p.slug,
+      label: p.label,
+      latestValueMillionMt: last?.v ?? null,
+      latestYear: last?.t ? new Date(last.t).getUTCFullYear() : null,
+      yoyPct: yoyPct(series),
+    };
+  }).filter((r) => r.latestValueMillionMt !== null);
+
   const tradeFlows = tradeResults.flatMap((r) => r.flows).sort((a, b) => b.valueUsd - a.valueUsd);
   const tradeFlowsAsOfYear = tradeResults.map((r) => r.year).filter((y): y is number => y !== null)[0] ?? null;
   const tradeTrends = tradeTrendResults.filter((t): t is OleochemicalTradeTrend => t !== null);
@@ -486,6 +523,7 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
   return {
     priceContext,
     exportVolumes,
+    feedstockProduction,
     tradeFlows,
     tradeFlowsAsOfYear,
     tradeTrends,

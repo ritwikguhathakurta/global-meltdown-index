@@ -2460,6 +2460,68 @@ export default function MethodologyPage() {
       </section>
 
       <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Chemical Products Master — PubChem Molecular Enrichment (shipped)</h2>
+        <p className="mb-2">
+          A user-provided rundown of free chemical/trade data sources named PubChem PUG-REST as a candidate for
+          adding real molecular identity data to the Chemical Products Master&apos;s 91 CAS-numbered entries. Live
+          testing confirmed it&apos;s genuine, free, and keyless — but also surfaced a real data-integrity bug worth
+          documenting: PubChem&apos;s <code>xref/RN/&lt;CAS&gt;</code> lookup returns <em>multiple</em> candidate
+          compounds per CAS number, and naively taking the first one (the obvious approach, and what a first pass at
+          this build did) produced wrong matches for several real entries — styrene&apos;s CAS matched to glucose,
+          sodium hydroxide&apos;s to 1,3-dioxolan-2-one, chlorine&apos;s to hydrochloric acid, xylene&apos;s to
+          methanol. Presenting any of those would be exactly the class of error this app&apos;s standing
+          anti-fabrication rule forbids for CAS/HS codes — a wrong fact presented as authoritative — so the same
+          rigor was applied here before shipping anything.
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real and new</strong>: every candidate compound&apos;s own PubChem synonym list is
+          checked to confirm it actually lists the CAS number being looked up, before that candidate&apos;s
+          molecular formula/weight is accepted — live-verified to correctly reject all of the wrong first-match
+          candidates above while accepting the right ones (chlorine correctly resolves to Cl₂, sodium hydroxide to
+          NaOH, styrene to C₈H₈, xylene to C₈H₁₀). 71 of 91 products now show a real, CAS-verified molecular formula
+          and molecular weight on the Chemical Products Master page. The 20 that don&apos;t are not a gap in the
+          lookup — none of their PubChem candidates passed the verification, which is the correct outcome for a
+          polymer-family CAS number (PE, PP, PVC, PS, EPS, ABS, PET, Nylon, Polycarbonate — polymers aren&apos;t
+          single molecules) or a genuine mixture/reaction-product CAS (Naphtha, mixed Xylenes, Sodium Laureth
+          Sulfate), exactly matching the caveats chemicalProductsDatabase.ts already carried for those entries.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong>, and why: the two other sources from that same rundown — Wikidata SPARQL
+          (real, but overlaps almost entirely with what PubChem already provides here, so skipped for now) and ECHA
+          REACH/hazard data (confirmed to still have no open REST API, matching what this app already disclosed).
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-2 text-base font-semibold text-text">Oleochemicals — Feedstock Production (FAOSTAT, shipped)</h2>
+        <p className="mb-2">
+          The same rundown proposed a new FAOSTAT integration for palm/coconut/soybean oil production. Checking
+          first (rather than assuming) found FAOSTAT is already deeply integrated in this app (faostat.ts) — world
+          palm/coconut/soybean oil is already tracked via USDA PSD, and FAOSTAT&apos;s own bulk data already powers
+          Malaysia/Indonesia country-level palm oil production for the Oilseeds SE Asia page. That series existed
+          but had never been surfaced in the Oleochemicals module itself, so most of the value here was connecting
+          real data that already existed, not building a new source.
+        </p>
+        <p className="mb-2">
+          <strong>What&apos;s real and new</strong>: Malaysia/Indonesia palm oil production now appears directly on
+          the Oleochemicals page; and FAOSTAT&apos;s country-production fetch was extended to Coconut Oil (FAOSTAT
+          Item Code 252) for the Philippines, Indonesia and Malaysia — the world&apos;s three largest producers, in
+          that order — feeding the lauric-acid/coconut-oil side of the value chain this module already tracks
+          downstream of. Area and item codes (Philippines = Area Code 171) were verified live against the same bulk
+          file&apos;s own Area/Item name columns before use, and the resulting figures (Philippines ~1.2-1.4M MT/yr,
+          Indonesia ~650K MT/yr, Malaysia ~55K MT/yr) match the known real-world production ranking.
+        </p>
+        <p className="mb-2">
+          <strong>Not built</strong>, and why: soybean oil production by country — this module&apos;s value chain
+          doesn&apos;t currently track a soy-derived oleochemical path, so adding it here would be data without a
+          consumer; a live FAOSTAT JSON API integration — the documented API host
+          (fenixservices.fao.org) returned HTTP 521 (server down) on every attempt during this build, confirming
+          faostat.ts&apos;s own existing note that it&apos;s unreachable from this environment, so the proven
+          bulk-ZIP path (already used elsewhere in this file) was extended instead, not a new live-API path.
+        </p>
+      </section>
+
+      <section className="mb-8">
         <h2 className="mb-2 text-base font-semibold text-text">European Grid Monitor &amp; Trade Network (ENTSO-E)</h2>
         <p className="mb-2">
           The user supplied a free ENTSO-E Transparency Platform API token (the official hub every European

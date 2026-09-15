@@ -117,6 +117,36 @@ export default async function OleochemicalsPage() {
             </section>
           )}
 
+          {oleo.feedstockProduction.length > 0 && (
+            <section className="mb-10">
+              <h2 className="mb-2 text-lg font-semibold">Feedstock Production (FAOSTAT)</h2>
+              <p className="mb-3 text-sm text-text-dim">
+                Real annual national production — the supply side this module&apos;s price/trade/export data
+                doesn&apos;t otherwise cover. Palm Oil (Malaysia/Indonesia) was already ingested for the Oilseeds
+                SE Asia page; Coconut Oil (Philippines/Indonesia/Malaysia, the world&apos;s three largest producers
+                in that order) was added here directly, feeding the lauric-acid/coconut-oil side of the value chain
+                below.
+              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {oleo.feedstockProduction.map((f) => (
+                  <div key={f.slug} className="gfew-panel p-4">
+                    <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">{f.label}</div>
+                    <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                      <span className="gfew-mono text-xl font-semibold">{fmtTonnes(f.latestValueMillionMt)}</span>
+                      <span className="text-xs text-text-dim">{f.latestYear ?? "—"}</span>
+                    </div>
+                    <div className="text-xs text-text-dim">
+                      <span className="uppercase tracking-wide">YoY </span>
+                      <span className="gfew-mono font-semibold" style={{ color: pctColor(f.yoyPct) }}>
+                        {fmtPct(f.yoyPct)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section className="mb-10">
             <h2 className="mb-2 text-lg font-semibold">Oleochemical Leading Indicator (OLI)</h2>
             <p className="mb-3 text-sm text-text-dim">
@@ -380,9 +410,12 @@ export default async function OleochemicalsPage() {
         weight in kilograms, a genuine customs unit price in USD/mt) with 3Y/5Y averages and year-over-year
         export/import momentum — the four original HS codes were backfilled with a one-time historical pull to five
         years of history; the three added later (Glycerine, FAME, Soap Noodles) accumulate one more year per
-        pipeline run; a real-chemistry value-chain map (spec §21); and an Oleochemical Leading Indicator (spec §52)
-        built only from the spec-named inputs this app can source for free, with coverage disclosed
-        component-by-component above.
+        pipeline run; real annual Feedstock Production from FAOSTAT&apos;s bulk data — Palm Oil for Malaysia/
+        Indonesia (already ingested for the Oilseeds SE Asia page) and Coconut Oil for the Philippines/Indonesia/
+        Malaysia (added directly for this module, area/item codes verified live against FAOSTAT&apos;s own
+        reference columns before use); a real-chemistry value-chain map (spec §21); and an Oleochemical Leading
+        Indicator (spec §52) built only from the spec-named inputs this app can source for free, with coverage
+        disclosed component-by-component above.
         <br />
         <br />
         <strong className="text-text">Not built</strong>, and why: PFAD, individual fatty acids (Lauric/Palmitic/

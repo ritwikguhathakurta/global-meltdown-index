@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CHEMICAL_PRODUCTS, CHEMICAL_PRODUCT_CATEGORIES, SPECIALTY_CHEMICAL_CATEGORIES, type ChemicalProduct } from "@/lib/commodities/chemicalProductsDatabase";
+import { CHEMICAL_ENRICHMENT_BY_CAS } from "@/lib/commodities/chemicalProductsEnrichment";
 
 function LiveDataBadge({ product }: { product: ChemicalProduct }) {
   if (product.livePriceMetricKey) {
@@ -25,6 +26,7 @@ function LiveDataBadge({ product }: { product: ChemicalProduct }) {
 
 export default function ChemicalProductsPage() {
   const withData = CHEMICAL_PRODUCTS.filter((p) => p.livePriceMetricKey || p.liveTradeHsCode).length;
+  const withMolecularData = CHEMICAL_PRODUCTS.filter((p) => p.casNumber && CHEMICAL_ENRICHMENT_BY_CAS[p.casNumber]).length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -41,7 +43,10 @@ export default function ChemicalProductsPage() {
         code — public, standardized identifiers, verified against multiple independent tariff/chemical-database
         sources before being entered, not guessed. {withData} of {CHEMICAL_PRODUCTS.length} rows also connect to
         real live data already in this app (a PPI price proxy or a UN Comtrade trade flow); the rest are
-        reference-only, disclosed as such rather than implied to have live pricing they don&apos;t.
+        reference-only, disclosed as such rather than implied to have live pricing they don&apos;t. {withMolecularData}
+        of {CHEMICAL_PRODUCTS.length} rows also show a real molecular formula and molecular weight from PubChem
+        (NIH/NLM) — every polymer family and genuine mixture is deliberately left blank rather than assigned a
+        single molecular weight it doesn&apos;t have (see the disclosure at the bottom).
       </p>
 
       {CHEMICAL_PRODUCT_CATEGORIES.map((category) => {
@@ -59,28 +64,42 @@ export default function ChemicalProductsPage() {
                     <th className="px-3 py-2 font-medium">Product</th>
                     <th className="px-3 py-2 font-medium">CAS Number</th>
                     <th className="px-3 py-2 font-medium">HS Code</th>
+                    <th className="px-3 py-2 font-medium">Formula (MW)</th>
                     <th className="px-3 py-2 font-medium">Data</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((p) => (
-                    <tr key={p.slug} className="border-t border-border align-top">
-                      <td className="px-3 py-2 font-medium">
-                        {p.name}
-                        {p.subFamily && <div className="text-[10px] text-text-dim">{p.subFamily}</div>}
-                        {p.feedstock && <div className="text-[10px] text-text-dim">Feedstock: {p.feedstock}</div>}
-                      </td>
-                      <td className="gfew-mono px-3 py-2 text-text-dim">{p.casNumber ?? "—"}</td>
-                      <td className="gfew-mono px-3 py-2 text-text-dim">
-                        {p.hsCode ?? "—"}
-                        {p.hsLabel && <div className="text-[10px] normal-case text-text-dim">{p.hsLabel}</div>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <LiveDataBadge product={p} />
-                        {p.note && <div className="mt-1 max-w-xs text-[10px] text-text-dim">{p.note}</div>}
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((p) => {
+                    const enrichment = p.casNumber ? CHEMICAL_ENRICHMENT_BY_CAS[p.casNumber] : undefined;
+                    return (
+                      <tr key={p.slug} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium">
+                          {p.name}
+                          {p.subFamily && <div className="text-[10px] text-text-dim">{p.subFamily}</div>}
+                          {p.feedstock && <div className="text-[10px] text-text-dim">Feedstock: {p.feedstock}</div>}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">{p.casNumber ?? "—"}</td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">
+                          {p.hsCode ?? "—"}
+                          {p.hsLabel && <div className="text-[10px] normal-case text-text-dim">{p.hsLabel}</div>}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">
+                          {enrichment ? (
+                            <>
+                              {enrichment.molecularFormula}
+                              <div className="text-[10px] text-text-dim">{enrichment.molecularWeightGMol.toLocaleString(undefined, { maximumFractionDigits: 2 })} g/mol</div>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <LiveDataBadge product={p} />
+                          {p.note && <div className="mt-1 max-w-xs text-[10px] text-text-dim">{p.note}</div>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -112,6 +131,17 @@ export default function ChemicalProductsPage() {
         classification systems, not omissions of convenience. Polymer &ldquo;CAS numbers&rdquo; (PE, PP, PVC, PS,
         nylon) are the generic registry numbers commonly cited for those polymer families — polymers are not single
         molecules, so this is industry convention, not precision the compound itself has.
+        <br />
+        <br />
+        <strong className="text-text">Molecular Formula/MW</strong>: sourced from PubChem PUG-REST (NIH/NLM — free,
+        keyless, official), via each product&apos;s CAS number. PubChem&apos;s CAS cross-reference lookup returns
+        multiple candidate compounds per CAS number, and a live check during this build found the first candidate is
+        often wrong (styrene&apos;s CAS matched to glucose first, sodium hydroxide&apos;s to a cyclic carbonate,
+        chlorine&apos;s to hydrochloric acid) — every value shown here instead passed a second check confirming the
+        candidate compound&apos;s own synonym list actually contains the CAS number being looked up, before being
+        accepted. Every Polymers-category entry, Naphtha, mixed Xylenes, and Sodium Laureth Sulfate show no
+        formula/MW — none of their CAS numbers represent one discrete molecule (already disclosed in each row&apos;s
+        own note), and none of their PubChem candidates passed that verification, correctly.
         <br />
         <br />
         <strong className="text-text">Not built</strong>, and why: individual named products under every spec §9
