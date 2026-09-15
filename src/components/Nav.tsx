@@ -17,6 +17,7 @@ const LINKS = [
   { href: "/dashboard/commodities", label: "Commodities" },
   { href: "/dashboard/prediction", label: "Prediction" },
   { href: "/dashboard/geopolitical", label: "Geopolitical" },
+  { href: "/dashboard/world-news", label: "World News" },
   { href: "/dashboard/derivatives", label: "Derivatives" },
   { href: "/dashboard/crypto", label: "Crypto" },
   { href: "/dashboard/cyber", label: "Cyber" },
