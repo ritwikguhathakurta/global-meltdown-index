@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSeries } from "../metrics/store";
 import { latest, pctChangeOverDays, previousOf, zScore, zToRiskScore, type Point } from "../metrics/stats";
 import { OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
+import { chemicalHsMetricKey } from "../sources/unComtradeChemicalPrices";
 import { VALUE_CHAINS, VALUE_CHAIN_NODES } from "../commodities/oleochemValueChain";
 
 /**
@@ -57,6 +58,12 @@ export type OleochemicalPriceContext = {
   unit: string;
   asOf: string | null;
   change12m: number | null;
+  /** Month-over-month move — meaningful the moment a series has just 2
+   * observations, unlike change12m which needs a full year of history.
+   * Added so the four new UN Comtrade unit-value rows (PFAD, Fatty Alcohol,
+   * Methyl Ester, Glycerine) show real, immediate movement instead of "—"
+   * for the ~year it takes change12m to become available. */
+  changeMomPct: number | null;
 };
 
 export type OleochemicalTradeFlow = {
@@ -157,12 +164,32 @@ export const SPEC_OLI_INPUTS: SpecOliInput[] = [
   { name: "Palm Oil", covered: true, note: "World Bank Pink Sheet price" },
   { name: "PKO", covered: true, note: "World Bank Pink Sheet price" },
   { name: "CPO", covered: true, note: "Same underlying series as Palm Oil — not separately tracked" },
-  { name: "PFAD", covered: false, note: "No free price found; bundled inside HS 3823 trade, not separable" },
+  {
+    name: "PFAD",
+    covered: true,
+    note: "Real UN Comtrade HS 382319 average unit value (declared value ÷ weight, United States, monthly since this was added) — shares the 'other industrial fatty acids' customs bucket with several other named acids (not PFAD-exclusive), and needs 20 monthly observations before it can feed the leading indicator's z-score, but it is a genuine live price now, not a fabricated absence.",
+  },
   { name: "Fatty Acid", covered: true, note: "US PPI proxy (chemical.fatty_acids.ppi)" },
-  { name: "Fatty Alcohol", covered: false, note: "No free price found; bundled inside HS 3823 trade, not separable" },
-  { name: "Methyl Ester", covered: false, note: "No free price found; not separable from FAME/biodiesel trade" },
-  { name: "Glycerine", covered: false, note: "Trade value only (HS 2905.45), one year of history so far — no momentum yet" },
-  { name: "FAME", covered: false, note: "Trade value only (HS 3826), one year of history so far — no momentum yet" },
+  {
+    name: "Fatty Alcohol",
+    covered: true,
+    note: "Real UN Comtrade HS 382370 average unit value (United States, monthly) — a genuinely separate customs bucket from the fatty-acid subheadings, not blended with them. Same 20-observation ramp-up as PFAD before it feeds the leading indicator.",
+  },
+  {
+    name: "Methyl Ester",
+    covered: true,
+    note: "Real UN Comtrade HS 382600 average unit value (United States, monthly) — the Harmonized System doesn't split methyl esters by chain length, so this is the whole biodiesel/FAME bucket's price, same series as the FAME input below.",
+  },
+  {
+    name: "Glycerine",
+    covered: true,
+    note: "Upgraded from trade-value-only to a real UN Comtrade HS 290545 average unit value (United States, monthly) — genuine month-over-month movement, not annual trade-value change.",
+  },
+  {
+    name: "FAME",
+    covered: true,
+    note: "Same HS 382600 unit-value series as Methyl Ester above (the WCO doesn't distinguish them) — upgraded from one annual trade-value observation to a genuine monthly price.",
+  },
   { name: "Biodiesel", covered: true, note: "Real Malaysia MPOB monthly export volume" },
   { name: "Freight", covered: true, note: "NY Fed Global Supply Chain Pressure Index (supplychain.gscpi)" },
   { name: "Methanol", covered: false, note: "Checked FRED live — no methanol price/PPI series exists" },
@@ -175,8 +202,26 @@ export const SPEC_OLI_INPUTS: SpecOliInput[] = [
   { name: "Demand", covered: false, note: "Not separately tracked — proxied only by the Trade/Biodiesel components above, not double-counted as its own input" },
 ];
 
+/** PFAD's discount to its Palm Oil feedstock (spec §15) — genuinely
+ * computable for the first time now that both sides are in the same USD/mt
+ * unit (PFAD via the new UN Comtrade unit-value connector, Palm Oil via the
+ * existing World Bank Pink Sheet price), unlike the Fatty Acid/Surfactant
+ * PPI rows above which are an index, not a $/mt figure. Still not a true
+ * PFAD-only price (HS 382319 is a shared "other fatty acids" bucket — see
+ * SPEC_OLI_INPUTS' own PFAD note), so this is a real but approximate spread,
+ * disclosed as such wherever it's shown. */
+export type OleochemicalSpread = {
+  spreadUsdPerMt: number | null; // pfad - palmOil
+  spreadPct: number | null; // spreadUsdPerMt / palmOil
+  pfadValue: number | null;
+  pfadAsOf: string | null;
+  palmOilValue: number | null;
+  palmOilAsOf: string | null;
+};
+
 export type OleochemicalsResult = {
   priceContext: OleochemicalPriceContext[];
+  pfadPalmOilSpread: OleochemicalSpread;
   exportVolumes: OleochemicalExportVolume[];
   feedstockProduction: OleochemicalFeedstockProduction[];
   tradeFlows: OleochemicalTradeFlow[];
@@ -195,6 +240,30 @@ const PRICE_CONTEXT_SERIES: { slug: string; label: string; metricKey: string; un
   { slug: "surfactants", label: "Surfactants (US PPI proxy — index, not a spot price)", metricKey: "chemical.surfactants.ppi", unit: "index 1982=100" },
   { slug: "soaps_detergents", label: "Soaps & Detergents (US PPI proxy, soap-noodle-adjacent — index, not a spot price)", metricKey: "chemical.soaps_detergents.ppi", unit: "index 1982=100" },
 ];
+
+/** Real UN Comtrade average unit-value prices (unComtradeChemicalPrices.ts —
+ * value ÷ weight from the United States' own trade, monthly), for exactly
+ * the three downstream oleochemical products the spec's own OLI input list
+ * (§52) previously had to mark "no free price found": PFAD, Fatty Alcohol,
+ * Methyl Ester — plus Glycerine, upgraded here from one annual trade-value
+ * observation to a genuine monthly price. Each resolves export unit value
+ * first, falling back to import only when the US reports no export data at
+ * all for that HS code (same fallback order as getChemicalProductPrices in
+ * engineData.ts). */
+const HS_UNIT_VALUE_SERIES: { slug: string; label: string; hsCode: string }[] = [
+  { slug: "pfad_unit_value", label: "PFAD (UN Comtrade HS 382319 unit value)", hsCode: "382319" },
+  { slug: "fatty_alcohol_unit_value", label: "Fatty Alcohols (UN Comtrade HS 382370 unit value)", hsCode: "382370" },
+  { slug: "methyl_ester_unit_value", label: "Methyl Esters / FAME (UN Comtrade HS 382600 unit value)", hsCode: "382600" },
+  { slug: "glycerine_unit_value", label: "Glycerine (UN Comtrade HS 290545 unit value)", hsCode: "290545" },
+];
+
+async function fetchHsUnitValueSeries(db: SupabaseClient, hsCode: string, sinceIso: string): Promise<Point[]> {
+  const [exportSeries, importSeries] = await Promise.all([
+    fetchSeries(db, chemicalHsMetricKey(hsCode, "export"), sinceIso),
+    fetchSeries(db, chemicalHsMetricKey(hsCode, "import"), sinceIso),
+  ]);
+  return exportSeries.length > 0 ? exportSeries : importSeries;
+}
 
 const EXPORT_VOLUME_SERIES: { slug: string; label: string }[] = [
   { slug: "oleochemicals", label: "Oleochemicals" },
@@ -402,6 +471,10 @@ function buildLeadingIndicator(series: {
   henryHub: Point[];
   usdmyr: Point[];
   usdidr: Point[];
+  pfad: Point[];
+  fattyAlcohol: Point[];
+  methylEster: Point[];
+  glycerine: Point[];
 }): OleochemicalLeadingIndicator {
   const components: OleochemicalLeadingIndicatorComponent[] = [
     { key: "palm_oil", label: "Palm Oil price (feedstock)", weight: 0.15, score: zToRiskScore(zScore(series.palmOil, windowForFreq("monthly")), 1) },
@@ -417,6 +490,16 @@ function buildLeadingIndicator(series: {
     { key: "natural_gas", label: "Henry Hub Natural Gas", weight: 0.03, score: zToRiskScore(zScore(series.henryHub, windowForFreq("daily")), 1) },
     { key: "fx_myr", label: "USD/MYR (ringgit depreciation = export competitiveness)", weight: 0.03, score: zToRiskScore(zScore(series.usdmyr, windowForFreq("daily")), 1) },
     { key: "fx_idr", label: "USD/IDR (rupiah depreciation = export competitiveness)", weight: 0.02, score: zToRiskScore(zScore(series.usdidr, windowForFreq("daily")), 1) },
+    // Real UN Comtrade unit-value series added this build (see
+    // HS_UNIT_VALUE_SERIES) — genuinely new inputs the spec's own OLI list
+    // previously had to mark uncovered. zScore needs 20 monthly
+    // observations, so these correctly score null (excluded from the
+    // weighted average, not treated as zero) until enough months
+    // accumulate — an honest ramp-up, not a fabricated reading.
+    { key: "pfad", label: "PFAD unit value (UN Comtrade)", weight: 0.08, score: zToRiskScore(zScore(series.pfad, windowForFreq("monthly")), 1) },
+    { key: "fatty_alcohol", label: "Fatty Alcohol unit value (UN Comtrade)", weight: 0.08, score: zToRiskScore(zScore(series.fattyAlcohol, windowForFreq("monthly")), 1) },
+    { key: "methyl_ester", label: "Methyl Ester / FAME unit value (UN Comtrade)", weight: 0.08, score: zToRiskScore(zScore(series.methylEster, windowForFreq("monthly")), 1) },
+    { key: "glycerine", label: "Glycerine unit value (UN Comtrade)", weight: 0.05, score: zToRiskScore(zScore(series.glycerine, windowForFreq("monthly")), 1) },
   ];
 
   const asOfCandidates = [series.palmOil, series.fattyAcids, series.exportOleochemicals].map((s) => latest(s)?.t ?? null).filter((t): t is string => t !== null);
@@ -442,6 +525,7 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
     henryHubSeries,
     usdmyrSeries,
     usdidrSeries,
+    hsUnitValueSeriesList,
   ] = await Promise.all([
     Promise.all(PRICE_CONTEXT_SERIES.map((p) => fetchSeries(db, p.metricKey, sinceIso))),
     Promise.all(OLEOCHEMICAL_TRADE_COMMODITIES.map((c) => fetchTradeFlowsForCommodity(db, c.slug, c.label, c.hsCode))),
@@ -458,20 +542,38 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
     fetchSeries(db, "commodity.natgas_henry_hub", sinceIso),
     fetchSeries(db, "fx.usdmyr", sinceIso),
     fetchSeries(db, "fx.usdidr", sinceIso),
+    Promise.all(HS_UNIT_VALUE_SERIES.map((p) => fetchHsUnitValueSeries(db, p.hsCode, sinceIso))),
   ]);
+  const [pfadSeries, fattyAlcoholSeries, methylEsterSeries, glycerineUnitValueSeries] = hsUnitValueSeriesList;
 
-  const priceContext: OleochemicalPriceContext[] = PRICE_CONTEXT_SERIES.map((p, i) => {
-    const series = priceSeriesList[i];
-    const last = latest(series);
-    return {
-      slug: p.slug,
-      label: p.label,
-      latestValue: last?.v ?? null,
-      unit: p.unit,
-      asOf: last?.t ?? null,
-      change12m: pctChangeOverDays(series, 365),
-    };
-  });
+  const priceContext: OleochemicalPriceContext[] = [
+    ...PRICE_CONTEXT_SERIES.map((p, i) => {
+      const series = priceSeriesList[i];
+      const last = latest(series);
+      return {
+        slug: p.slug,
+        label: p.label,
+        latestValue: last?.v ?? null,
+        unit: p.unit,
+        asOf: last?.t ?? null,
+        change12m: pctChangeOverDays(series, 365),
+        changeMomPct: pctChangeOverDays(series, 30),
+      };
+    }),
+    ...HS_UNIT_VALUE_SERIES.map((p, i) => {
+      const series = hsUnitValueSeriesList[i];
+      const last = latest(series);
+      return {
+        slug: p.slug,
+        label: p.label,
+        latestValue: last?.v ?? null,
+        unit: "USD/mt",
+        asOf: last?.t ?? null,
+        change12m: pctChangeOverDays(series, 365),
+        changeMomPct: pctChangeOverDays(series, 30),
+      };
+    }),
+  ].filter((r) => r.latestValue !== null);
 
   const exportVolumes: OleochemicalExportVolume[] = EXPORT_VOLUME_SERIES.map((p, i) => {
     const series = exportVolumeSeriesList[i];
@@ -504,6 +606,18 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
 
   const [palmOilSeries, pkoSeries, fattyAcidsSeries, surfactantsSeries, soapsSeries] = priceSeriesList;
   const [exportOleochemicalsSeries, exportBiodieselSeries] = exportVolumeSeriesList;
+
+  const lastPfad = latest(pfadSeries);
+  const lastPalmOil = latest(palmOilSeries);
+  const spreadUsdPerMt = lastPfad && lastPalmOil ? lastPfad.v - lastPalmOil.v : null;
+  const pfadPalmOilSpread: OleochemicalSpread = {
+    spreadUsdPerMt,
+    spreadPct: spreadUsdPerMt !== null && lastPalmOil && lastPalmOil.v !== 0 ? (spreadUsdPerMt / lastPalmOil.v) * 100 : null,
+    pfadValue: lastPfad?.v ?? null,
+    pfadAsOf: lastPfad?.t ?? null,
+    palmOilValue: lastPalmOil?.v ?? null,
+    palmOilAsOf: lastPalmOil?.t ?? null,
+  };
   const leadingIndicator = buildLeadingIndicator({
     palmOil: palmOilSeries,
     pko: pkoSeries,
@@ -518,10 +632,15 @@ export async function getOleochemicals(db: SupabaseClient): Promise<Oleochemical
     henryHub: henryHubSeries,
     usdmyr: usdmyrSeries,
     usdidr: usdidrSeries,
+    pfad: pfadSeries,
+    fattyAlcohol: fattyAlcoholSeries,
+    methylEster: methylEsterSeries,
+    glycerine: glycerineUnitValueSeries,
   });
 
   return {
     priceContext,
+    pfadPalmOilSpread,
     exportVolumes,
     feedstockProduction,
     tradeFlows,

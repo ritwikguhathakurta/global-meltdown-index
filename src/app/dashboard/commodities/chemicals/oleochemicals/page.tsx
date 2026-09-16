@@ -65,10 +65,12 @@ export default async function OleochemicalsPage() {
           <section className="mb-10">
             <h2 className="mb-2 text-lg font-semibold">Feedstock → Downstream Price Context</h2>
             <p className="mb-3 text-sm text-text-dim">
-              Shown side by side, not merged into a margin: Palm Oil/PKO are genuine $/mt feedstock prices, while
-              Fatty Acids/Surfactants are a US producer price index — computing a &ldquo;conversion margin&rdquo;
-              from these two different units would produce a number that looks real but isn&apos;t, so it isn&apos;t
-              shown.
+              Palm Oil/PKO are genuine $/mt feedstock prices (World Bank Pink Sheet). Fatty Acids/Surfactants/Soaps
+              are a US producer price index, not $/mt — a &ldquo;conversion margin&rdquo; against Palm Oil would mix
+              units and produce a number that looks real but isn&apos;t, so it&apos;s shown side by side instead.
+              PFAD, Fatty Alcohols, Methyl Esters/FAME and Glycerine are new: real UN Comtrade average unit values
+              (USD/mt, the United States&apos; own declared trade), genuinely comparable to the Palm Oil price for
+              the first time — see the PFAD/Palm Oil spread below.
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {oleo.priceContext.map((p) => (
@@ -78,15 +80,47 @@ export default async function OleochemicalsPage() {
                     <span className="gfew-mono text-xl font-semibold">{fmtIndexOrPrice(p.latestValue, p.unit)}</span>
                     <span className="text-xs text-text-dim">{p.asOf?.slice(0, 7) ?? "—"}</span>
                   </div>
-                  <div className="text-xs text-text-dim">
-                    <span className="uppercase tracking-wide">12M change </span>
-                    <span className="gfew-mono font-semibold" style={{ color: pctColor(p.change12m) }}>
-                      {fmtPct(p.change12m)}
+                  <div className="flex flex-wrap gap-x-4 text-xs text-text-dim">
+                    <span>
+                      <span className="uppercase tracking-wide">MoM </span>
+                      <span className="gfew-mono font-semibold" style={{ color: pctColor(p.changeMomPct) }}>
+                        {fmtPct(p.changeMomPct)}
+                      </span>
+                    </span>
+                    <span>
+                      <span className="uppercase tracking-wide">12M change </span>
+                      <span className="gfew-mono font-semibold" style={{ color: pctColor(p.change12m) }}>
+                        {fmtPct(p.change12m)}
+                      </span>
                     </span>
                   </div>
                 </div>
               ))}
             </div>
+            {oleo.pfadPalmOilSpread.spreadUsdPerMt !== null && (
+              <div className="mt-4 gfew-panel p-4">
+                <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">HS 382319 &ldquo;Other Fatty Acids&rdquo; vs. Palm Oil</div>
+                <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                  <span className="gfew-mono text-xl font-semibold text-text">
+                    {oleo.pfadPalmOilSpread.spreadUsdPerMt >= 0 ? "+" : ""}
+                    {oleo.pfadPalmOilSpread.spreadUsdPerMt.toFixed(0)} USD/mt
+                  </span>
+                  <span className="text-xs text-text-dim">
+                    {fmtPct(oleo.pfadPalmOilSpread.spreadPct)} vs. Palm Oil
+                  </span>
+                </div>
+                <p className="text-xs text-text-dim">
+                  PFAD-bucket price ({oleo.pfadPalmOilSpread.pfadValue?.toFixed(0)} USD/mt, {oleo.pfadPalmOilSpread.pfadAsOf?.slice(0, 7)}) minus
+                  Palm Oil ({oleo.pfadPalmOilSpread.palmOilValue?.toFixed(0)} USD/mt, {oleo.pfadPalmOilSpread.palmOilAsOf?.slice(0, 7)}) — spec
+                  §15&apos;s &ldquo;PFAD discount to CPO,&rdquo; genuinely computable now that both sides are real $/mt prices. This reads as a
+                  large premium, not the discount true PFAD (a lower-value refining byproduct) normally trades at against crude palm oil — because
+                  HS 382319 is a shared &ldquo;other fatty acids&rdquo; bucket that also includes higher-value specialty acids (caproic, caprylic,
+                  capric, lauric, myristic, linoleic, linolenic), not PFAD exclusively (see the price context note above). Treat the level as this
+                  bucket&apos;s real spread to Palm Oil, not a PFAD-specific quote — the sign and magnitude reflect the bucket&apos;s mix, not
+                  necessarily PFAD&apos;s own economics.
+                </p>
+              </div>
+            )}
           </section>
 
           {oleo.exportVolumes.length > 0 && (
@@ -415,15 +449,20 @@ export default async function OleochemicalsPage() {
         Malaysia (added directly for this module, area/item codes verified live against FAOSTAT&apos;s own
         reference columns before use); a real-chemistry value-chain map (spec §21); and an Oleochemical Leading
         Indicator (spec §52) built only from the spec-named inputs this app can source for free, with coverage
-        disclosed component-by-component above.
+        disclosed component-by-component above; real UN Comtrade average unit-value prices (USD/mt, monthly, United
+        States) for PFAD (HS 382319), Fatty Alcohols (382370), Methyl Esters/FAME (382600) and Glycerine (290545) —
+        newly added, upgrading four of the spec&apos;s own OLI inputs from &ldquo;no free price found&rdquo; to a
+        genuine live price; and the PFAD/Palm Oil spread above, the first oleochemical margin this app computes in
+        matching $/mt units on both sides.
         <br />
         <br />
-        <strong className="text-text">Not built</strong>, and why: PFAD, individual fatty acids (Lauric/Palmitic/
-        Stearic/Oleic etc.), fatty alcohols, methyl esters, and methanol as separately priced products — checked
-        live (including a FRED series search) and confirmed no free source publishes per-compound prices for any of
-        these, and their trade is bundled inside broader HS codes (3823, 3826) rather than separable; a genuine
-        oleochemical conversion margin (Palm Oil/PKO in → Fatty Acid/PFAD out, spec §36) — needs a fatty-acid price
-        in $/mt, not a PPI index, so it isn&apos;t computed (see the price-context note above); bilateral
+        <strong className="text-text">Not built</strong>, and why: individual fatty acids (Lauric/Myristic/Linoleic
+        etc.) and methanol as separately priced products — individual fatty acids still share HS 382319&apos;s
+        &ldquo;other&rdquo; bucket with each other (only Stearic and Oleic Acid have their own dedicated HS codes,
+        382311/382312 — see the Chemical Products Master page), and methanol has no free price/PPI series anywhere,
+        checked live; a conversion margin for Fatty Alcohols or Methyl Esters specifically (only the PFAD/Palm Oil
+        spread above is computed) — those need an equally well-matched feedstock reference, which PFAD/Palm Oil has
+        and this app hasn&apos;t built out for the others yet; bilateral
         per-partner-pair Trade Flow Surprise / seasonality (spec §50) — the world-aggregate trend above now has
         multi-year YoY momentum, but each individual reporter→partner pair in the Trade Flows table still has only
         one year of history, so a per-partner-pair surprise isn&apos;t computable yet;
