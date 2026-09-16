@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { CHEMICAL_PRODUCTS, CHEMICAL_PRODUCT_CATEGORIES, SPECIALTY_CHEMICAL_CATEGORIES, type ChemicalProduct } from "@/lib/commodities/chemicalProductsDatabase";
 import { CHEMICAL_ENRICHMENT_BY_CAS } from "@/lib/commodities/chemicalProductsEnrichment";
+import { getChemicalProductPrices, type ChemicalProductPrice } from "@/lib/api/engineData";
+import { TrendIndicator } from "@/components/TrendIndicator";
+
+export const dynamic = "force-dynamic";
 
 function LiveDataBadge({ product }: { product: ChemicalProduct }) {
   if (product.livePriceMetricKey) {
@@ -24,9 +28,29 @@ function LiveDataBadge({ product }: { product: ChemicalProduct }) {
   );
 }
 
-export default function ChemicalProductsPage() {
+function fmtMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+function PriceCell({ product, prices }: { product: ChemicalProduct; prices: Map<string, ChemicalProductPrice> }) {
+  if (!product.livePriceMetricKey) return <span className="text-text-dim">—</span>;
+  const p = prices.get(product.livePriceMetricKey);
+  if (!p) return <span className="text-text-dim">—</span>;
+  return (
+    <>
+      <div>
+        {p.value.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+        <TrendIndicator value={p.value} previous={p.previous} />
+      </div>
+      <div className="text-[10px] normal-case text-text-dim">index 1982=100 · {fmtMonth(p.asOf)}</div>
+    </>
+  );
+}
+
+export default async function ChemicalProductsPage() {
   const withData = CHEMICAL_PRODUCTS.filter((p) => p.livePriceMetricKey || p.liveTradeHsCode).length;
   const withMolecularData = CHEMICAL_PRODUCTS.filter((p) => p.casNumber && CHEMICAL_ENRICHMENT_BY_CAS[p.casNumber]).length;
+  const prices = await getChemicalProductPrices();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -37,13 +61,17 @@ export default function ChemicalProductsPage() {
       </div>
       <h1 className="mb-6 text-2xl font-semibold">Chemical Products Master</h1>
       <p className="mb-8 max-w-3xl text-sm text-text-dim">
-        A reference database (spec §3-9), not a price feed: {CHEMICAL_PRODUCTS.length} named chemicals across Basic
+        Primarily a reference database (spec §3-9): {CHEMICAL_PRODUCTS.length} named chemicals across Basic
         Inorganic/Organic Chemicals, Petrochemicals, Polymers, Fertilizers, Agrochemicals, and the full
         Oleochemical taxonomy, each with a CAS Registry Number and WCO Harmonized System trade-classification
         code — public, standardized identifiers, verified against multiple independent tariff/chemical-database
         sources before being entered, not guessed. {withData} of {CHEMICAL_PRODUCTS.length} rows also connect to
-        real live data already in this app (a PPI price proxy or a UN Comtrade trade flow); the rest are
-        reference-only, disclosed as such rather than implied to have live pricing they don&apos;t. {withMolecularData}
+        real live data already in this app: {prices.size} distinct FRED Producer Price Index series (&ldquo;Live PPI
+        proxy&rdquo;, shown below with the latest index level, its month-over-month move, and direction — a US
+        producer-price index, not a global per-unit spot price, disclosed as such everywhere it&apos;s shown) plus
+        rows that connect only to a UN Comtrade trade flow (&ldquo;Live trade data&rdquo;, volume not price); the
+        rest are reference-only, disclosed as such rather than implied to have live pricing they don&apos;t.{" "}
+        {withMolecularData}
         of {CHEMICAL_PRODUCTS.length} rows also show a real molecular formula and molecular weight from PubChem
         (NIH/NLM) — every polymer family and genuine mixture is deliberately left blank rather than assigned a
         single molecular weight it doesn&apos;t have (see the disclosure at the bottom).
@@ -65,6 +93,7 @@ export default function ChemicalProductsPage() {
                     <th className="px-3 py-2 font-medium">CAS Number</th>
                     <th className="px-3 py-2 font-medium">HS Code</th>
                     <th className="px-3 py-2 font-medium">Formula (MW)</th>
+                    <th className="px-3 py-2 font-medium">Price (MoM)</th>
                     <th className="px-3 py-2 font-medium">Data</th>
                   </tr>
                 </thead>
@@ -92,6 +121,9 @@ export default function ChemicalProductsPage() {
                           ) : (
                             "—"
                           )}
+                        </td>
+                        <td className="gfew-mono px-3 py-2 text-text-dim">
+                          <PriceCell product={p} prices={prices} />
                         </td>
                         <td className="px-3 py-2">
                           <LiveDataBadge product={p} />

@@ -70,6 +70,7 @@ import type { CommodityCategory } from "@/lib/commodities/taxonomy";
 import type { CountryBalanceCommodityDef } from "@/lib/commodities/countryBalanceTaxonomy";
 import { getChemicalsOverview as computeChemicalsOverview, type ChemicalsOverviewResult } from "@/lib/engines/chemicals";
 import { getOleochemicals as computeOleochemicals, type OleochemicalsResult } from "@/lib/engines/oleochemicals";
+import { CHEMICAL_PRODUCTS } from "@/lib/commodities/chemicalProductsDatabase";
 import { getEuropeanGrid as computeEuropeanGrid, type EuropeanGridResult } from "@/lib/engines/europeanGrid";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
@@ -845,6 +846,35 @@ export async function getGridSnapshots(): Promise<GridSnapshot[] | null> {
   } catch (e) {
     console.error((e as Error).message);
     return null;
+  }
+}
+
+export type ChemicalProductPrice = { value: number; previous: number | null; asOf: string };
+
+/**
+ * Latest value + previous reading (for TrendIndicator) of every distinct
+ * livePriceMetricKey referenced in chemicalProductsDatabase.ts — all of them
+ * are FRED PPI proxy series (see fred.ts's chemical.*.ppi entries), monthly,
+ * unit "index 1982=100". Several product rows share the same family-level
+ * key (e.g. HDPE/LDPE/PP/PVC/PS/EPS all point at
+ * chemical.thermoplastic_resins.ppi), so this is keyed by metric key, not by
+ * product slug — the page looks it up per row via the row's own
+ * livePriceMetricKey.
+ */
+export async function getChemicalProductPrices(): Promise<Map<string, ChemicalProductPrice>> {
+  const result = new Map<string, ChemicalProductPrice>();
+  if (!isSupabaseConfigured) return result;
+  try {
+    const db = await createServerSupabase();
+    const keys = [...new Set(CHEMICAL_PRODUCTS.map((p) => p.livePriceMetricKey).filter((k): k is string => Boolean(k)))];
+    const latest = await fetchLatestForKeys(db, keys);
+    for (const [key, row] of latest) {
+      result.set(key, { value: row.v, previous: row.previous?.v ?? null, asOf: row.t });
+    }
+    return result;
+  } catch (e) {
+    console.error((e as Error).message);
+    return result;
   }
 }
 
