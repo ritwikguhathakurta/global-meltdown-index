@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSupabaseConfigured, SUPABASE_URL_FALLBACK, SUPABASE_ANON_KEY_FALLBACK } from "./config";
+import { createAdminClient } from "./admin";
 
 export async function updateSession(request: NextRequest) {
   const response = NextResponse.next({ request });
@@ -39,7 +40,12 @@ export async function updateSession(request: NextRequest) {
         url.searchParams.set("next", pathname);
         return NextResponse.redirect(url);
       }
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      // Service-role client, not the per-request cookie-scoped one — the
+      // profiles table's own "admin" RLS policy recursively queries
+      // profiles from within itself (42P17 infinite recursion, confirmed
+      // live), so the user-scoped client can never successfully read this.
+      const admin = createAdminClient();
+      const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
       if (profile?.role !== "admin") {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
