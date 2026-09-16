@@ -12,7 +12,22 @@
  * as such on the page. Deliberately avoids GDELT's `sourcecountry:` field
  * filter (which uses a FIPS-style code list this app hasn't verified live)
  * in favor of plain-English place names, so there's no coded-taxonomy risk
- * to get wrong.
+ * to get wrong. Also avoids `sourcelang:english` — live-tested and found to
+ * zero out results even for broad, heavily-covered terms, so it's dropped
+ * rather than shipped as a silent "no coverage" bug.
+ *
+ * IMPORTANT architecture note: this makes exactly ONE GDELT request per page
+ * load (cached), not one per region. An earlier version issued one request
+ * per region — first fully sequential (worst case 40s+, tripping Vercel's
+ * function timeout), then staggered-but-concurrent (which instead fired six
+ * requests within a ~6s window and got every single one throttled/timed out
+ * by GDELT, worse than the sequential version). GDELT's throttling turned
+ * out to react to REQUEST COUNT in a short window, not just raw concurrency,
+ * so the fix is to only ever send one request: fetch a broad set of recent
+ * articles matching ANY region's keywords in one combined OR query, then
+ * classify each returned article into a region client-side by keyword
+ * match against its title. This is also just a better fit for a free public
+ * API meant to be called politely.
  *
  * Field names (url, url_mobile, title, seendate, socialimage, domain,
  * language, sourcecountry) and query parameters (query, mode, format, sort,
@@ -20,9 +35,8 @@
  * (blog.gdeltproject.org/gdelt-doc-2-0-api-debuts) and an independent
  * open-source client (github.com/alex9smith/gdelt-doc-api), since this
  * sandbox's shared network egress was itself rate-limited by GDELT
- * ("Please limit requests to one every 5 seconds...") during development,
- * making live verification from here unreliable — production traffic runs
- * from Vercel's own IPs instead.
+ * ("Please limit requests to one every 5 seconds...") throughout
+ * development, making live verification from here unreliable.
  */
 
 export type GdeltArticle = {
@@ -38,61 +52,52 @@ export type GdeltArticle = {
 export type WorldNewsRegion = {
   slug: string;
   label: string;
-  /** GDELT boolean query — plain keywords only, no coded field filters. */
-  query: string;
+  /** Plain keywords (no quotes/booleans) used to classify articles into this region by title match. */
+  keywords: string[];
 };
 
 export const WORLD_NEWS_REGIONS: WorldNewsRegion[] = [
   {
     slug: "middle_east",
     label: "Middle East & North Africa",
-    query: '(Israel OR Gaza OR Iran OR Syria OR Lebanon OR "Saudi Arabia" OR Egypt OR Yemen)',
+    keywords: ["Israel", "Gaza", "Iran", "Syria", "Lebanon", "Saudi Arabia", "Egypt", "Yemen"],
   },
   {
     slug: "europe",
     label: "Europe",
-    query: '(Ukraine OR Russia OR NATO OR "European Union" OR Germany OR France OR Poland OR "United Kingdom")',
+    keywords: ["Ukraine", "Russia", "NATO", "European Union", "Germany", "France", "Poland", "United Kingdom"],
   },
   {
     slug: "asia_pacific",
     label: "Asia-Pacific",
-    query: '(China OR Taiwan OR Japan OR Korea OR India OR Pakistan OR Philippines OR Australia)',
+    keywords: ["China", "Taiwan", "Japan", "Korea", "India", "Pakistan", "Philippines", "Australia"],
   },
   {
     slug: "americas",
     label: "Americas",
-    query: '("United States" OR Mexico OR Brazil OR Venezuela OR Canada OR Argentina)',
+    keywords: ["United States", "Mexico", "Brazil", "Venezuela", "Canada", "Argentina"],
   },
   {
     slug: "africa",
     label: "Africa",
-    query: '(Nigeria OR Sudan OR Ethiopia OR Congo OR "South Africa" OR Mali OR Kenya)',
+    keywords: ["Nigeria", "Sudan", "Ethiopia", "Congo", "South Africa", "Mali", "Kenya"],
   },
   {
     slug: "global_economy",
     label: "Global Economy & Markets",
-    query: '(inflation OR "central bank" OR tariffs OR recession OR "trade war" OR OPEC)',
+    keywords: ["inflation", "central bank", "tariffs", "recession", "trade war", "OPEC"],
   },
 ];
 
 const GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc";
-const ARTICLES_PER_REGION = 8;
+const TOTAL_ARTICLES = 100;
+const ARTICLES_PER_REGION_CAP = 8;
 const TIMESPAN = "2d";
-// GDELT's own throttle message asks for at least 5s between requests from a
-// given client; this app fetches regions sequentially (never in parallel)
-// with margin above that, and Next.js's fetch cache (revalidate below) means
-// most page views hit the cache rather than GDELT at all.
-const INTER_REQUEST_DELAY_MS = 1200;
 const REVALIDATE_SECONDS = 600;
-// Vercel's default function timeout (10s on Hobby) is shorter than six
-// sequential, deliberately-throttled GDELT calls can reliably finish in —
-// this bounds each individual call so one slow/hanging request can't eat
-// the whole budget; the page itself also declares a longer maxDuration.
-const PER_REQUEST_TIMEOUT_MS = 6000;
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// A single call is far more forgiving than the multi-call versions this
+// replaced, but GDELT can still be slow under its own load — generous but
+// bounded so a hung request doesn't run out the clock silently.
+const REQUEST_TIMEOUT_MS = 15000;
 
 function parseSeenDate(raw: string): string {
   if (!/^\d{14}$/.test(raw)) return "";
@@ -118,75 +123,85 @@ type RawArticle = {
 export type WorldNewsRegionResult = {
   region: WorldNewsRegion;
   articles: GdeltArticle[];
+};
+
+export type WorldNewsResult = {
+  regions: WorldNewsRegionResult[];
   error?: string;
 };
 
-async function fetchRegionArticles(region: WorldNewsRegion): Promise<WorldNewsRegionResult> {
+function buildCombinedQuery(): string {
+  const allKeywords = WORLD_NEWS_REGIONS.flatMap((r) => r.keywords);
+  const terms = allKeywords.map((k) => (k.includes(" ") ? `"${k}"` : k));
+  return `(${terms.join(" OR ")})`;
+}
+
+/**
+ * Fetches ONE combined batch of recent articles (any region's keywords),
+ * then classifies each into every region whose keyword appears in its
+ * title — an article can legitimately appear under more than one region
+ * (e.g. a US-China trade story), and any article matching none of the
+ * keywords (shouldn't happen given the query itself, but defensively
+ * handled) is simply dropped rather than mis-bucketed.
+ */
+export async function fetchWorldNews(): Promise<WorldNewsResult> {
   const params = new URLSearchParams({
-    // No sourcelang: filter — live-tested and found to zero out results even
-    // for broad, heavily-covered terms (Gaza, Ukraine, China) across every
-    // region, so it's dropped rather than shipped as a silent "no coverage"
-    // bug. Region keywords are common English proper nouns, which already
-    // biases results toward English/wire coverage without a hard filter.
-    query: region.query,
+    query: buildCombinedQuery(),
     mode: "ArtList",
     format: "json",
     sort: "DateDesc",
     timespan: TIMESPAN,
-    maxrecords: String(ARTICLES_PER_REGION),
+    maxrecords: String(TOTAL_ARTICLES),
   });
 
+  const emptyRegions = WORLD_NEWS_REGIONS.map((region) => ({ region, articles: [] as GdeltArticle[] }));
+
+  let text: string;
   try {
     const res = await fetch(`${GDELT_BASE}?${params.toString()}`, {
       next: { revalidate: REVALIDATE_SECONDS },
       headers: { "User-Agent": "GlobalMeltdownIndex/1.0 (+https://globalmeltdownindex.net)" },
-      signal: AbortSignal.timeout(PER_REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-    const text = await res.text();
-
+    text = await res.text();
     if (!res.ok) {
-      return { region, articles: [], error: `HTTP ${res.status}` };
+      return { regions: emptyRegions, error: `HTTP ${res.status}` };
     }
-
-    let parsed: { articles?: RawArticle[] };
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      // GDELT returns a plain-text throttle/error notice (not JSON) when
-      // rate-limited or otherwise rejecting the request.
-      return { region, articles: [], error: text.trim().slice(0, 160) || "non-JSON response" };
-    }
-
-    const articles: GdeltArticle[] = (parsed.articles ?? [])
-      .map((a) => ({
-        title: a.title ?? "",
-        url: a.url ?? "",
-        seenAt: a.seendate ? parseSeenDate(a.seendate) : "",
-        domain: a.domain ?? "",
-        sourceCountry: a.sourcecountry ?? "",
-        language: a.language ?? "",
-        imageUrl: a.socialimage || null,
-      }))
-      .filter((a) => a.title && a.url);
-
-    return { region, articles };
   } catch (e) {
-    return { region, articles: [], error: (e as Error).message };
+    return { regions: emptyRegions, error: (e as Error).message };
   }
-}
 
-/**
- * Fetches all regions with STAGGERED START times (not fully sequential
- * wait-for-completion) — spaced per GDELT's own throttle guidance, but
- * running concurrently once kicked off so total wall time is roughly
- * (regions × stagger) + one request's duration, not the sum of all of them.
- * A first version awaited each call fully before starting the next, which
- * could exceed 40s across six calls and tripped Vercel's function timeout —
- * this fixes that while still not bursting all six requests at once.
- */
-export async function fetchWorldNews(): Promise<WorldNewsRegionResult[]> {
-  const staggered = WORLD_NEWS_REGIONS.map((region, i) =>
-    delay(i * INTER_REQUEST_DELAY_MS).then(() => fetchRegionArticles(region))
-  );
-  return Promise.all(staggered);
+  let parsed: { articles?: RawArticle[] };
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    // GDELT returns a plain-text throttle/error notice (not JSON) when
+    // rate-limited or otherwise rejecting the request.
+    return { regions: emptyRegions, error: text.trim().slice(0, 160) || "non-JSON response" };
+  }
+
+  const articles: GdeltArticle[] = (parsed.articles ?? [])
+    .map((a) => ({
+      title: a.title ?? "",
+      url: a.url ?? "",
+      seenAt: a.seendate ? parseSeenDate(a.seendate) : "",
+      domain: a.domain ?? "",
+      sourceCountry: a.sourcecountry ?? "",
+      language: a.language ?? "",
+      imageUrl: a.socialimage || null,
+    }))
+    .filter((a) => a.title && a.url);
+
+  const regions: WorldNewsRegionResult[] = WORLD_NEWS_REGIONS.map((region) => {
+    const lowerKeywords = region.keywords.map((k) => k.toLowerCase());
+    const matched = articles
+      .filter((a) => {
+        const title = a.title.toLowerCase();
+        return lowerKeywords.some((k) => title.includes(k));
+      })
+      .slice(0, ARTICLES_PER_REGION_CAP);
+    return { region, articles: matched };
+  });
+
+  return { regions };
 }

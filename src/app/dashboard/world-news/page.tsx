@@ -1,13 +1,12 @@
 import { fetchWorldNews } from "@/lib/sources/gdeltNews";
 
-// Six staggered GDELT calls (see gdeltNews.ts) are too slow/unreliable for
-// Next.js's one-time build-time prerender attempt to tolerate — force this
+// A single GDELT call (see gdeltNews.ts) is still a real network round trip
+// to a free public API this app doesn't control the latency of — force this
 // route to only ever render per-request on the deployed server, never
 // during `next build`.
 export const dynamic = "force-dynamic";
-// Generous safety margin above the ~12s worst-case (6 regions x 1.2s stagger
-// + one 6s request) — comfortably within the Hobby-plan ceiling.
-export const maxDuration = 60;
+// Generous margin above the single request's own 15s timeout.
+export const maxDuration = 30;
 
 function timeAgo(iso: string): string {
   if (!iso) return "";
@@ -21,7 +20,7 @@ function timeAgo(iso: string): string {
 }
 
 export default async function WorldNewsPage() {
-  const results = await fetchWorldNews();
+  const { regions, error } = await fetchWorldNews();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -35,21 +34,27 @@ export default async function WorldNewsPage() {
         web news since 2015.
       </p>
       <p className="mb-6 max-w-3xl text-xs text-text-dim/80">
-        Grouped below by a plain keyword search per region — a readability grouping this app made, not an official
-        GDELT or press classification. This is raw headline aggregation, not AI-synthesized analysis or editorial
-        curation; click through to the publisher for the full story. A region shows &ldquo;temporarily
-        unavailable&rdquo; if GDELT&apos;s public API rate-limited this request — that&apos;s expected occasionally
-        on a free shared API, not a data error, and clears up on the next load.
+        One batch of recent articles is fetched and then grouped below by a plain keyword search per region — a
+        readability grouping this app made, not an official GDELT or press classification, so a story can reasonably
+        appear under more than one region. This is raw headline aggregation, not AI-synthesized analysis or editorial
+        curation; click through to the publisher for the full story.
       </p>
 
+      {error && (
+        <div className="gfew-panel mb-6 p-4">
+          <p className="text-xs text-text-dim">
+            Temporarily unavailable ({error}) — GDELT&apos;s public API rate-limited this request or is momentarily
+            slow; that&apos;s expected occasionally on a free shared API, not a data error. Try reloading in a
+            moment.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {results.map(({ region, articles, error }) => (
+        {regions.map(({ region, articles }) => (
           <section key={region.slug} className="gfew-panel p-4">
             <h2 className="mb-3 text-sm font-semibold text-text">{region.label}</h2>
 
-            {articles.length === 0 && error && (
-              <p className="text-xs text-text-dim">Temporarily unavailable ({error}) — try reloading in a moment.</p>
-            )}
             {articles.length === 0 && !error && (
               <p className="text-xs text-text-dim">No recent coverage matched in the last 2 days.</p>
             )}
