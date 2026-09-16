@@ -1,5 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
-import { CHEMICAL_PRODUCTS, priceHsCodeFor } from "../commodities/chemicalProductsDatabase";
+import { CHEMICAL_PRODUCTS, priceHsCodesFor, type ChemicalPriceHsCodes } from "../commodities/chemicalProductsDatabase";
 
 /**
  * Average export/import unit value (declared customs value ÷ net weight)
@@ -86,33 +86,36 @@ function unitValueForFlow(rows: ComtradeRow[], year: string, flowCode: "X" | "M"
   return row.primaryValue / row.netWgt; // USD/kg
 }
 
-export type ChemicalPriceHsCode = { hsCode: string; slugs: string[] };
+export type ChemicalPriceHsCodeGroup = ChemicalPriceHsCodes & { slugs: string[] };
 
-/** Distinct HS codes needed, deduped across every product lacking a PPI
- * price — several rows share one code (e.g. every C6-C18 fatty acid maps to
- * the same HS 3823 "industrial fatty acids" heading), so this is fetched
- * once per code, not once per product. */
-export function getChemicalPriceHsCodes(): ChemicalPriceHsCode[] {
-  const byCode = new Map<string, string[]>();
+/** Distinct (primary, fallback) HS code pairs needed, deduped across every
+ * product lacking a PPI price — several rows share one code (e.g. every
+ * fatty acid the WCO doesn't name individually maps to the same HS 382319
+ * "other" subheading), so this is fetched once per code pair, not once per
+ * product. */
+export function getChemicalPriceHsCodes(): ChemicalPriceHsCodeGroup[] {
+  const byPrimary = new Map<string, ChemicalPriceHsCodeGroup>();
   for (const p of CHEMICAL_PRODUCTS) {
-    const code = priceHsCodeFor(p);
-    if (!code) continue;
-    const list = byCode.get(code) ?? [];
-    list.push(p.slug);
-    byCode.set(code, list);
+    const codes = priceHsCodesFor(p);
+    if (!codes) continue;
+    const existing = byPrimary.get(codes.primary);
+    if (existing) existing.slugs.push(p.slug);
+    else byPrimary.set(codes.primary, { ...codes, slugs: [p.slug] });
   }
-  return [...byCode.entries()].map(([hsCode, slugs]) => ({ hsCode, slugs }));
+  return [...byPrimary.values()];
 }
 
 export function chemicalHsMetricKey(hsCode: string, flow: "export" | "import"): string {
   return `chemical.hs.${hsCode}.${flow}_unit_value`;
 }
 
-/** Fetches ONE HS code's most recent export AND import unit value (both, not
+/** Fetches one HS code's most recent export AND import unit value (both, not
  * either/or — a chemical the US mostly imports still gets a real reference
- * price from its import side, e.g. commodity chemicals it's a net importer
- * of) in a single Comtrade call covering the last 5 candidate years. */
-export async function fetchChemicalHsUnitValue(hsCode: string): Promise<MetricPoint[]> {
+ * price from its import side) in a single Comtrade call covering the last 5
+ * candidate years. Metric keys are stamped with the code actually queried,
+ * so a fallback-sourced point is honestly labeled as coming from the
+ * fallback code, not silently attributed to the primary one. */
+async function fetchUnitValueForCode(hsCode: string): Promise<MetricPoint[]> {
   const currentYear = new Date().getUTCFullYear();
   const years = Array.from({ length: 5 }, (_, i) => String(currentYear - 1 - i));
   const rows = await comtradeQuery(hsCode, years.join(","));
@@ -135,4 +138,17 @@ export async function fetchChemicalHsUnitValue(hsCode: string): Promise<MetricPo
     }
   }
   return points;
+}
+
+/** Tries the primary (usually more specific) HS code first; if the
+ * reference reporter reports nothing at all for it, falls back to the
+ * broader code — confirmed live as a real, not hypothetical, case: Sodium
+ * Laureth Sulfate's own 6-digit code (340213) returns zero rows for the
+ * United States, so it correctly falls back to the broader HS 3402 heading
+ * rather than showing no price at all. */
+export async function fetchChemicalHsUnitValue(codes: ChemicalPriceHsCodes): Promise<MetricPoint[]> {
+  const primaryPoints = await fetchUnitValueForCode(codes.primary);
+  if (primaryPoints.length > 0 || !codes.fallback) return primaryPoints;
+  await delay(CHEMICAL_PRICE_DELAY_MS);
+  return fetchUnitValueForCode(codes.fallback);
 }

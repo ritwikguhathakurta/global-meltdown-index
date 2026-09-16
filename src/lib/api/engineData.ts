@@ -70,7 +70,7 @@ import type { CommodityCategory } from "@/lib/commodities/taxonomy";
 import type { CountryBalanceCommodityDef } from "@/lib/commodities/countryBalanceTaxonomy";
 import { getChemicalsOverview as computeChemicalsOverview, type ChemicalsOverviewResult } from "@/lib/engines/chemicals";
 import { getOleochemicals as computeOleochemicals, type OleochemicalsResult } from "@/lib/engines/oleochemicals";
-import { CHEMICAL_PRODUCTS, priceHsCodeFor } from "@/lib/commodities/chemicalProductsDatabase";
+import { CHEMICAL_PRODUCTS, priceHsCodesFor } from "@/lib/commodities/chemicalProductsDatabase";
 import { getChemicalPriceHsCodes, chemicalHsMetricKey } from "@/lib/sources/unComtradeChemicalPrices";
 import { getEuropeanGrid as computeEuropeanGrid, type EuropeanGridResult } from "@/lib/engines/europeanGrid";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
@@ -880,7 +880,7 @@ export async function getChemicalProductPrices(): Promise<Map<string, ChemicalPr
   try {
     const db = await createServerSupabase();
     const ppiKeys = CHEMICAL_PRODUCTS.map((p) => p.livePriceMetricKey).filter((k): k is string => Boolean(k));
-    const hsCodes = getChemicalPriceHsCodes().map((c) => c.hsCode);
+    const hsCodes = getChemicalPriceHsCodes().flatMap((c) => [c.primary, ...(c.fallback ? [c.fallback] : [])]);
     const hsKeys = hsCodes.flatMap((code) => [chemicalHsMetricKey(code, "export"), chemicalHsMetricKey(code, "import")]);
     const latest = await fetchLatestForKeys(db, [...new Set([...ppiKeys, ...hsKeys])]);
 
@@ -890,19 +890,25 @@ export async function getChemicalProductPrices(): Promise<Map<string, ChemicalPr
         if (row) result.set(p.slug, { value: row.v, previous: row.previous?.v ?? null, asOf: row.t, unit: "index 1982=100", basis: "ppi" });
         continue;
       }
-      const hsCode = priceHsCodeFor(p);
-      if (!hsCode) continue;
-      const exportRow = latest.get(chemicalHsMetricKey(hsCode, "export"));
-      const importRow = latest.get(chemicalHsMetricKey(hsCode, "import"));
-      const row = exportRow ?? importRow;
-      if (!row) continue;
-      result.set(p.slug, {
-        value: row.v,
-        previous: row.previous?.v ?? null,
-        asOf: row.t,
-        unit: "USD/MT",
-        basis: exportRow ? "export_unit_value" : "import_unit_value",
-      });
+      const codes = priceHsCodesFor(p);
+      if (!codes) continue;
+      // Try the primary code's export, then import, then (only if the
+      // primary code has no data at all) the same two on the fallback code —
+      // mirrors fetchChemicalHsUnitValue's own fetch-order so the read side
+      // never disagrees with what the ingest side actually tried.
+      const candidates: { key: string; basis: ChemicalProductPrice["basis"] }[] = [
+        { key: chemicalHsMetricKey(codes.primary, "export"), basis: "export_unit_value" },
+        { key: chemicalHsMetricKey(codes.primary, "import"), basis: "import_unit_value" },
+        ...(codes.fallback
+          ? [
+              { key: chemicalHsMetricKey(codes.fallback, "export"), basis: "export_unit_value" as const },
+              { key: chemicalHsMetricKey(codes.fallback, "import"), basis: "import_unit_value" as const },
+            ]
+          : []),
+      ];
+      const match = candidates.map((c) => ({ ...c, row: latest.get(c.key) })).find((c) => c.row);
+      if (!match?.row) continue;
+      result.set(p.slug, { value: match.row.v, previous: match.row.previous?.v ?? null, asOf: match.row.t, unit: "USD/MT", basis: match.basis });
     }
     return result;
   } catch (e) {

@@ -1340,18 +1340,18 @@ export async function ingestChemicalHsUnitValues(db: SupabaseClient, runDate: st
   let stoppedAtIndex: number | null = null;
   for (let i = 0; i < n; i++) {
     const index = (startIndex + i) % n;
-    const { hsCode } = codes[index];
+    const group = codes[index];
     try {
-      const points = await fetchChemicalHsUnitValue(hsCode);
+      const points = await fetchChemicalHsUnitValue(group);
       await upsertMetrics(db, points);
       totalPoints += points.length;
     } catch (e) {
       if (e instanceof ChemicalPriceQuotaExceededError) {
-        errors.push(`stopped early: ${e.message} (hs ${hsCode} onward deferred to a later run)`);
+        errors.push(`stopped early: ${e.message} (hs ${group.primary} onward deferred to a later run)`);
         stoppedAtIndex = index;
         break;
       }
-      errors.push(`hs ${hsCode}: ${(e as Error).message}`);
+      errors.push(`hs ${group.primary}: ${(e as Error).message}`);
     }
     await new Promise((r) => setTimeout(r, CHEMICAL_PRICE_DELAY_MS));
   }

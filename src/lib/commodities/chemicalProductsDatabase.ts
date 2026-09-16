@@ -47,20 +47,49 @@ export type ChemicalProduct = {
   note?: string;
 };
 
+export type ChemicalPriceHsCodes = { primary: string; fallback: string | null };
+
 /**
- * The HS code to query for a real UN Comtrade average unit-value price proxy
- * (see unComtradeChemicalPrices.ts) — null when the product already has a
- * genuine FRED PPI price (livePriceMetricKey), since that's a real price
- * series and a unit-value proxy would be a needless downgrade, not an
- * improvement. Prefers liveTradeHsCode over the product's own hsCode where
- * both exist, since liveTradeHsCode is already the code this app's trade
- * connectors were live-verified against (see chemicalProductsDatabase.ts's
- * per-row notes on which HS heading each is "bundled inside").
+ * The HS code(s) to query for a real UN Comtrade average unit-value price
+ * proxy (see unComtradeChemicalPrices.ts) — null when the product already
+ * has a genuine FRED PPI price (livePriceMetricKey), since that's a real
+ * price series and a unit-value proxy would be a needless downgrade, not an
+ * improvement.
+ *
+ * Prefers the product's own (more specific, usually 6-digit) `hsCode` over
+ * the broader `liveTradeHsCode` — the opposite of an earlier version of this
+ * function, which caused a real bug: several Oleochemical HS 3823 rows had
+ * `liveTradeHsCode` set to the 4-digit HEADING ("3823"), which covers BOTH
+ * industrial fatty acids (subheadings 382311/12/13/19) AND industrial fatty
+ * alcohols (382370) — two chemically distinct product families with
+ * different real prices. Querying at that heading level blended them into
+ * one indistinguishable average, so e.g. Stearic Acid, Oleic Acid, and every
+ * fatty alcohol all showed the identical price. Live-verified before this
+ * fix: querying UN Comtrade at each real 6-digit subheading (382311/382312/
+ * 382319/382370) returns genuinely distinct trade data and unit prices, not
+ * an empty or duplicate result — the finer code was always available, just
+ * not used. `liveTradeHsCode` is still used as a documented FALLBACK for the
+ * rare case a product's own specific code isn't actually reported by the
+ * reference country (confirmed live for Sodium Laureth Sulfate: HS 340213
+ * returns zero rows for the United States, so it correctly falls back to
+ * the broader 3402 heading rather than showing nothing).
  */
-export function priceHsCodeFor(product: ChemicalProduct): string | null {
+export function priceHsCodesFor(product: ChemicalProduct): ChemicalPriceHsCodes | null {
   if (product.livePriceMetricKey) return null;
-  return product.liveTradeHsCode ?? product.hsCode ?? null;
+  const primary = product.hsCode ?? product.liveTradeHsCode ?? null;
+  if (!primary) return null;
+  const fallback = product.liveTradeHsCode && product.liveTradeHsCode !== primary ? product.liveTradeHsCode : null;
+  return { primary, fallback };
 }
+
+/** All six herbicides below share this exact note: the Harmonized System
+ * classifies "Herbicides, anti-sprouting products and plant-growth
+ * regulators" as ONE subheading (380893) regardless of active ingredient —
+ * no 6-digit (or finer) WCO code exists that distinguishes glyphosate from
+ * dicamba. Their computed average price is therefore genuinely identical
+ * (the same real customs bucket), not a lookup bug. */
+const HERBICIDE_HS_NOTE =
+  "Shares HS 380893 with every other herbicide here — the Harmonized System doesn't split herbicides by active ingredient, so this row's price is the whole HS 380893 bucket's average, identical to its neighbors' by design, not a lookup error.";
 
 export const CHEMICAL_PRODUCTS: ChemicalProduct[] = [
   // ---- Basic Inorganic Chemicals (spec §4.A) ----
@@ -133,36 +162,47 @@ export const CHEMICAL_PRODUCTS: ChemicalProduct[] = [
   { slug: "npk", name: "NPK (Compound Fertilizer)", category: "Fertilizers", casNumber: null, hsCode: "3105", hsLabel: "Fertilizers with N+P+K (heading level; 6-digit varies by ratio)", note: "A formulated blend, not a single compound — exact 6-digit code depends on the specific N-P-K ratio." },
 
   // ---- Agrochemicals (spec §8) ----
-  { slug: "glyphosate", name: "Glyphosate", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1071-83-6", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators" },
-  { slug: "glufosinate", name: "Glufosinate", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "51276-47-2", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators" },
-  { slug: "paraquat", name: "Paraquat (dichloride)", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1910-42-5", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators" },
-  { slug: "atrazine", name: "Atrazine", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1912-24-9", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators" },
-  { slug: "24d", name: "2,4-D", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "94-75-7", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators" },
-  { slug: "dicamba", name: "Dicamba", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1918-00-9", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators" },
+  { slug: "glyphosate", name: "Glyphosate", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1071-83-6", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators", note: HERBICIDE_HS_NOTE },
+  { slug: "glufosinate", name: "Glufosinate", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "51276-47-2", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators", note: HERBICIDE_HS_NOTE },
+  { slug: "paraquat", name: "Paraquat (dichloride)", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1910-42-5", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators", note: HERBICIDE_HS_NOTE },
+  { slug: "atrazine", name: "Atrazine", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1912-24-9", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators", note: HERBICIDE_HS_NOTE },
+  { slug: "24d", name: "2,4-D", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "94-75-7", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators", note: HERBICIDE_HS_NOTE },
+  { slug: "dicamba", name: "Dicamba", category: "Agrochemicals", subFamily: "Herbicide", casNumber: "1918-00-9", hsCode: "380893", hsLabel: "Herbicides, anti-sprouting products and plant-growth regulators", note: HERBICIDE_HS_NOTE },
 
   // ---- Oleochemicals: individual named products (spec §11-20), extending
   // oleochemValueChain.ts's structural graph with real CAS numbers ----
-  { slug: "caproic_acid", name: "Caproic Acid (C6)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "142-62-1", hsCode: "382319", liveTradeHsCode: "3823", note: "Bundled inside HS 3823 industrial fatty acids trade total — not separable by customs code." },
-  { slug: "caprylic_acid", name: "Caprylic Acid (C8)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "124-07-2", hsCode: "382319", liveTradeHsCode: "3823" },
-  { slug: "capric_acid", name: "Capric Acid (C10)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "334-48-5", hsCode: "382319", liveTradeHsCode: "3823" },
-  { slug: "lauric_acid", name: "Lauric Acid (C12)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "143-07-7", hsCode: "382319", liveTradeHsCode: "3823" },
-  { slug: "myristic_acid", name: "Myristic Acid (C14)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "544-63-8", hsCode: "382319", liveTradeHsCode: "3823" },
-  { slug: "palmitic_acid", name: "Palmitic Acid (C16)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "57-10-3", hsCode: "382319", liveTradeHsCode: "3823", livePriceMetricKey: "chemical.fatty_acids.ppi", note: "US Fatty Acids PPI is a family-level proxy, not a per-compound price." },
-  { slug: "stearic_acid", name: "Stearic Acid (C18)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "57-11-4", hsCode: "382319", liveTradeHsCode: "3823", livePriceMetricKey: "chemical.fatty_acids.ppi", note: "US Fatty Acids PPI is a family-level proxy, not a per-compound price." },
-  { slug: "oleic_acid", name: "Oleic Acid (C18:1)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "112-80-1", hsCode: "382319", liveTradeHsCode: "3823" },
-  { slug: "linoleic_acid", name: "Linoleic Acid (C18:2)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "60-33-3", hsCode: "382319", liveTradeHsCode: "3823" },
-  { slug: "linolenic_acid", name: "Linolenic Acid (C18:3, alpha)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "463-40-1", hsCode: "382319", liveTradeHsCode: "3823" },
+  //
+  // HS 3823 ("Industrial monocarboxylic fatty acids; ... industrial fatty
+  // alcohols") splits into real, separately-reported 6-digit subheadings —
+  // 382311 Stearic acid, 382312 Oleic acid, 382313 Tall oil fatty acids,
+  // 382319 Other, 382370 Industrial fatty alcohols — live-verified to each
+  // return distinct UN Comtrade trade data, not an empty or duplicate
+  // result. Stearic Acid and Oleic Acid get their own dedicated codes below
+  // (382311/382312); every other fatty acid the Harmonized System doesn't
+  // name individually (caproic through linolenic, plus PFAD) correctly
+  // shares the 382319 "Other" bucket, and every fatty alcohol shares 382370
+  // — two real, distinct sub-buckets, not one blended "3823" total.
+  { slug: "caproic_acid", name: "Caproic Acid (C6)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "142-62-1", hsCode: "382319", liveTradeHsCode: "3823", note: "Shares HS 382319 (\"other\" industrial fatty acids not individually classified) with every fatty acid here except Stearic/Oleic, which have their own dedicated codes — a real shared customs bucket, not a lookup error." },
+  { slug: "caprylic_acid", name: "Caprylic Acid (C8)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "124-07-2", hsCode: "382319", liveTradeHsCode: "3823", note: "Shares HS 382319 (\"other\" industrial fatty acids) with Caproic/Capric/Lauric/Myristic/Linoleic/Linolenic Acid and PFAD." },
+  { slug: "capric_acid", name: "Capric Acid (C10)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "334-48-5", hsCode: "382319", liveTradeHsCode: "3823", note: "Shares HS 382319 (\"other\" industrial fatty acids) with Caproic/Caprylic/Lauric/Myristic/Linoleic/Linolenic Acid and PFAD." },
+  { slug: "lauric_acid", name: "Lauric Acid (C12)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "143-07-7", hsCode: "382319", liveTradeHsCode: "3823", note: "Shares HS 382319 (\"other\" industrial fatty acids) with Caproic/Caprylic/Capric/Myristic/Linoleic/Linolenic Acid and PFAD." },
+  { slug: "myristic_acid", name: "Myristic Acid (C14)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "544-63-8", hsCode: "382319", liveTradeHsCode: "3823", note: "Shares HS 382319 (\"other\" industrial fatty acids) with Caproic/Caprylic/Capric/Lauric/Linoleic/Linolenic Acid and PFAD." },
+  { slug: "palmitic_acid", name: "Palmitic Acid (C16)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "57-10-3", hsCode: "382311", liveTradeHsCode: "3823", livePriceMetricKey: "chemical.fatty_acids.ppi", note: "Uses the FRED Fatty Acids PPI, a family-level proxy, not a per-compound price. Its own HS code (382311, shared with Stearic Acid — the WCO doesn't split C16 from C18 saturated acids) is used by Stearic/Oleic Acid below since neither has a PPI." },
+  { slug: "stearic_acid", name: "Stearic Acid (C18)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "57-11-4", hsCode: "382311", hsLabel: "Stearic acid", liveTradeHsCode: "3823", livePriceMetricKey: "chemical.fatty_acids.ppi", note: "Uses the FRED Fatty Acids PPI, a family-level proxy, not a per-compound price. Has its own dedicated HS code (382311), shared only with Palmitic Acid." },
+  { slug: "oleic_acid", name: "Oleic Acid (C18:1)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "112-80-1", hsCode: "382312", hsLabel: "Oleic acid", liveTradeHsCode: "3823", note: "Has its own dedicated HS code (382312) — not bundled with the other fatty acids here." },
+  { slug: "linoleic_acid", name: "Linoleic Acid (C18:2)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "60-33-3", hsCode: "382319", liveTradeHsCode: "3823", note: "Shares HS 382319 (\"other\" industrial fatty acids) with Caproic/Caprylic/Capric/Lauric/Myristic/Linolenic Acid and PFAD." },
+  { slug: "linolenic_acid", name: "Linolenic Acid (C18:3, alpha)", category: "Oleochemicals", subFamily: "Fatty Acid", casNumber: "463-40-1", hsCode: "382319", liveTradeHsCode: "3823", note: "Shares HS 382319 (\"other\" industrial fatty acids) with Caproic/Caprylic/Capric/Lauric/Myristic/Linoleic Acid and PFAD." },
 
-  { slug: "lauryl_alcohol", name: "Lauryl Alcohol (Dodecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "112-53-8", hsCode: "382370", liveTradeHsCode: "3823", note: "Bundled inside HS 3823 industrial fatty alcohols trade total — not separable by customs code." },
-  { slug: "cetyl_alcohol", name: "Cetyl Alcohol (Hexadecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "36653-82-4", hsCode: "382370", liveTradeHsCode: "3823" },
-  { slug: "stearyl_alcohol", name: "Stearyl Alcohol (Octadecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "112-92-5", hsCode: "382370", liveTradeHsCode: "3823" },
-  { slug: "oleyl_alcohol", name: "Oleyl Alcohol", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "143-28-2", hsCode: "382370", liveTradeHsCode: "3823" },
-  { slug: "myristyl_alcohol", name: "Myristyl Alcohol (Tetradecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "112-72-1", hsCode: "382370", liveTradeHsCode: "3823" },
+  { slug: "lauryl_alcohol", name: "Lauryl Alcohol (Dodecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "112-53-8", hsCode: "382370", liveTradeHsCode: "3823", note: "Shares HS 382370 (industrial fatty alcohols) with every fatty alcohol here — a real, separate customs bucket from the fatty acid subheadings above, not the same code." },
+  { slug: "cetyl_alcohol", name: "Cetyl Alcohol (Hexadecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "36653-82-4", hsCode: "382370", liveTradeHsCode: "3823", note: "Shares HS 382370 (industrial fatty alcohols) with Lauryl/Stearyl/Oleyl/Myristyl Alcohol." },
+  { slug: "stearyl_alcohol", name: "Stearyl Alcohol (Octadecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "112-92-5", hsCode: "382370", liveTradeHsCode: "3823", note: "Shares HS 382370 (industrial fatty alcohols) with Lauryl/Cetyl/Oleyl/Myristyl Alcohol." },
+  { slug: "oleyl_alcohol", name: "Oleyl Alcohol", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "143-28-2", hsCode: "382370", liveTradeHsCode: "3823", note: "Shares HS 382370 (industrial fatty alcohols) with Lauryl/Cetyl/Stearyl/Myristyl Alcohol." },
+  { slug: "myristyl_alcohol", name: "Myristyl Alcohol (Tetradecanol)", category: "Oleochemicals", subFamily: "Fatty Alcohol", casNumber: "112-72-1", hsCode: "382370", liveTradeHsCode: "3823", note: "Shares HS 382370 (industrial fatty alcohols) with Lauryl/Cetyl/Stearyl/Oleyl Alcohol." },
 
-  { slug: "methyl_laurate", name: "Methyl Laurate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "111-82-0", hsCode: "382600", liveTradeHsCode: "3826", note: "Bundled inside HS 3826 biodiesel/FAME trade total — not separable by customs code." },
-  { slug: "methyl_palmitate", name: "Methyl Palmitate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "112-39-0", hsCode: "382600", liveTradeHsCode: "3826" },
-  { slug: "methyl_stearate", name: "Methyl Stearate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "112-61-8", hsCode: "382600", liveTradeHsCode: "3826" },
-  { slug: "methyl_oleate", name: "Methyl Oleate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "112-62-9", hsCode: "382600", liveTradeHsCode: "3826" },
+  { slug: "methyl_laurate", name: "Methyl Laurate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "111-82-0", hsCode: "382600", liveTradeHsCode: "3826", note: "Shares HS 382600 (biodiesel/FAME) with every methyl ester here — the Harmonized System doesn't split biodiesel by fatty-acid chain length, so this is genuinely bundled, not separable by customs code." },
+  { slug: "methyl_palmitate", name: "Methyl Palmitate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "112-39-0", hsCode: "382600", liveTradeHsCode: "3826", note: "Shares HS 382600 (biodiesel/FAME) with Methyl Laurate/Stearate/Oleate." },
+  { slug: "methyl_stearate", name: "Methyl Stearate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "112-61-8", hsCode: "382600", liveTradeHsCode: "3826", note: "Shares HS 382600 (biodiesel/FAME) with Methyl Laurate/Palmitate/Oleate." },
+  { slug: "methyl_oleate", name: "Methyl Oleate", category: "Oleochemicals", subFamily: "Methyl Ester", casNumber: "112-62-9", hsCode: "382600", liveTradeHsCode: "3826", note: "Shares HS 382600 (biodiesel/FAME) with Methyl Laurate/Palmitate/Stearate." },
 
   { slug: "glycerine", name: "Glycerine / Glycerol (crude)", category: "Oleochemicals", casNumber: "56-81-5", hsCode: "290545", hsLabel: "Glycerol, crude", liveTradeHsCode: "290545" },
   { slug: "pfad", name: "PFAD (Palm Fatty Acid Distillate)", category: "Oleochemicals", casNumber: null, hsCode: "382319", liveTradeHsCode: "3823", note: "A refining byproduct blend, not a single compound — no dedicated CAS or HS subheading; bundled inside HS 3823." },
