@@ -70,7 +70,8 @@ import type { CommodityCategory } from "@/lib/commodities/taxonomy";
 import type { CountryBalanceCommodityDef } from "@/lib/commodities/countryBalanceTaxonomy";
 import { getChemicalsOverview as computeChemicalsOverview, type ChemicalsOverviewResult } from "@/lib/engines/chemicals";
 import { getOleochemicals as computeOleochemicals, type OleochemicalsResult } from "@/lib/engines/oleochemicals";
-import { CHEMICAL_PRODUCTS } from "@/lib/commodities/chemicalProductsDatabase";
+import { CHEMICAL_PRODUCTS, priceHsCodeFor } from "@/lib/commodities/chemicalProductsDatabase";
+import { getChemicalPriceHsCodes, chemicalHsMetricKey } from "@/lib/sources/unComtradeChemicalPrices";
 import { getEuropeanGrid as computeEuropeanGrid, type EuropeanGridResult } from "@/lib/engines/europeanGrid";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
 import type { EngineRow } from "./types";
@@ -849,27 +850,59 @@ export async function getGridSnapshots(): Promise<GridSnapshot[] | null> {
   }
 }
 
-export type ChemicalProductPrice = { value: number; previous: number | null; asOf: string };
+export type ChemicalProductPrice = {
+  value: number;
+  previous: number | null;
+  asOf: string;
+  unit: string;
+  basis: "ppi" | "export_unit_value" | "import_unit_value";
+};
 
 /**
- * Latest value + previous reading (for TrendIndicator) of every distinct
- * livePriceMetricKey referenced in chemicalProductsDatabase.ts — all of them
- * are FRED PPI proxy series (see fred.ts's chemical.*.ppi entries), monthly,
- * unit "index 1982=100". Several product rows share the same family-level
- * key (e.g. HDPE/LDPE/PP/PVC/PS/EPS all point at
- * chemical.thermoplastic_resins.ppi), so this is keyed by metric key, not by
- * product slug — the page looks it up per row via the row's own
- * livePriceMetricKey.
+ * Latest value + previous reading (for TrendIndicator) for every Chemical
+ * Products Master row that has real live pricing, keyed by product SLUG
+ * (not by metric key — several rows share one underlying series, e.g. every
+ * C6-C18 fatty acid resolves to the same UN Comtrade HS 3823 code, but each
+ * still needs its own row in the result).
+ *
+ * Two distinct bases, preferred in this order per product:
+ * 1. `ppi` — a real FRED Producer Price Index proxy (chemicalProductsDatabase.ts's
+ *    livePriceMetricKey), monthly, unit "index 1982=100".
+ * 2. `export_unit_value` / `import_unit_value` — UN Comtrade average unit
+ *    value (declared customs value ÷ net weight) from the United States'
+ *    own trade data (unComtradeChemicalPrices.ts), annual, unit "USD/MT".
+ *    Export is preferred; import is used only when the US has no export
+ *    data at all for that HS code (e.g. a chemical it's a net importer of).
  */
 export async function getChemicalProductPrices(): Promise<Map<string, ChemicalProductPrice>> {
   const result = new Map<string, ChemicalProductPrice>();
   if (!isSupabaseConfigured) return result;
   try {
     const db = await createServerSupabase();
-    const keys = [...new Set(CHEMICAL_PRODUCTS.map((p) => p.livePriceMetricKey).filter((k): k is string => Boolean(k)))];
-    const latest = await fetchLatestForKeys(db, keys);
-    for (const [key, row] of latest) {
-      result.set(key, { value: row.v, previous: row.previous?.v ?? null, asOf: row.t });
+    const ppiKeys = CHEMICAL_PRODUCTS.map((p) => p.livePriceMetricKey).filter((k): k is string => Boolean(k));
+    const hsCodes = getChemicalPriceHsCodes().map((c) => c.hsCode);
+    const hsKeys = hsCodes.flatMap((code) => [chemicalHsMetricKey(code, "export"), chemicalHsMetricKey(code, "import")]);
+    const latest = await fetchLatestForKeys(db, [...new Set([...ppiKeys, ...hsKeys])]);
+
+    for (const p of CHEMICAL_PRODUCTS) {
+      if (p.livePriceMetricKey) {
+        const row = latest.get(p.livePriceMetricKey);
+        if (row) result.set(p.slug, { value: row.v, previous: row.previous?.v ?? null, asOf: row.t, unit: "index 1982=100", basis: "ppi" });
+        continue;
+      }
+      const hsCode = priceHsCodeFor(p);
+      if (!hsCode) continue;
+      const exportRow = latest.get(chemicalHsMetricKey(hsCode, "export"));
+      const importRow = latest.get(chemicalHsMetricKey(hsCode, "import"));
+      const row = exportRow ?? importRow;
+      if (!row) continue;
+      result.set(p.slug, {
+        value: row.v,
+        previous: row.previous?.v ?? null,
+        asOf: row.t,
+        unit: "USD/MT",
+        basis: exportRow ? "export_unit_value" : "import_unit_value",
+      });
     }
     return result;
   } catch (e) {

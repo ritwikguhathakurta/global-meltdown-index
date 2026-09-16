@@ -1,23 +1,23 @@
 import Link from "next/link";
-import { CHEMICAL_PRODUCTS, CHEMICAL_PRODUCT_CATEGORIES, SPECIALTY_CHEMICAL_CATEGORIES, type ChemicalProduct } from "@/lib/commodities/chemicalProductsDatabase";
+import { CHEMICAL_PRODUCTS, CHEMICAL_PRODUCT_CATEGORIES, SPECIALTY_CHEMICAL_CATEGORIES } from "@/lib/commodities/chemicalProductsDatabase";
 import { CHEMICAL_ENRICHMENT_BY_CAS } from "@/lib/commodities/chemicalProductsEnrichment";
 import { getChemicalProductPrices, type ChemicalProductPrice } from "@/lib/api/engineData";
 import { TrendIndicator } from "@/components/TrendIndicator";
 
 export const dynamic = "force-dynamic";
 
-function LiveDataBadge({ product }: { product: ChemicalProduct }) {
-  if (product.livePriceMetricKey) {
+function LiveDataBadge({ price }: { price?: ChemicalProductPrice }) {
+  if (price?.basis === "ppi") {
     return (
       <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "#34c08522", color: "#34c085" }}>
         Live PPI proxy
       </span>
     );
   }
-  if (product.liveTradeHsCode) {
+  if (price) {
     return (
       <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "#3fa9f522", color: "#3fa9f5" }}>
-        Live trade data
+        Live avg price (Comtrade)
       </span>
     );
   }
@@ -31,26 +31,32 @@ function LiveDataBadge({ product }: { product: ChemicalProduct }) {
 function fmtMonth(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
+function fmtYear(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", timeZone: "UTC" });
+}
 
-function PriceCell({ product, prices }: { product: ChemicalProduct; prices: Map<string, ChemicalProductPrice> }) {
-  if (!product.livePriceMetricKey) return <span className="text-text-dim">—</span>;
-  const p = prices.get(product.livePriceMetricKey);
-  if (!p) return <span className="text-text-dim">—</span>;
+function PriceCell({ price }: { price?: ChemicalProductPrice }) {
+  if (!price) return <span className="text-text-dim">—</span>;
+  const caption =
+    price.basis === "ppi"
+      ? `index 1982=100 · ${fmtMonth(price.asOf)}`
+      : `avg ${price.basis === "export_unit_value" ? "export" : "import"} unit value, USD/MT · ${fmtYear(price.asOf)}`;
   return (
     <>
       <div>
-        {p.value.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-        <TrendIndicator value={p.value} previous={p.previous} />
+        {price.value.toLocaleString(undefined, { maximumFractionDigits: price.basis === "ppi" ? 1 : 0 })}
+        <TrendIndicator value={price.value} previous={price.previous} />
       </div>
-      <div className="text-[10px] normal-case text-text-dim">index 1982=100 · {fmtMonth(p.asOf)}</div>
+      <div className="text-[10px] normal-case text-text-dim">{caption}</div>
     </>
   );
 }
 
 export default async function ChemicalProductsPage() {
-  const withData = CHEMICAL_PRODUCTS.filter((p) => p.livePriceMetricKey || p.liveTradeHsCode).length;
   const withMolecularData = CHEMICAL_PRODUCTS.filter((p) => p.casNumber && CHEMICAL_ENRICHMENT_BY_CAS[p.casNumber]).length;
   const prices = await getChemicalProductPrices();
+  const withPpi = [...prices.values()].filter((p) => p.basis === "ppi").length;
+  const withUnitValue = prices.size - withPpi;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -65,12 +71,14 @@ export default async function ChemicalProductsPage() {
         Inorganic/Organic Chemicals, Petrochemicals, Polymers, Fertilizers, Agrochemicals, and the full
         Oleochemical taxonomy, each with a CAS Registry Number and WCO Harmonized System trade-classification
         code — public, standardized identifiers, verified against multiple independent tariff/chemical-database
-        sources before being entered, not guessed. {withData} of {CHEMICAL_PRODUCTS.length} rows also connect to
-        real live data already in this app: {prices.size} distinct FRED Producer Price Index series (&ldquo;Live PPI
-        proxy&rdquo;, shown below with the latest index level, its month-over-month move, and direction — a US
-        producer-price index, not a global per-unit spot price, disclosed as such everywhere it&apos;s shown) plus
-        rows that connect only to a UN Comtrade trade flow (&ldquo;Live trade data&rdquo;, volume not price); the
-        rest are reference-only, disclosed as such rather than implied to have live pricing they don&apos;t.{" "}
+        sources before being entered, not guessed. {prices.size} of {CHEMICAL_PRODUCTS.length} rows show a real
+        price below: {withPpi} from a FRED Producer Price Index proxy (&ldquo;Live PPI proxy&rdquo; — a US
+        producer-price index, monthly, shown with its month-over-month move) and {withUnitValue} from a UN Comtrade
+        average export/import unit value (&ldquo;Live avg price (Comtrade)&rdquo; — the United States&apos; own
+        declared customs value ÷ net weight for that HS code, annual, shown with its year-over-year move; not a
+        global benchmark price, since it reflects one country&apos;s own trade, and not a monthly spot price the way
+        the PPI proxies are). The remaining rows are reference-only — no free price source was found for their exact
+        HS code, disclosed as such rather than implied to have live pricing they don&apos;t.{" "}
         {withMolecularData}
         of {CHEMICAL_PRODUCTS.length} rows also show a real molecular formula and molecular weight from PubChem
         (NIH/NLM) — every polymer family and genuine mixture is deliberately left blank rather than assigned a
@@ -93,7 +101,7 @@ export default async function ChemicalProductsPage() {
                     <th className="px-3 py-2 font-medium">CAS Number</th>
                     <th className="px-3 py-2 font-medium">HS Code</th>
                     <th className="px-3 py-2 font-medium">Formula (MW)</th>
-                    <th className="px-3 py-2 font-medium">Price (MoM)</th>
+                    <th className="px-3 py-2 font-medium">Price</th>
                     <th className="px-3 py-2 font-medium">Data</th>
                   </tr>
                 </thead>
@@ -123,10 +131,10 @@ export default async function ChemicalProductsPage() {
                           )}
                         </td>
                         <td className="gfew-mono px-3 py-2 text-text-dim">
-                          <PriceCell product={p} prices={prices} />
+                          <PriceCell price={prices.get(p.slug)} />
                         </td>
                         <td className="px-3 py-2">
-                          <LiveDataBadge product={p} />
+                          <LiveDataBadge price={prices.get(p.slug)} />
                           {p.note && <div className="mt-1 max-w-xs text-[10px] text-text-dim">{p.note}</div>}
                         </td>
                       </tr>
@@ -176,13 +184,25 @@ export default async function ChemicalProductsPage() {
         own note), and none of their PubChem candidates passed that verification, correctly.
         <br />
         <br />
+        <strong className="text-text">Price</strong>: PPI proxies are the same real FRED series used elsewhere in
+        the Chemicals engine (see fred.ts). Unit-value prices are new here — one UN Comtrade call per distinct HS
+        code (not per product, since e.g. every C6-C18 fatty acid shares HS 3823) against a single reference
+        reporter, the United States, rather than every country: this app already establishes elsewhere (the Base
+        Metals/Precious Metals/Critical Minerals/Fertilizers Country Balance Sheets) that a full country-by-country
+        trade picture needs one call per country, which isn&apos;t affordable for ~45 additional HS codes on the same
+        shared daily quota — a single reputable reporter&apos;s own declared unit value is a standard economist&apos;s
+        proxy for a commodity&apos;s price when no dedicated spot-price feed is free, but it is still that one
+        country&apos;s own price, not a volume-weighted global benchmark, and it moves in whole-year steps, not
+        monthly. Some HS codes still show &ldquo;—&rdquo;: the United States genuinely reports neither export nor
+        import weight-denominated trade for that code in the last 5 years (e.g. it reports trade value only, or the
+        code sees negligible US trade volume) — left blank rather than guessed.
+        <br />
+        <br />
         <strong className="text-text">Not built</strong>, and why: individual named products under every spec §9
         Specialty Chemicals category (thousands of distinct formulated products across coatings, adhesives,
         electronic/battery/water-treatment/cosmetic chemicals, etc.) — the spec itself names only categories here,
         not products, so populating rows would mean inventing which specific compounds belong, not transcribing the
-        spec; a live per-product spot price for any reference-only row — that remains the same unresolved gap as
-        the rest of the Chemicals engine (see the Chemicals Overview and Oleochemicals pages), unaffected by this
-        database existing.
+        spec.
       </section>
     </div>
   );

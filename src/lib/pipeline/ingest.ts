@@ -91,6 +91,7 @@ import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals"
 import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances, fetchUsdaPsdCountryBalances } from "../sources/usdaPsd";
 import { fetchUsgsMineralCommodities } from "../sources/usgsMineralCommodities";
 import { fetchUsgsCommodityCountryTradeForCommodity, USGS_TRADE_COMMODITIES, ComtradeQuotaExceededError } from "../sources/unComtradeCommodityTrade";
+import { fetchChemicalHsUnitValue, getChemicalPriceHsCodes, ChemicalPriceQuotaExceededError, CHEMICAL_PRICE_DELAY_MS } from "../sources/unComtradeChemicalPrices";
 import { fetchFaostatProduction, fetchFaostatOilseedsCountryProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
@@ -1314,6 +1315,53 @@ export async function ingestUsgsCommodityCountryTrade(db: SupabaseClient, runDat
   return { stage: "ingest_usgs_commodity_country_trade", status, detail };
 }
 
+/** Same resumable-cursor design as ingestUsgsCommodityCountryTrade just
+ * above, for the same reason: a shared UN Comtrade daily quota split across
+ * several concurrent stages must not let this one always restart at the
+ * same HS code and starve everything after it. Much cheaper per cycle than
+ * that stage though (one reference-reporter call per HS code, ~46 codes,
+ * vs. ~150-180 (country, commodity) pairs), so it's far less likely to need
+ * more than one run to finish. */
+export async function ingestChemicalHsUnitValues(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const codes = getChemicalPriceHsCodes();
+  const n = codes.length;
+  const { data: lastRun } = await db
+    .from("pipeline_runs")
+    .select("detail")
+    .eq("stage", "ingest_chemical_hs_unit_values")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastNextIndex = (lastRun?.detail as { nextIndex?: number } | null)?.nextIndex;
+  const startIndex = typeof lastNextIndex === "number" && Number.isInteger(lastNextIndex) ? ((lastNextIndex % n) + n) % n : 0;
+
+  let totalPoints = 0;
+  const errors: string[] = [];
+  let stoppedAtIndex: number | null = null;
+  for (let i = 0; i < n; i++) {
+    const index = (startIndex + i) % n;
+    const { hsCode } = codes[index];
+    try {
+      const points = await fetchChemicalHsUnitValue(hsCode);
+      await upsertMetrics(db, points);
+      totalPoints += points.length;
+    } catch (e) {
+      if (e instanceof ChemicalPriceQuotaExceededError) {
+        errors.push(`stopped early: ${e.message} (hs ${hsCode} onward deferred to a later run)`);
+        stoppedAtIndex = index;
+        break;
+      }
+      errors.push(`hs ${hsCode}: ${(e as Error).message}`);
+    }
+    await new Promise((r) => setTimeout(r, CHEMICAL_PRICE_DELAY_MS));
+  }
+  const nextIndex = stoppedAtIndex ?? 0;
+  const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
+  const detail = { points: totalPoints, errors, startIndex, nextIndex };
+  await logRun(db, runDate, "ingest_chemical_hs_unit_values", status, detail);
+  return { stage: "ingest_chemical_hs_unit_values", status, detail };
+}
+
 export async function ingestFaostatProduction(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchFaostatProduction();
@@ -1537,6 +1585,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // network jitter would routinely trip the "abandoned" fallback even
     // though the underlying per-commodity upserts land safely regardless.
     withStageTimeout("ingest_usgs_commodity_country_trade", ingestUsgsCommodityCountryTrade(db, runDate), 250_000, db, runDate),
+    withTimeout("ingest_chemical_hs_unit_values", ingestChemicalHsUnitValues(db, runDate)),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
     withTimeout("ingest_bps_indonesia", ingestBpsIndonesia(db, runDate)),

@@ -47,6 +47,21 @@ export type ChemicalProduct = {
   note?: string;
 };
 
+/**
+ * The HS code to query for a real UN Comtrade average unit-value price proxy
+ * (see unComtradeChemicalPrices.ts) — null when the product already has a
+ * genuine FRED PPI price (livePriceMetricKey), since that's a real price
+ * series and a unit-value proxy would be a needless downgrade, not an
+ * improvement. Prefers liveTradeHsCode over the product's own hsCode where
+ * both exist, since liveTradeHsCode is already the code this app's trade
+ * connectors were live-verified against (see chemicalProductsDatabase.ts's
+ * per-row notes on which HS heading each is "bundled inside").
+ */
+export function priceHsCodeFor(product: ChemicalProduct): string | null {
+  if (product.livePriceMetricKey) return null;
+  return product.liveTradeHsCode ?? product.hsCode ?? null;
+}
+
 export const CHEMICAL_PRODUCTS: ChemicalProduct[] = [
   // ---- Basic Inorganic Chemicals (spec §4.A) ----
   { slug: "chlorine", name: "Chlorine", category: "Basic Inorganic", casNumber: "7782-50-5", hsCode: "280110", hsLabel: "Chlorine" },
