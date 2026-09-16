@@ -43,6 +43,11 @@ export type ChemicalProduct = {
   hsLabel?: string;
   feedstock?: string;
   livePriceMetricKey?: string;
+  /** A genuine daily spot-price metric key (see eiaChemicalFeedstockSpot.ts) —
+   * distinct from livePriceMetricKey (a PPI index proxy): this is an actual
+   * traded spot price, so it outranks both the PPI and the Comtrade
+   * unit-value proxy when present. */
+  liveSpotMetricKey?: string;
   liveTradeHsCode?: string;
   note?: string;
 };
@@ -75,7 +80,7 @@ export type ChemicalPriceHsCodes = { primary: string; fallback: string | null };
  * the broader 3402 heading rather than showing nothing).
  */
 export function priceHsCodesFor(product: ChemicalProduct): ChemicalPriceHsCodes | null {
-  if (product.livePriceMetricKey) return null;
+  if (product.livePriceMetricKey || product.liveSpotMetricKey) return null;
   const primary = product.hsCode ?? product.liveTradeHsCode ?? null;
   if (!primary) return null;
   const fallback = product.liveTradeHsCode && product.liveTradeHsCode !== primary ? product.liveTradeHsCode : null;
@@ -115,7 +120,7 @@ export const CHEMICAL_PRODUCTS: ChemicalProduct[] = [
   { slug: "acetone", name: "Acetone", category: "Basic Organic", casNumber: "67-64-1", hsCode: "291411", hsLabel: "Acetone" },
   { slug: "naphtha", name: "Naphtha", category: "Petrochemicals", casNumber: "8030-30-6", hsCode: "271012", hsLabel: "Light oils and preparations (naphtha falls here)", note: "A refinery-cut mixture, not a single compound — CAS 8030-30-6 is the generic petroleum-naphtha registry number." },
   { slug: "ethane", name: "Ethane", category: "Petrochemicals", casNumber: "74-84-0", hsCode: null, note: "Classified under HS 2711 (petroleum gases) or 2901 (acyclic hydrocarbons) depending on declared end-use — not resolved to one confident 6-digit code here." },
-  { slug: "propane", name: "Propane", category: "Petrochemicals", casNumber: "74-98-6", hsCode: "271112", hsLabel: "Propane, liquefied" },
+  { slug: "propane", name: "Propane", category: "Petrochemicals", casNumber: "74-98-6", hsCode: "271112", hsLabel: "Propane, liquefied", liveSpotMetricKey: "chemical.propane.spot_price", note: "Uses a real daily EIA spot price (Mont Belvieu, TX FOB, $/GAL) instead of a monthly Comtrade unit-value proxy — the one product in this table with a genuine traded spot price, not an index or customs-derived average." },
   { slug: "lpg", name: "LPG (Liquefied Petroleum Gas)", category: "Petrochemicals", casNumber: null, hsCode: "271119", hsLabel: "Other liquefied petroleum gases", note: "A mixture (propane/butane blend), not a single compound." },
   { slug: "ethylene", name: "Ethylene", category: "Petrochemicals", casNumber: "74-85-1", hsCode: "290121", hsLabel: "Ethylene" },
   { slug: "propylene", name: "Propylene", category: "Petrochemicals", casNumber: "115-07-1", hsCode: "290122", hsLabel: "Propene (propylene)" },

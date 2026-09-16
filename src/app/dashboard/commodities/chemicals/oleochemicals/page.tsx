@@ -65,7 +65,9 @@ export default async function OleochemicalsPage() {
           <section className="mb-10">
             <h2 className="mb-2 text-lg font-semibold">Feedstock → Downstream Price Context</h2>
             <p className="mb-3 text-sm text-text-dim">
-              Palm Oil/PKO are genuine $/mt feedstock prices (World Bank Pink Sheet). Fatty Acids/Surfactants/Soaps
+              Palm Oil/PKO/Soybean Oil are genuine $/mt feedstock prices (World Bank Pink Sheet) — Soybean Oil is
+              the real-world alternative oleochemical feedstock to palm-based inputs, shown here for the first time.
+              Fatty Acids/Surfactants/Soaps
               are a US producer price index, not $/mt — a &ldquo;conversion margin&rdquo; against Palm Oil would mix
               units and produce a number that looks real but isn&apos;t, so it&apos;s shown side by side instead.
               PFAD, Fatty Alcohols, Methyl Esters/FAME and Glycerine are new: real UN Comtrade average unit values

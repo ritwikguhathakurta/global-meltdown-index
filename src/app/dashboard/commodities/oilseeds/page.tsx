@@ -820,10 +820,13 @@ export default async function OilseedsPage() {
             Each cell is its own horizon-weighted, z-scored momentum read — the same methodology as the
             Commodities page&apos;s own momentum score (spec §32), but split into three independent timeframe
             buckets instead of one blended number, so Short/Medium/Long are three different calculations, not the
-            same figure shown three times. <strong className="text-text">Short-Term (0-30D)</strong> is shown only
-            for Palm Oil, computed from CME&apos;s daily CPO=F futures — every other product here has only monthly
-            World Bank Pink Sheet data, where a 0-30 day window can&apos;t reflect a genuine sample, so those cells
-            read N/A rather than approximating from a single monthly print.{" "}
+            same figure shown three times. <strong className="text-text">Short-Term (0-30D)</strong> is shown for
+            Palm Oil (CME&apos;s daily CPO=F futures) and, as of this pass, Soybeans/Soybean Oil/Soybean Meal —
+            the crush complex&apos;s own three legs — from real CBOT daily futures settlement prices via Massive (a
+            paid, delayed-not-real-time market-data API). The remaining 4 products (Coconut Oil, Palm Kernel Oil,
+            Rapeseed Oil, Sunflower Oil) have only monthly World Bank Pink Sheet data, where a 0-30 day window
+            can&apos;t reflect a genuine sample, so those cells read N/A rather than approximating from a single
+            monthly print.{" "}
             <strong className="text-text">Medium-Term (30-90D)</strong> and{" "}
             <strong className="text-text">Long-Term (&gt;90D)</strong> use that same monthly series for all 8
             products, since 90+ days comfortably spans multiple real monthly observations.

@@ -71,6 +71,7 @@ import type { CountryBalanceCommodityDef } from "@/lib/commodities/countryBalanc
 import { getChemicalsOverview as computeChemicalsOverview, type ChemicalsOverviewResult } from "@/lib/engines/chemicals";
 import { getOleochemicals as computeOleochemicals, type OleochemicalsResult } from "@/lib/engines/oleochemicals";
 import { CHEMICAL_PRODUCTS, priceHsCodesFor } from "@/lib/commodities/chemicalProductsDatabase";
+import { massiveFuturesMetricKey } from "@/lib/sources/massiveFutures";
 import { getChemicalPriceHsCodes, chemicalHsMetricKey } from "@/lib/sources/unComtradeChemicalPrices";
 import { getEuropeanGrid as computeEuropeanGrid, type EuropeanGridResult } from "@/lib/engines/europeanGrid";
 import { fetchLatestForKeys } from "@/lib/metrics/store";
@@ -855,7 +856,7 @@ export type ChemicalProductPrice = {
   previous: number | null;
   asOf: string;
   unit: string;
-  basis: "ppi" | "export_unit_value" | "import_unit_value";
+  basis: "spot" | "ppi" | "export_unit_value" | "import_unit_value";
 };
 
 /**
@@ -865,10 +866,13 @@ export type ChemicalProductPrice = {
  * C6-C18 fatty acid resolves to the same UN Comtrade HS 3823 code, but each
  * still needs its own row in the result).
  *
- * Two distinct bases, preferred in this order per product:
- * 1. `ppi` — a real FRED Producer Price Index proxy (chemicalProductsDatabase.ts's
+ * Three distinct bases, preferred in this order per product:
+ * 1. `spot` — a genuine daily traded spot price (chemicalProductsDatabase.ts's
+ *    liveSpotMetricKey, currently only Propane via eiaChemicalFeedstockSpot.ts),
+ *    unit "USD/GAL". The only tier that's an actual spot price, not a proxy.
+ * 2. `ppi` — a real FRED Producer Price Index proxy (chemicalProductsDatabase.ts's
  *    livePriceMetricKey), monthly, unit "index 1982=100".
- * 2. `export_unit_value` / `import_unit_value` — UN Comtrade average unit
+ * 3. `export_unit_value` / `import_unit_value` — UN Comtrade average unit
  *    value (declared customs value ÷ net weight) from the United States'
  *    own trade data (unComtradeChemicalPrices.ts), annual, unit "USD/MT".
  *    Export is preferred; import is used only when the US has no export
@@ -879,12 +883,18 @@ export async function getChemicalProductPrices(): Promise<Map<string, ChemicalPr
   if (!isSupabaseConfigured) return result;
   try {
     const db = await createServerSupabase();
+    const spotKeys = CHEMICAL_PRODUCTS.map((p) => p.liveSpotMetricKey).filter((k): k is string => Boolean(k));
     const ppiKeys = CHEMICAL_PRODUCTS.map((p) => p.livePriceMetricKey).filter((k): k is string => Boolean(k));
     const hsCodes = getChemicalPriceHsCodes().flatMap((c) => [c.primary, ...(c.fallback ? [c.fallback] : [])]);
     const hsKeys = hsCodes.flatMap((code) => [chemicalHsMetricKey(code, "export"), chemicalHsMetricKey(code, "import")]);
-    const latest = await fetchLatestForKeys(db, [...new Set([...ppiKeys, ...hsKeys])]);
+    const latest = await fetchLatestForKeys(db, [...new Set([...spotKeys, ...ppiKeys, ...hsKeys])]);
 
     for (const p of CHEMICAL_PRODUCTS) {
+      if (p.liveSpotMetricKey) {
+        const row = latest.get(p.liveSpotMetricKey);
+        if (row) result.set(p.slug, { value: row.v, previous: row.previous?.v ?? null, asOf: row.t, unit: "USD/GAL", basis: "spot" });
+        continue;
+      }
       if (p.livePriceMetricKey) {
         const row = latest.get(p.livePriceMetricKey);
         if (row) result.set(p.slug, { value: row.v, previous: row.previous?.v ?? null, asOf: row.t, unit: "index 1982=100", basis: "ppi" });
@@ -909,6 +919,40 @@ export async function getChemicalProductPrices(): Promise<Map<string, ChemicalPr
       const match = candidates.map((c) => ({ ...c, row: latest.get(c.key) })).find((c) => c.row);
       if (!match?.row) continue;
       result.set(p.slug, { value: match.row.v, previous: match.row.previous?.v ?? null, asOf: match.row.t, unit: "USD/MT", basis: match.basis });
+    }
+    return result;
+  } catch (e) {
+    console.error((e as Error).message);
+    return result;
+  }
+}
+
+export type FeedstockReferencePrice = { value: number; previous: number | null; asOf: string; unit: string };
+
+/**
+ * Crude Oil (WTI) and Natural Gas (Henry Hub) — real daily futures
+ * settlement prices via Massive (massiveFutures.ts), shown on the Chemicals
+ * overview page as upstream feedstock reference prices, directly closing
+ * that page's own long-standing disclosed gap ("There is no free global
+ * chemical spot-price source"). These are feedstocks, not finished
+ * chemicals — genuinely different from the FRED PPI indices the rest of
+ * that page shows, and labeled as such rather than implied to be a chemical
+ * product's own price.
+ */
+export async function getChemicalFeedstockReferencePrices(): Promise<Map<string, FeedstockReferencePrice>> {
+  const result = new Map<string, FeedstockReferencePrice>();
+  if (!isSupabaseConfigured) return result;
+  try {
+    const db = await createServerSupabase();
+    const keys = [massiveFuturesMetricKey("crude_oil"), massiveFuturesMetricKey("natural_gas")];
+    const latest = await fetchLatestForKeys(db, keys);
+    const bySlug: [string, string][] = [
+      ["crude_oil", massiveFuturesMetricKey("crude_oil")],
+      ["natural_gas", massiveFuturesMetricKey("natural_gas")],
+    ];
+    for (const [slug, key] of bySlug) {
+      const row = latest.get(key);
+      if (row) result.set(slug, { value: row.v, previous: row.previous?.v ?? null, asOf: row.t, unit: slug === "crude_oil" ? "USD/bbl" : "USD/MMBtu" });
     }
     return result;
   } catch (e) {

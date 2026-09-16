@@ -236,6 +236,7 @@ export type OleochemicalsResult = {
 const PRICE_CONTEXT_SERIES: { slug: string; label: string; metricKey: string; unit: string }[] = [
   { slug: "palm_oil", label: "Palm Oil (feedstock, World Bank Pink Sheet)", metricKey: "commodity.palm_oil.price", unit: "USD/mt" },
   { slug: "palm_kernel_oil", label: "Palm Kernel Oil (feedstock, World Bank Pink Sheet)", metricKey: "commodity.palm_kernel_oil.price", unit: "USD/mt" },
+  { slug: "soybean_oil", label: "Soybean Oil (feedstock, World Bank Pink Sheet)", metricKey: "commodity.soybean_oil.price", unit: "USD/mt" },
   { slug: "fatty_acids", label: "Fatty Acids (US PPI proxy — index, not a spot price)", metricKey: "chemical.fatty_acids.ppi", unit: "index 1982=100" },
   { slug: "surfactants", label: "Surfactants (US PPI proxy — index, not a spot price)", metricKey: "chemical.surfactants.ppi", unit: "index 1982=100" },
   { slug: "soaps_detergents", label: "Soaps & Detergents (US PPI proxy, soap-noodle-adjacent — index, not a spot price)", metricKey: "chemical.soaps_detergents.ppi", unit: "index 1982=100" },

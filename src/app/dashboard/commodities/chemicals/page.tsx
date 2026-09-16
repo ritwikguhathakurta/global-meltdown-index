@@ -1,11 +1,17 @@
 import Link from "next/link";
-import { getChemicalsOverview } from "@/lib/api/engineData";
+import { getChemicalsOverview, getChemicalFeedstockReferencePrices } from "@/lib/api/engineData";
 import { CHEMICAL_CATEGORIES } from "@/lib/commodities/chemicalsTaxonomy";
 import type { ChemicalRow } from "@/lib/engines/chemicals";
 import { DirectionPill, fmt, fmtPct, pctColor } from "../_components";
+import { TrendIndicator } from "@/components/TrendIndicator";
+
+const FEEDSTOCKS = [
+  { slug: "crude_oil", label: "Crude Oil (WTI, NYMEX front-month)" },
+  { slug: "natural_gas", label: "Natural Gas (Henry Hub, NYMEX front-month)" },
+];
 
 export default async function ChemicalsPage() {
-  const overview = await getChemicalsOverview();
+  const [overview, feedstockPrices] = await Promise.all([getChemicalsOverview(), getChemicalFeedstockReferencePrices()]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -27,12 +33,45 @@ export default async function ChemicalsPage() {
       </div>
       <p className="mb-8 max-w-3xl text-sm text-text-dim">
         Phase 1 of a much larger planned Chemicals engine, scoped to what&apos;s genuinely free and live. There is no
-        free global chemical spot-price source (ICIS/Platts/ChemAnalyst are paywalled) — every value below is a{" "}
-        <strong className="text-text">US Producer Price Index (1982=100)</strong> from FRED, a real government price
-        series, but not a global $/unit spot price. Momentum and direction still reflect genuine supply-demand
-        conditions; the index level itself doesn&apos;t. See the disclosure at the bottom for what&apos;s real here
-        and what genuinely isn&apos;t built.
+        free global FINISHED-chemical spot-price source (ICIS/Platts/ChemAnalyst are paywalled) — every value in the
+        category tables below is a <strong className="text-text">US Producer Price Index (1982=100)</strong> from
+        FRED, a real government price series, but not a global $/unit spot price. Momentum and direction still
+        reflect genuine supply-demand conditions; the index level itself doesn&apos;t. Upstream feedstocks are a
+        different story — see the reference prices just below. See the disclosure at the bottom for what&apos;s real
+        here and what genuinely isn&apos;t built.
       </p>
+
+      {feedstockPrices.size > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-dim">
+            Upstream Feedstock Reference Prices
+          </h2>
+          <p className="mb-3 max-w-3xl text-xs text-text-dim">
+            Real daily futures settlement prices (delayed, not real-time — Massive, a paid market-data API) for the
+            two raw inputs virtually every organic chemical on this page ultimately derives from. These are
+            feedstock prices, not a finished-chemical price — closing this page&apos;s own long-standing spot-price
+            gap for the inputs, not for the outputs the FRED indices below already cover.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {FEEDSTOCKS.map((f) => {
+              const p = feedstockPrices.get(f.slug);
+              if (!p) return null;
+              return (
+                <div key={f.slug} className="gfew-panel p-4">
+                  <div className="mb-1 text-xs uppercase tracking-wide text-text-dim">{f.label}</div>
+                  <div className="mb-1 flex flex-wrap items-baseline gap-3">
+                    <span className="gfew-mono text-xl font-semibold text-text">
+                      {p.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} {p.unit}
+                    </span>
+                    <TrendIndicator value={p.value} previous={p.previous} />
+                  </div>
+                  <div className="text-[10px] text-text-dim">as of {p.asOf.slice(0, 10)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {!overview && <p className="text-sm text-text-dim">Chemical data is not yet available.</p>}
 
@@ -98,12 +137,16 @@ export default async function ChemicalsPage() {
         against FRED&apos;s own series metadata before use; the same horizon-weighted z-scored-momentum methodology
         as the main Commodities page (spec §32), applied to these index series; and a dedicated Oleochemicals
         module (linked above) connecting Fatty Acids/Surfactants to the existing Palm Oil/PKO price data and to real
-        UN Comtrade trade flows for Malaysia and Indonesia.
+        UN Comtrade trade flows for Malaysia and Indonesia; and, new this pass, real daily Crude Oil (WTI) and
+        Natural Gas (Henry Hub) futures settlement prices via Massive (a paid, delayed-not-real-time market-data
+        API) as upstream feedstock reference prices.
         <br />
         <br />
-        <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a free global chemical
-        spot-price source — ICIS, Platts, and ChemAnalyst were checked and are paywalled industry data, not free/live
-        APIs; a free source for most specific named chemicals in the spec&apos;s taxonomy (individual fatty acids
+        <strong className="text-text">Checked and confirmed genuinely unavailable</strong>: a free global
+        FINISHED-chemical spot-price source — ICIS, Platts, and ChemAnalyst were checked and are paywalled industry
+        data, not free/live APIs (Massive fills this for the two upstream feedstocks above, not for any finished
+        chemical — it has no PVC/ammonia/methanol contract, for example); a free source for most specific named
+        chemicals in the spec&apos;s taxonomy (individual fatty acids
         like Lauric/Palmitic/Stearic, fatty alcohols, methyl esters, glycerine, PFAD specifically, polymers like
         PE/PP/PVC individually) — FRED&apos;s PPI only breaks chemicals out to the family level shown above, not
         individual named compounds, so those don&apos;t appear as separate rows rather than being approximated from

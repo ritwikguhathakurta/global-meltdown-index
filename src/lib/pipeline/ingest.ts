@@ -82,6 +82,7 @@ import { fetchAllBankSecFilings } from "../sources/bankSecFilings";
 import { fetchAllBankFdicMetrics } from "../sources/fdicBankFind";
 import { fetchImfPortwatchChokepoints } from "../sources/imfPortwatch";
 import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/eiaApi";
+import { fetchEiaChemicalFeedstockSpot } from "../sources/eiaChemicalFeedstockSpot";
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
 import { fetchUnComtradeEnergyFlows, fetchUnComtradeOleochemicalFlowsForCommodity, OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
@@ -92,6 +93,7 @@ import { fetchUsdaPsdBalances, fetchUsdaPsdSoybeanCountryBalances, fetchUsdaPsdC
 import { fetchUsgsMineralCommodities } from "../sources/usgsMineralCommodities";
 import { fetchUsgsCommodityCountryTradeForCommodity, USGS_TRADE_COMMODITIES, ComtradeQuotaExceededError } from "../sources/unComtradeCommodityTrade";
 import { fetchChemicalHsUnitValue, getChemicalPriceHsCodes, ChemicalPriceQuotaExceededError, CHEMICAL_PRICE_DELAY_MS } from "../sources/unComtradeChemicalPrices";
+import { fetchMassiveFuturesProduct, MASSIVE_FUTURES_PRODUCTS, MassiveRateLimitError } from "../sources/massiveFutures";
 import { fetchFaostatProduction, fetchFaostatOilseedsCountryProduction } from "../sources/faostat";
 import { fetchEiaWorldEnergyBalances } from "../sources/eiaWorldEnergy";
 import { fetchBpsIndonesiaBalances } from "../sources/bpsIndonesia";
@@ -939,6 +941,33 @@ export async function ingestEiaEnergy(db: SupabaseClient, runDate: string): Prom
   return { stage: "ingest_eia_energy", status, detail };
 }
 
+/**
+ * Deliberately NOT part of runIngestionPipeline's stage list below — this
+ * stage is invoked exclusively by /api/cron/chemicals-spot, triggered by an
+ * external scheduler twice a day (see .github/workflows). Folding it into
+ * the once-daily pipeline as well would make it run three times a day, past
+ * the "twice a day, not more" ask this connector was built for.
+ */
+export async function ingestEiaChemicalFeedstockSpot(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const apiKey = process.env.EIA_API_KEY;
+  if (!apiKey) {
+    await logRun(db, runDate, "ingest_eia_chemical_feedstock_spot", "warning", { reason: "EIA_API_KEY not set" });
+    return { stage: "ingest_eia_chemical_feedstock_spot", status: "warning", detail: { reason: "EIA_API_KEY not set" } };
+  }
+  try {
+    const points = await fetchEiaChemicalFeedstockSpot(apiKey);
+    await upsertMetrics(db, points);
+    const status = points.length > 0 ? "ok" : "warning";
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_eia_chemical_feedstock_spot", status, detail);
+    return { stage: "ingest_eia_chemical_feedstock_spot", status, detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_eia_chemical_feedstock_spot", "failed", detail);
+    return { stage: "ingest_eia_chemical_feedstock_spot", status: "failed", detail };
+  }
+}
+
 export async function ingestIsoNeGrid(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   const username = process.env.ISO_NE_USERNAME;
   if (!username) {
@@ -1362,6 +1391,56 @@ export async function ingestChemicalHsUnitValues(db: SupabaseClient, runDate: st
   return { stage: "ingest_chemical_hs_unit_values", status, detail };
 }
 
+/** Same resumable-cursor design as ingestChemicalHsUnitValues just above,
+ * for the same reason: Massive's undocumented per-minute rate limit
+ * (confirmed live) can stop this mid-list, and the next run should pick up
+ * where this one left off rather than always restarting at Crude Oil and
+ * starving whatever comes later in MASSIVE_FUTURES_PRODUCTS. */
+export async function ingestMassiveFutures(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const apiKey = process.env.MASSIVE_API_KEY;
+  if (!apiKey) {
+    await logRun(db, runDate, "ingest_massive_futures", "warning", { reason: "MASSIVE_API_KEY not set" });
+    return { stage: "ingest_massive_futures", status: "warning", detail: { reason: "MASSIVE_API_KEY not set" } };
+  }
+  const n = MASSIVE_FUTURES_PRODUCTS.length;
+  const { data: lastRun } = await db
+    .from("pipeline_runs")
+    .select("detail")
+    .eq("stage", "ingest_massive_futures")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastNextIndex = (lastRun?.detail as { nextIndex?: number } | null)?.nextIndex;
+  const startIndex = typeof lastNextIndex === "number" && Number.isInteger(lastNextIndex) ? ((lastNextIndex % n) + n) % n : 0;
+
+  let totalPoints = 0;
+  const notFound: string[] = [];
+  const errors: string[] = [];
+  let stoppedAtIndex: number | null = null;
+  for (let i = 0; i < n; i++) {
+    const index = (startIndex + i) % n;
+    const product = MASSIVE_FUTURES_PRODUCTS[index];
+    try {
+      const points = await fetchMassiveFuturesProduct(apiKey, product);
+      if (points.length === 0) notFound.push(product.slug);
+      await upsertMetrics(db, points);
+      totalPoints += points.length;
+    } catch (e) {
+      if (e instanceof MassiveRateLimitError) {
+        errors.push(`stopped early: ${e.message} (${product.slug} onward deferred to a later run)`);
+        stoppedAtIndex = index;
+        break;
+      }
+      errors.push(`${product.slug}: ${(e as Error).message}`);
+    }
+  }
+  const nextIndex = stoppedAtIndex ?? 0;
+  const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
+  const detail = { points: totalPoints, notFound, errors, startIndex, nextIndex };
+  await logRun(db, runDate, "ingest_massive_futures", status, detail);
+  return { stage: "ingest_massive_futures", status, detail };
+}
+
 export async function ingestFaostatProduction(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
     const points = await fetchFaostatProduction();
@@ -1586,6 +1665,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // though the underlying per-commodity upserts land safely regardless.
     withStageTimeout("ingest_usgs_commodity_country_trade", ingestUsgsCommodityCountryTrade(db, runDate), 250_000, db, runDate),
     withTimeout("ingest_chemical_hs_unit_values", ingestChemicalHsUnitValues(db, runDate)),
+    withTimeout("ingest_massive_futures", ingestMassiveFutures(db, runDate)),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
     withTimeout("ingest_bps_indonesia", ingestBpsIndonesia(db, runDate)),

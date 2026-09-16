@@ -1,0 +1,25 @@
+name: Chemicals spot price ingest
+
+# Runs the Chemicals section's EIA propane spot-price ingest twice a day —
+# not more, per the source's own real publication cadence (one row per
+# trading day; a third run would just re-fetch the same data). Vercel's
+# Hobby plan caps vercel.json cron entries at once a day, and that one slot
+# is already used by /api/cron/pipeline, so this route is triggered
+# externally by GitHub Actions instead of Vercel Cron.
+#
+# Requires one repo secret: CRON_SECRET, matching the CRON_SECRET env var
+# set in the Vercel project (Settings -> Environment Variables).
+on:
+  schedule:
+    - cron: "15 6 * * *"  # ~06:15 UTC
+    - cron: "15 18 * * *" # ~18:15 UTC
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call chemicals-spot cron endpoint
+        run: |
+          curl -sf -X GET "https://globalmeltdownindex.net/api/cron/chemicals-spot" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

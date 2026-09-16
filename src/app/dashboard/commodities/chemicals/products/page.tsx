@@ -7,6 +7,13 @@ import { TrendIndicator } from "@/components/TrendIndicator";
 export const dynamic = "force-dynamic";
 
 function LiveDataBadge({ price }: { price?: ChemicalProductPrice }) {
+  if (price?.basis === "spot") {
+    return (
+      <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "#f5a63f22", color: "#f5a63f" }}>
+        Live spot price (EIA)
+      </span>
+    );
+  }
   if (price?.basis === "ppi") {
     return (
       <span className="inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "#34c08522", color: "#34c085" }}>
@@ -32,16 +39,22 @@ function fmtMonth(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
 
+function fmtDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 function PriceCell({ price }: { price?: ChemicalProductPrice }) {
   if (!price) return <span className="text-text-dim">—</span>;
   const caption =
-    price.basis === "ppi"
-      ? `index 1982=100 · ${fmtMonth(price.asOf)}`
-      : `avg ${price.basis === "export_unit_value" ? "export" : "import"} unit value, USD/MT · ${fmtMonth(price.asOf)}`;
+    price.basis === "spot"
+      ? `spot price FOB, USD/GAL · ${fmtDay(price.asOf)}`
+      : price.basis === "ppi"
+        ? `index 1982=100 · ${fmtMonth(price.asOf)}`
+        : `avg ${price.basis === "export_unit_value" ? "export" : "import"} unit value, USD/MT · ${fmtMonth(price.asOf)}`;
   return (
     <>
       <div>
-        {price.value.toLocaleString(undefined, { maximumFractionDigits: price.basis === "ppi" ? 1 : 0 })}
+        {price.value.toLocaleString(undefined, { maximumFractionDigits: price.basis === "spot" ? 3 : price.basis === "ppi" ? 1 : 0 })}
         <TrendIndicator value={price.value} previous={price.previous} />
       </div>
       <div className="text-[10px] normal-case text-text-dim">{caption}</div>
@@ -52,8 +65,9 @@ function PriceCell({ price }: { price?: ChemicalProductPrice }) {
 export default async function ChemicalProductsPage() {
   const withMolecularData = CHEMICAL_PRODUCTS.filter((p) => p.casNumber && CHEMICAL_ENRICHMENT_BY_CAS[p.casNumber]).length;
   const prices = await getChemicalProductPrices();
+  const withSpot = [...prices.values()].filter((p) => p.basis === "spot").length;
   const withPpi = [...prices.values()].filter((p) => p.basis === "ppi").length;
-  const withUnitValue = prices.size - withPpi;
+  const withUnitValue = prices.size - withPpi - withSpot;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -69,14 +83,18 @@ export default async function ChemicalProductsPage() {
         Oleochemical taxonomy, each with a CAS Registry Number and WCO Harmonized System trade-classification
         code — public, standardized identifiers, verified against multiple independent tariff/chemical-database
         sources before being entered, not guessed. {prices.size} of {CHEMICAL_PRODUCTS.length} rows show a real
-        price below: {withPpi} from a FRED Producer Price Index proxy (&ldquo;Live PPI proxy&rdquo; — a US
-        producer-price index, monthly, shown with its month-over-month move) and {withUnitValue} from a UN Comtrade
-        average export/import unit value (&ldquo;Live avg price (Comtrade)&rdquo; — the United States&apos; own
-        declared customs value ÷ net weight for that HS code, also monthly, shown with its month-over-month move;
-        not a global benchmark price, since it reflects one country&apos;s own trade — and typically 1-2 months
-        older than the PPI rows&apos; own latest month, since US customs trade data has a longer release lag than
-        the PPI). The remaining rows are reference-only — no free price source was found for their exact HS
-        code, disclosed as such rather than implied to have live pricing they don&apos;t.{" "}
+        price below: {withSpot} from a genuine daily traded spot price (&ldquo;Live spot price (EIA)&rdquo; —
+        currently Propane only, the Mont Belvieu, TX FOB spot price from the US Energy Information Administration&apos;s
+        free official API, refreshed twice a day and shown with its day-over-day move; not a scrape — see the
+        disclosure at the bottom for why a broader chemical-price scraper wasn&apos;t built), {withPpi} from a FRED
+        Producer Price Index proxy (&ldquo;Live PPI proxy&rdquo; — a US producer-price index, monthly, shown with
+        its month-over-month move), and {withUnitValue} from a UN Comtrade average export/import unit value
+        (&ldquo;Live avg price (Comtrade)&rdquo; — the United States&apos; own declared customs value ÷ net weight
+        for that HS code, also monthly, shown with its month-over-month move; not a global benchmark price, since
+        it reflects one country&apos;s own trade — and typically 1-2 months older than the PPI rows&apos; own
+        latest month, since US customs trade data has a longer release lag than the PPI). The remaining rows are
+        reference-only — no free price source was found for their exact HS code, disclosed as such rather than
+        implied to have live pricing they don&apos;t.{" "}
         {withMolecularData}
         of {CHEMICAL_PRODUCTS.length} rows also show a real molecular formula and molecular weight from PubChem
         (NIH/NLM) — every polymer family and genuine mixture is deliberately left blank rather than assigned a
@@ -198,14 +216,28 @@ export default async function ChemicalProductsPage() {
         genuinely newest, so it rolls forward automatically as the Census publishes each one. Some HS codes still
         show &ldquo;—&rdquo;: the United States genuinely reports neither export nor import weight-denominated
         trade for that code in the last 12 months (e.g. it reports trade value only, or the code sees negligible US
-        trade volume) — left blank rather than guessed.
+        trade volume) — left blank rather than guessed. The Propane row&apos;s spot price is different in kind, not
+        just cadence: it&apos;s the US Energy Information Administration&apos;s own official Mont Belvieu, TX FOB
+        spot price (petroleum/pri/spt dataset), a real traded price, not a proxy — daily on trading days, refreshed
+        by its own twice-a-day cron (not the once-a-day pipeline the rest of this table shares), and left in its
+        native $/GAL unit rather than converted to USD/MT, since a gallon-to-tonne conversion would need an assumed
+        propane density this app has no need to invent.
         <br />
         <br />
-        <strong className="text-text">Not built</strong>, and why: individual named products under every spec §9
-        Specialty Chemicals category (thousands of distinct formulated products across coatings, adhesives,
-        electronic/battery/water-treatment/cosmetic chemicals, etc.) — the spec itself names only categories here,
-        not products, so populating rows would mean inventing which specific compounds belong, not transcribing the
-        spec.
+        <strong className="text-text">Not built</strong>, and why: a broader daily spot-price scraper covering more
+        than Propane. The obvious free source with real daily spot prices for ~40 industrial chemicals (SunSirs)
+        was checked live and found to sit behind a bot-detection JS challenge on every page tested — a plain
+        automated request gets a &ldquo;security check in progress&rdquo; page, not data. This app does not solve
+        bot challenges to reach blocked content (the same rule already applied to an RBI/Imperva case in the
+        Liquidity engine), so that source was dropped rather than bypassed. EIA&apos;s own spot-price dataset was
+        checked product-by-product (9 total): 8 are refined transportation fuels or crude oil, already out of
+        Chemicals&apos; scope; Propane was the only genuine petrochemical feedstock among them. No other free,
+        automation-permitting daily spot-price source for finished industrial chemicals was found — flagged here as
+        a real gap, not silently left implying it doesn&apos;t exist. Also not built: individual named products
+        under every spec §9 Specialty Chemicals category (thousands of distinct formulated products across
+        coatings, adhesives, electronic/battery/water-treatment/cosmetic chemicals, etc.) — the spec itself names
+        only categories here, not products, so populating rows would mean inventing which specific compounds
+        belong, not transcribing the spec.
       </section>
     </div>
   );
