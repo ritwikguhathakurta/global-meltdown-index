@@ -67,6 +67,7 @@ type ComtradeRow = {
   primaryValue: number | null;
   qtyUnitCode?: number;
   netWgt?: number | null;
+  period: string;
 };
 type ComtradeResponse = { data?: ComtradeRow[] };
 
@@ -135,19 +136,43 @@ function sumGrandTotals(rows: ComtradeRow[]): { exportKg: number | null; importK
   return { exportKg, importKg };
 }
 
-/** Probes back from last year to find the most recent year THIS SPECIFIC
- * country actually has usable (grand-total, kg-denominated) data for — each
- * country reports to Comtrade on its own lag, so a single shared "latest
- * year" (as the energy/oleochemical connectors use, probed from one fixed
- * reference reporter) would wrongly skip countries that report faster or
- * slower than that reference. */
+/** Finds the most recent year THIS SPECIFIC country actually has usable
+ * (grand-total, kg-denominated) data for — each country reports to Comtrade
+ * on its own lag, so a single shared "latest year" (as the energy/
+ * oleochemical connectors use, probed from one fixed reference reporter)
+ * would wrongly skip countries that report faster or slower than that
+ * reference.
+ *
+ * Fetches the last 5 candidate years in ONE call (Comtrade's `period` param
+ * accepts a comma-separated list, live-verified before this was written) and
+ * picks the newest year with data from the combined response, instead of up
+ * to 5 sequential single-year probe calls. This was the dominant cost of the
+ * whole stage: at ~18 commodities x ~9 countries each, the old one-call-per-
+ * probe-year approach could burn up to ~800 calls in a single ingest run —
+ * against a small shared daily quota that three separate UN Comtrade-backed
+ * pipeline stages compete for concurrently, this stage was in practice
+ * exhausting its share (getting a 403 "Out of call volume quota") before it
+ * could even finish its first commodity, confirmed live: this stage had run
+ * exactly once ever and produced zero points for any of its 18 commodities.
+ * The 5x-fewer-calls version alone doesn't guarantee it always wins that
+ * race, so see ingestUsgsCommodityCountryTrade's resumable cursor for the
+ * other half of the fix. */
 async function findLatestYearForCountry(reporterCode: string, cmdCodes: string[]): Promise<{ year: string; rows: ComtradeRow[] } | null> {
   const currentYear = new Date().getUTCFullYear();
-  for (let y = currentYear - 1; y >= currentYear - 5; y--) {
-    const rows = await comtradeQuery(reporterCode, String(y), cmdCodes);
-    const totals = sumGrandTotals(rows);
-    if (totals.exportKg !== null || totals.importKg !== null) return { year: String(y), rows };
-    await delay(DELAY_MS);
+  const years = Array.from({ length: 5 }, (_, i) => String(currentYear - 1 - i));
+  const rows = await comtradeQuery(reporterCode, years.join(","), cmdCodes);
+
+  const rowsByYear = new Map<string, ComtradeRow[]>();
+  for (const row of rows) {
+    const list = rowsByYear.get(row.period);
+    if (list) list.push(row);
+    else rowsByYear.set(row.period, [row]);
+  }
+  for (const year of years) {
+    const yearRows = rowsByYear.get(year);
+    if (!yearRows) continue;
+    const totals = sumGrandTotals(yearRows);
+    if (totals.exportKg !== null || totals.importKg !== null) return { year, rows: yearRows };
   }
   return null;
 }

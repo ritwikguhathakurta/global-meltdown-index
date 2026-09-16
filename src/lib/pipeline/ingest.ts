@@ -1255,13 +1255,38 @@ export async function ingestUsgsMineralCommodities(db: SupabaseClient, runDate: 
 
 export async function ingestUsgsCommodityCountryTrade(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   // Same per-commodity incremental-upsert lesson as the oleochemical UN
-  // Comtrade connector: ~18 commodities x up to 10 countries each, each
-  // needing 1-5 probe calls to find that country's own latest reportable
-  // year, must never let one slow/gap-heavy commodity cost every other
-  // commodity's already-fetched data.
+  // Comtrade connector: ~18 commodities x up to 10 countries each must never
+  // let one slow/gap-heavy commodity cost every other commodity's
+  // already-fetched data.
+  //
+  // Resumes from wherever the previous run left off instead of always
+  // restarting at index 0 of USGS_TRADE_COMMODITIES. The shared UN Comtrade
+  // daily quota is split across three concurrent pipeline stages (this one,
+  // ingest_un_comtrade_energy_flows, ingest_un_comtrade_oleochemical_flows),
+  // and always starting this stage at the same commodity meant whichever
+  // commodity happened to be first (Gold) absorbed every retry while
+  // everything after it — in practice every Base Metal and Fertilizer,
+  // including Nickel and Tin — never got a turn. Confirmed live: before this
+  // fix, this stage had run exactly once ever and failed on its very first
+  // API call with a quota-exhausted error, so zero country-level trade data
+  // existed for any of the 18 commodities.
+  const n = USGS_TRADE_COMMODITIES.length;
+  const { data: lastRun } = await db
+    .from("pipeline_runs")
+    .select("detail")
+    .eq("stage", "ingest_usgs_commodity_country_trade")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastNextIndex = (lastRun?.detail as { nextIndex?: number } | null)?.nextIndex;
+  const startIndex = typeof lastNextIndex === "number" && Number.isInteger(lastNextIndex) ? ((lastNextIndex % n) + n) % n : 0;
+
   let totalPoints = 0;
   const errors: string[] = [];
-  for (const commodity of USGS_TRADE_COMMODITIES) {
+  let stoppedAtIndex: number | null = null;
+  for (let i = 0; i < n; i++) {
+    const index = (startIndex + i) % n;
+    const commodity = USGS_TRADE_COMMODITIES[index];
     try {
       const { points, errors: commodityErrors } = await fetchUsgsCommodityCountryTradeForCommodity(commodity);
       await upsertMetrics(db, points);
@@ -1273,16 +1298,18 @@ export async function ingestUsgsCommodityCountryTrade(db: SupabaseClient, runDat
       // this pipeline — once exhausted, every remaining call fails
       // identically, so stop here rather than recording the same failure
       // once per remaining commodity. Whatever already upserted above stays
-      // safe; the rest fills in on a later run once the quota resets.
+      // safe; the rest resumes right here (not from the top) on the next run.
       if (e instanceof ComtradeQuotaExceededError) {
         errors.push(`stopped early: ${e.message} (${commodity.slug} onward deferred to a later run)`);
+        stoppedAtIndex = index;
         break;
       }
       errors.push(`${commodity.slug}: ${(e as Error).message}`);
     }
   }
+  const nextIndex = stoppedAtIndex ?? 0; // full cycle completed -> next run starts over from the top
   const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
-  const detail = { points: totalPoints, errors };
+  const detail = { points: totalPoints, errors, startIndex, nextIndex };
   await logRun(db, runDate, "ingest_usgs_commodity_country_trade", status, detail);
   return { stage: "ingest_usgs_commodity_country_trade", status, detail };
 }

@@ -204,8 +204,21 @@ export async function CommodityCategoryPage(props: CategoryPageProps) {
         <section className="mb-10">
           <h2 className="mb-2 text-lg font-semibold">Country Balance Sheet</h2>
           <p className="mb-3 text-sm text-text-dim">
-            Real USDA PSD country-level data, same methodology as the Oilseeds engine&apos;s Soybean Country Balance Sheet. Apparent
-            Consumption, Stocks/Use and Classification are computed from this same data via the balance-sheet identity, not a new source.
+            {props.countryBalanceCategory === "Grains" ||
+            props.countryBalanceCategory === "Soft Commodities" ||
+            props.countryBalanceCategory === "Livestock / Dairy" ? (
+              <>
+                Real USDA PSD country-level data, same methodology as the Oilseeds engine&apos;s Soybean Country Balance Sheet. Apparent
+                Consumption, Stocks/Use and Classification are computed from this same data via the balance-sheet identity, not a new source.
+              </>
+            ) : (
+              <>
+                Production is real USGS Mineral Commodity Summaries data; Imports/Exports are real UN Comtrade trade data (see the disclosure
+                below for each metal&apos;s HS code basis). Apparent Consumption, Net Trade, Stocks/Use and Classification are computed from
+                those two sources via the same balance-sheet identity as the Oilseeds engine&apos;s Soybean Country Balance Sheet, not a new
+                source — Stocks/Use and Ending Stocks read &ldquo;—&rdquo; wherever no free country-level stocks source exists.
+              </>
+            )}
           </p>
           {countryBalances.map((cb) => (
             <div key={cb.commoditySlug} className="mb-6">
