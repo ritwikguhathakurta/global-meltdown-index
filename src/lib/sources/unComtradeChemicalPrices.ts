@@ -21,13 +21,22 @@ import { CHEMICAL_PRODUCTS, priceHsCodesFor, type ChemicalPriceHsCodes } from ".
  * API-call cost (one call per HS code here, ~46 distinct codes total, vs.
  * ~150-180 (country, commodity) pairs there).
  *
- * Annual data (Comtrade's C/A/HS dataset), not monthly — disclosed as such
- * everywhere it's shown (a "USD/MT, avg export price, <year>" caption), not
- * implied to be a month-over-month spot price the way the FRED PPI proxies
- * are.
+ * Monthly data (Comtrade's C/M/HS dataset), matching the FRED PPI proxies'
+ * own cadence — an earlier version of this connector used the annual C/A/HS
+ * dataset, which meant a full calendar year's average (2025, with 2026 not
+ * yet complete) sat next to PPI rows already showing "Aug 2026." Switched to
+ * monthly, live-verified first: US Census trade data has its own release
+ * lag distinct from (and longer than) the PPI's, so the freshest available
+ * month here trails a couple of months behind "today" and behind the PPI
+ * rows' own latest month — confirmed live at build time that July 2026 was
+ * the newest month with usable data anywhere across several test HS codes,
+ * with August not yet published by any source. This always fetches
+ * whichever month is actually newest, so it rolls forward to August (and
+ * beyond) automatically as the Census releases each one, without a code
+ * change.
  */
 
-const BASE_URL = "https://comtradeapi.un.org/data/v1/get/C/A/HS";
+const BASE_URL = "https://comtradeapi.un.org/data/v1/get/C/M/HS";
 const SUBSCRIPTION_KEY = process.env.UN_COMTRADE_SUBSCRIPTION_KEY;
 const REFERENCE_REPORTER = "842"; // United States
 
@@ -80,10 +89,28 @@ async function comtradeQuery(cmdCode: string, period: string): Promise<ComtradeR
 
 export const CHEMICAL_PRICE_DELAY_MS = SUBSCRIPTION_KEY ? 350 : 1500;
 
-function unitValueForFlow(rows: ComtradeRow[], year: string, flowCode: "X" | "M"): number | null {
-  const row = rows.find((r) => r.period === year && r.flowCode === flowCode && r.motCode === 0 && r.partner2Code === 0 && r.qtyUnitCode === 8);
+function unitValueForFlow(rows: ComtradeRow[], period: string, flowCode: "X" | "M"): number | null {
+  const row = rows.find((r) => r.period === period && r.flowCode === flowCode && r.motCode === 0 && r.partner2Code === 0 && r.qtyUnitCode === 8);
   if (!row || !row.netWgt || row.netWgt <= 0 || row.primaryValue === null) return null;
   return row.primaryValue / row.netWgt; // USD/kg
+}
+
+/** The last `count` fully-elapsed calendar months as Comtrade YYYYMM period
+ * strings, most recent first — starts at LAST month, not the current one
+ * (which can't have a complete customs release yet). */
+function recentMonths(count: number): string[] {
+  const now = new Date();
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (i + 1), 1));
+    return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+}
+
+function lastDayOfMonthIso(yyyymm: string): string {
+  const year = Number(yyyymm.slice(0, 4));
+  const month = Number(yyyymm.slice(4, 6));
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${yyyymm.slice(0, 4)}-${yyyymm.slice(4, 6)}-${String(lastDay).padStart(2, "0")}`;
 }
 
 export type ChemicalPriceHsCodeGroup = ChemicalPriceHsCodes & { slugs: string[] };
@@ -111,30 +138,29 @@ export function chemicalHsMetricKey(hsCode: string, flow: "export" | "import"): 
 
 /** Fetches one HS code's most recent export AND import unit value (both, not
  * either/or — a chemical the US mostly imports still gets a real reference
- * price from its import side) in a single Comtrade call covering the last 5
- * candidate years. Metric keys are stamped with the code actually queried,
+ * price from its import side) in a single Comtrade call covering the last 12
+ * candidate months. Metric keys are stamped with the code actually queried,
  * so a fallback-sourced point is honestly labeled as coming from the
  * fallback code, not silently attributed to the primary one. */
 async function fetchUnitValueForCode(hsCode: string): Promise<MetricPoint[]> {
-  const currentYear = new Date().getUTCFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => String(currentYear - 1 - i));
-  const rows = await comtradeQuery(hsCode, years.join(","));
+  const months = recentMonths(12);
+  const rows = await comtradeQuery(hsCode, months.join(","));
 
   const points: MetricPoint[] = [];
   for (const flow of ["X", "M"] as const) {
-    for (const year of years) {
-      const usdPerKg = unitValueForFlow(rows, year, flow);
+    for (const month of months) {
+      const usdPerKg = unitValueForFlow(rows, month, flow);
       if (usdPerKg === null) continue;
       points.push({
         metric_key: chemicalHsMetricKey(hsCode, flow === "X" ? "export" : "import"),
-        observed_at: `${year}-12-31`,
+        observed_at: lastDayOfMonthIso(month),
         value: usdPerKg * 1000, // USD/MT — matches this app's other chemical/commodity price units
         unit: "USD/MT",
         source_key: "un_comtrade",
         source_tier: 1,
-        frequency: "annual",
+        frequency: "monthly",
       });
-      break; // only the newest year with usable data for this flow
+      break; // only the newest month with usable data for this flow
     }
   }
   return points;

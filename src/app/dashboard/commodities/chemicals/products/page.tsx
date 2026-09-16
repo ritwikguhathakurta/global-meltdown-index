@@ -31,16 +31,13 @@ function LiveDataBadge({ price }: { price?: ChemicalProductPrice }) {
 function fmtMonth(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
-function fmtYear(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", timeZone: "UTC" });
-}
 
 function PriceCell({ price }: { price?: ChemicalProductPrice }) {
   if (!price) return <span className="text-text-dim">—</span>;
   const caption =
     price.basis === "ppi"
       ? `index 1982=100 · ${fmtMonth(price.asOf)}`
-      : `avg ${price.basis === "export_unit_value" ? "export" : "import"} unit value, USD/MT · ${fmtYear(price.asOf)}`;
+      : `avg ${price.basis === "export_unit_value" ? "export" : "import"} unit value, USD/MT · ${fmtMonth(price.asOf)}`;
   return (
     <>
       <div>
@@ -75,10 +72,11 @@ export default async function ChemicalProductsPage() {
         price below: {withPpi} from a FRED Producer Price Index proxy (&ldquo;Live PPI proxy&rdquo; — a US
         producer-price index, monthly, shown with its month-over-month move) and {withUnitValue} from a UN Comtrade
         average export/import unit value (&ldquo;Live avg price (Comtrade)&rdquo; — the United States&apos; own
-        declared customs value ÷ net weight for that HS code, annual, shown with its year-over-year move; not a
-        global benchmark price, since it reflects one country&apos;s own trade, and not a monthly spot price the way
-        the PPI proxies are). The remaining rows are reference-only — no free price source was found for their exact
-        HS code, disclosed as such rather than implied to have live pricing they don&apos;t.{" "}
+        declared customs value ÷ net weight for that HS code, also monthly, shown with its month-over-month move;
+        not a global benchmark price, since it reflects one country&apos;s own trade — and typically 1-2 months
+        older than the PPI rows&apos; own latest month, since US customs trade data has a longer release lag than
+        the PPI). The remaining rows are reference-only — no free price source was found for their exact HS
+        code, disclosed as such rather than implied to have live pricing they don&apos;t.{" "}
         {withMolecularData}
         of {CHEMICAL_PRODUCTS.length} rows also show a real molecular formula and molecular weight from PubChem
         (NIH/NLM) — every polymer family and genuine mixture is deliberately left blank rather than assigned a
@@ -192,10 +190,15 @@ export default async function ChemicalProductsPage() {
         trade picture needs one call per country, which isn&apos;t affordable for ~45 additional HS codes on the same
         shared daily quota — a single reputable reporter&apos;s own declared unit value is a standard economist&apos;s
         proxy for a commodity&apos;s price when no dedicated spot-price feed is free, but it is still that one
-        country&apos;s own price, not a volume-weighted global benchmark, and it moves in whole-year steps, not
-        monthly. Some HS codes still show &ldquo;—&rdquo;: the United States genuinely reports neither export nor
-        import weight-denominated trade for that code in the last 5 years (e.g. it reports trade value only, or the
-        code sees negligible US trade volume) — left blank rather than guessed.
+        country&apos;s own price, not a volume-weighted global benchmark. It is monthly (US Census monthly trade
+        data, live-verified before switching this from an earlier annual version), but always trails the PPI
+        rows&apos; own latest month by roughly 4-8 weeks — US customs trade data has a longer publication lag than
+        the PPI, confirmed live: at the time this was built, July was the newest month available anywhere for
+        several test HS codes while August PPI data already existed. Each row always shows whichever month is
+        genuinely newest, so it rolls forward automatically as the Census publishes each one. Some HS codes still
+        show &ldquo;—&rdquo;: the United States genuinely reports neither export nor import weight-denominated
+        trade for that code in the last 12 months (e.g. it reports trade value only, or the code sees negligible US
+        trade volume) — left blank rather than guessed.
         <br />
         <br />
         <strong className="text-text">Not built</strong>, and why: individual named products under every spec §9
