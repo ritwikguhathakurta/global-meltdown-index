@@ -4,7 +4,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { fetchSeries } from "@/lib/metrics/store";
 import { COMMODITIES } from "@/lib/commodities/taxonomy";
 import { getCandidateCovariates } from "@/lib/prediction/covariates";
-import { runPredictionAnalysis, buildAnnualDataset, OpenAIQuotaError } from "@/lib/prediction/openaiAnalysis";
+import { buildAnnualDataset, OpenAIQuotaError } from "@/lib/prediction/openaiAnalysis";
+import { runPredictionAnalysis as runOpenAi } from "@/lib/prediction/openaiAnalysis";
+import { runPredictionAnalysis as runGemini, GeminiQuotaError } from "@/lib/prediction/geminiAnalysis";
 
 export const runtime = "nodejs";
 export const maxDuration = 280;
@@ -15,12 +17,22 @@ export const maxDuration = 280;
 // chance of a meaningful backtest.
 const FULL_HISTORY_SINCE_ISO = "1900-01-01T00:00:00.000Z";
 
+// Gemini is the free-tier default (no card required, code execution tool
+// included) so the tab works without paid credits; OpenAI remains available
+// as a fallback for anyone who's configured it instead/as well.
+function pickProvider(): "gemini" | "openai" | null {
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured) {
     return NextResponse.json({ error: "backend not configured" }, { status: 503 });
   }
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 503 });
+  const provider = pickProvider();
+  if (!provider) {
+    return NextResponse.json({ error: "no prediction LLM provider configured (need GEMINI_API_KEY or OPENAI_API_KEY)" }, { status: 503 });
   }
 
   let slug: string | undefined;
@@ -55,10 +67,11 @@ export async function POST(req: NextRequest) {
     );
 
     const dataset = buildAnnualDataset(series, covariateSeries);
-    const result = await runPredictionAnalysis(commodity, dataset);
+    const result = provider === "gemini" ? await runGemini(commodity, dataset) : await runOpenAi(commodity, dataset);
 
     return NextResponse.json({
       commodity: { slug: commodity.slug, label: commodity.label, unit: commodity.unit, category: commodity.category },
+      provider,
       dataPoints: series.length,
       dataRange: { from: series[0].t, to: series[series.length - 1].t },
       annualYearsUsed: dataset.yearsTotal,
@@ -68,8 +81,8 @@ export async function POST(req: NextRequest) {
       codeExecuted: result.codeExecuted,
     });
   } catch (e) {
-    if (e instanceof OpenAIQuotaError) {
-      return NextResponse.json({ error: "openai_quota_exceeded", message: e.message }, { status: 402 });
+    if (e instanceof OpenAIQuotaError || e instanceof GeminiQuotaError) {
+      return NextResponse.json({ error: "llm_quota_exceeded", message: e.message }, { status: 402 });
     }
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }

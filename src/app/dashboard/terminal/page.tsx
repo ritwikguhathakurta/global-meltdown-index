@@ -23,12 +23,14 @@ export default async function TerminalPage() {
         </a>
       </div>
       <p className="mb-2 max-w-3xl text-sm text-text-dim">
-        A read-only watchlist with real daily prices and a candlestick chart per ticker, via Yahoo Finance (delayed
-        for most exchanges, typically ~15 minutes). Green candles closed higher than they opened; red closed lower.
+        A watchlist with real daily prices and a candlestick chart per ticker, via Yahoo Finance (delayed for most
+        exchanges, typically ~15 minutes). Green candles closed higher than they opened; red closed lower.
       </p>
       <p className="mb-6 max-w-3xl text-xs text-text-dim/80">
-        This tab is display-only — no broker connection, no order placement, no account credentials of any kind.
-        For actual live order execution across real brokers/exchanges, StockSharp&apos;s own free Windows desktop
+        For admin accounts with Binance API credentials configured, this tab also supports placing REAL orders with
+        REAL money on a real Binance spot account — every order requires an explicit review-then-confirm step before
+        it&apos;s sent, and access is restricted to admin accounts only. Everyone else sees the read-only watchlist and
+        charts above. For broader multi-exchange/multi-broker trading, StockSharp&apos;s own free Windows desktop
         Terminal app (linked above) is a separate, independent application; no code from it is used here.
       </p>
       <TerminalClient initialQuotes={quotes} />

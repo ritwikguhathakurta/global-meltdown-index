@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { TickerQuote } from "@/lib/sources/yahooLiveQuote";
+import { BrokerPanel } from "./BrokerPanel";
 
 // Status pair already established across this app (pctColor/DIRECTION_COLORS
 // in the Commodities pages) — reused here rather than inventing new colors,
@@ -111,7 +112,8 @@ export function TerminalClient({ initialQuotes }: { initialQuotes: TickerQuote[]
   }
 
   return (
-    <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="mt-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="gfew-panel p-4 lg:col-span-1">
         <div className="mb-3 flex gap-2">
           <input
@@ -189,6 +191,9 @@ export function TerminalClient({ initialQuotes }: { initialQuotes: TickerQuote[]
           <p className="text-xs text-text-dim">Select a symbol from the watchlist.</p>
         )}
       </div>
+      </div>
+
+      <BrokerPanel />
     </div>
   );
 }

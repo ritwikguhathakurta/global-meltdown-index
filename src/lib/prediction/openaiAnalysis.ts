@@ -124,25 +124,30 @@ export function buildAnnualDataset(
  * is; this app's own rule is that a number that looks wrong (or too good)
  * gets investigated, never shipped as-is.
  */
-export async function runPredictionAnalysis(
+/**
+ * Provider-agnostic prompt — the wording is what enforces the "real
+ * executed code, honest backtest, no fabricated numbers" contract, so both
+ * the OpenAI and Gemini implementations share this single copy rather than
+ * risking the two drifting apart.
+ */
+export function buildPredictionPrompt(
   commodity: Pick<CommodityDef, "slug" | "label" | "unit">,
-  dataset: AnnualDataset
-): Promise<PredictionAnalysisResult> {
-  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
-
+  dataset: AnnualDataset,
+  toolName: string
+): string {
   const hasCovariates = dataset.columnsUsed.length > 0;
   const covariateList = hasCovariates
     ? dataset.columnsUsed.join(", ")
     : "none available with enough real overlapping history — use price history alone";
 
-  const prompt = `This is a single NON-INTERACTIVE batch job. There is no user available to reply to questions, confirm a plan, or approve a next step — you must complete the entire task autonomously in this one turn, chaining as many code_interpreter calls back-to-back as needed. Never stop to say things like "let's do X to decide Y" or "shall I proceed" — just proceed. The task is not done until you have produced the final written analysis described in step 6.
+  return `This is a single NON-INTERACTIVE batch job. There is no user available to reply to questions, confirm a plan, or approve a next step — you must complete the entire task autonomously in this one turn, chaining as many ${toolName} calls back-to-back as needed. Never stop to say things like "let's do X to decide Y" or "shall I proceed" — just proceed. The task is not done until you have produced the final written analysis described in step 6.
 
 You are building an HONESTLY VALIDATED statistical model for ${commodity.label} (unit: ${commodity.unit}) prices, using REAL annual data given below as CSV. Columns: year, price (annual mean of this app's own real commodity price database — ultimately World Bank Pink Sheet / IMF PCPS), ${dataset.yearsTotal} years of it, followed by these real covariate columns where available: ${covariateList}. Covariates come from this app's own already-ingested real sources (USDA PSD world production/consumption/stocks, EIA world energy fundamentals, FAOSTAT world production, or the Fed's Broad Dollar Index) — never synthetic.
 
 CSV data:
 ${dataset.csv}
 
-Using the code interpreter (pandas/numpy/scikit-learn), do ALL of the following with real executed code in this one turn — never state a number you did not compute, and never pause between steps:
+Using ${toolName} (pandas/numpy/scikit-learn), do ALL of the following with real executed code in this one turn — never state a number you did not compute, and never pause between steps:
 
 1. Load the CSV. Drop rows with missing values in any column you plan to use as a feature. Report how many usable rows remain.
 2. If fewer than 15 usable rows remain, or there are no usable covariate columns, STOP any multivariate attempt: fit a simple model of log(price) vs. year instead, and say explicitly that there wasn't enough real covariate history for a multivariate fit.
@@ -150,6 +155,15 @@ Using the code interpreter (pandas/numpy/scikit-learn), do ALL of the following 
 4. Backtest HONESTLY: hold out the most recent 20% of years (at least the last 3, whichever is larger) as a test set never seen during fitting. Fit only on the earlier years, predict the held-out years, and compute the test-set R² and MAPE against the REAL actual prices in those held-out years. This out-of-sample number is what matters — report it prominently and honestly. If it is low, or even negative (meaning the model is worse than just guessing the historical mean), say so plainly. Do not soften a bad result.
 5. Only after reporting the honest backtested accuracy, refit on ALL available years and extrapolate 1, 2, and 3 years past the last observed year (holding any covariates flat at their last observed value — state this simplifying assumption explicitly).
 6. Write a concise FINAL analysis (under 300 words) that LEADS with the backtested test-set R²/MAPE and a plain-language verdict on whether this model is actually useful for forecasting this specific commodity. Name which covariates mattered most (by standardized coefficient magnitude), if any were used. Only then give the extrapolated figures, hedged in proportion to how good (or poor) the backtested accuracy actually was. This is an illustrative statistical exercise, not a forecast guarantee or investment advice. This final analysis is the deliverable — do not end the turn before writing it.`;
+}
+
+export async function runPredictionAnalysis(
+  commodity: Pick<CommodityDef, "slug" | "label" | "unit">,
+  dataset: AnnualDataset
+): Promise<PredictionAnalysisResult> {
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
+
+  const prompt = buildPredictionPrompt(commodity, dataset, "code_interpreter");
 
   type MessageItem = { type: "message"; content?: { type: string; text?: string }[] };
   type CodeItem = { type: "code_interpreter_call"; code?: string };

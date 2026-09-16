@@ -6,6 +6,7 @@ type CommodityOption = { slug: string; label: string; category: string };
 
 type AnalyzeResponse = {
   commodity: { slug: string; label: string; unit: string; category: string };
+  provider: "gemini" | "openai";
   dataPoints: number;
   dataRange: { from: string; to: string };
   annualYearsUsed: number;
@@ -45,12 +46,12 @@ export function PredictionClient({ commodities }: { commodities: CommodityOption
       const body = await res.json();
       if (!res.ok) {
         const b = body as AnalyzeError;
-        if (res.status === 402 || b.error === "openai_quota_exceeded") {
+        if (res.status === 402 || b.error === "llm_quota_exceeded") {
           setError({
-            title: "OpenAI account has no usable credits",
+            title: "AI provider is rate-limited or out of quota right now",
             detail:
               b.message ||
-              "Add a payment method or purchase credits at platform.openai.com/settings/organization/billing, then try again.",
+              "The configured LLM provider (free-tier Gemini, or OpenAI as a fallback) hit a rate limit or quota. Free-tier limits reset automatically — try again in a minute.",
             isQuota: true,
           });
         } else {
@@ -101,16 +102,6 @@ export function PredictionClient({ commodities }: { commodities: CommodityOption
         <div className="gfew-panel border-l-4 border-l-[#e05a4d] p-4">
           <p className="text-sm font-semibold text-text">{error.title}</p>
           <p className="mt-1 text-sm text-text-dim">{error.detail}</p>
-          {error.isQuota && (
-            <a
-              href="https://platform.openai.com/settings/organization/billing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-block text-sm text-accent hover:underline"
-            >
-              Open OpenAI billing settings →
-            </a>
-          )}
         </div>
       )}
 
@@ -120,7 +111,8 @@ export function PredictionClient({ commodities }: { commodities: CommodityOption
             <h2 className="text-lg font-semibold text-text">{result.commodity.label}</h2>
             <span className="text-xs text-text-dim">
               {result.dataPoints} real observations · {result.dataRange.from.slice(0, 10)} to{" "}
-              {result.dataRange.to.slice(0, 10)} · {result.annualYearsUsed} annual data points used in the model
+              {result.dataRange.to.slice(0, 10)} · {result.annualYearsUsed} annual data points used in the model ·{" "}
+              {result.provider === "gemini" ? "Gemini (free tier)" : "OpenAI"}
             </span>
           </div>
 
@@ -147,7 +139,7 @@ export function PredictionClient({ commodities }: { commodities: CommodityOption
           {result.codeExecuted.length > 0 && (
             <details className="text-xs">
               <summary className="cursor-pointer text-text-dim hover:text-text">
-                Show the Python code OpenAI actually executed against this data
+                Show the Python code actually executed against this data
               </summary>
               <pre className="gfew-mono mt-2 overflow-x-auto rounded bg-panel-raised p-3 text-[11px] text-text-dim">
                 {result.codeExecuted.join("\n\n# ---\n\n")}
