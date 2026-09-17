@@ -7,6 +7,7 @@ import {
   SOY_PALM_COINTEGRATION,
   PALM_WTI_COINTEGRATION,
   type CointegratedPairSpread,
+  type PairConfig,
 } from "./oilseedsPairsCointegration";
 import {
   getPalmOilIndividualDiagnostics,
@@ -105,6 +106,50 @@ function periodLabelPlural(config: IndividualDiagnosticsConfig, n: number): stri
   return `${unit}${n === 1 ? "" : "s"}`;
 }
 
+export type EconDetail = { label: string; value: string };
+
+function fmtP(p: number): string {
+  return p < 0.0001 ? p.toExponential(2) : p.toFixed(4);
+}
+
+function buildIndividualEconDetails(config: IndividualDiagnosticsConfig, data: IndividualDiagnostics): EconDetail[] {
+  const periodWord = config.frequency === "daily" ? "trading day" : "month";
+  return [
+    { label: "Test", value: "Augmented Dickey-Fuller (ADF) unit-root test, on the price level and on log returns" },
+    { label: "Data frequency", value: `${config.frequency} (${periodWord}s)` },
+    {
+      label: "ADF on price level",
+      value: `stat = ${config.adfLevel.stat.toFixed(3)}, p = ${fmtP(config.adfLevel.pValue)}, n = ${config.adfLevel.sampleSize} → ${config.adfLevel.pValue < 0.05 ? "stationary (clears 0.05)" : "non-stationary (does not clear 0.05)"}`,
+    },
+    {
+      label: "ADF on log returns",
+      value: `stat = ${config.adfReturns.stat.toFixed(3)}, p = ${fmtP(config.adfReturns.pValue)}, n = ${config.adfReturns.sampleSize} → ${config.adfReturns.pValue < 0.05 ? "stationary (clears 0.05)" : "non-stationary (does not clear 0.05)"}`,
+    },
+    { label: "Rolling moving-average window", value: `${config.maWindow} ${periodWord}s` },
+    { label: `Realized volatility (σ, per ${periodWord}, log-return basis)`, value: data.sigma !== null ? `${(data.sigma * 100).toFixed(2)}%` : "—" },
+    { label: "Current z-score vs own moving average", value: data.zScore !== null ? `${data.zScore >= 0 ? "+" : ""}${data.zScore.toFixed(2)}σ` : "—" },
+    { label: "MA-deviation reversion backtest horizons", value: `${config.reversionHorizons.join(", ")} ${periodWord}s` },
+    { label: "Tested on", value: config.testedOn },
+    { label: "Source metric key", value: config.metricKey },
+  ];
+}
+
+function buildPairEconDetails(config: PairConfig, data: CointegratedPairSpread): EconDetail[] {
+  return [
+    { label: "Test", value: config.method },
+    { label: "Estimation window", value: config.estimationWindow },
+    { label: "Sample size", value: `${config.sampleSize} observations` },
+    { label: "Hedge ratio (γ)", value: config.gamma.toFixed(4) },
+    { label: "Intercept", value: config.intercept.toFixed(4) },
+    { label: "ADF p-value on residuals", value: `${fmtP(config.adfPValue)} → ${config.adfPValue < 0.05 ? "clears 0.05 (cointegrated)" : "does not clear 0.05"}` },
+    { label: "Implied half-life of mean reversion", value: `${config.halfLifeMonths} months` },
+    { label: "Relationship strength", value: config.strength },
+    { label: "Current spread (residual)", value: data.spread !== null ? data.spread.toFixed(3) : "—" },
+    { label: "Current z-score (trailing 5y window)", value: data.zScore5y !== null ? `${data.zScore5y >= 0 ? "+" : ""}${data.zScore5y.toFixed(2)}σ` : "—" },
+    { label: "Reversion backtest horizons", value: `${config.reversionHorizonsMonths.join(", ")} months` },
+  ];
+}
+
 export type TrajectoryPoint = {
   horizonLabel: string;
   rangeLow: number | null;
@@ -193,6 +238,7 @@ export type ReportRow = {
   trajectory: TrajectoryPoint[];
   buyerAdvice: string;
   sellerAdvice: string;
+  econDetails: EconDetail[];
 };
 
 function pairToRow(data: CointegratedPairSpread, config: typeof SOY_PALM_COINTEGRATION | typeof PALM_WTI_COINTEGRATION, id: string, title: string, unit: string): ReportRow {
@@ -228,6 +274,7 @@ function pairToRow(data: CointegratedPairSpread, config: typeof SOY_PALM_COINTEG
     trajectory: buildPairTrajectory(data, unit),
     buyerAdvice: advice.buyer,
     sellerAdvice: advice.seller,
+    econDetails: buildPairEconDetails(config, data),
   };
 }
 
@@ -262,6 +309,7 @@ function individualToRow(data: IndividualDiagnostics, id: string): ReportRow {
     trajectory: buildIndividualTrajectory(data),
     buyerAdvice: advice.buyer,
     sellerAdvice: advice.seller,
+    econDetails: buildIndividualEconDetails(data.config, data),
   };
 }
 

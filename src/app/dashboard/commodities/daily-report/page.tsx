@@ -236,18 +236,43 @@ export default async function DailyReportPage() {
               </div>
             </section>
 
-            <section className="mb-10">
+            <section>
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-text">Your Business Planning Briefing</h2>
+                <p className="mt-1 max-w-3xl text-sm text-text-dim">
+                  No statistics or economics background needed. Each card below walks through, in plain words: what
+                  the real test actually found, what it means if you&apos;re buying versus selling, which prices are
+                  historically good levels to buy or sell near, what the price has typically done next over short,
+                  medium, and long horizons, and how confident that historical pattern really is. This describes
+                  historical tendencies to help you plan — it is not personalized advice and not a guarantee that
+                  history repeats. Read the note at the end of each card.
+                </p>
+              </div>
+              {report.rows.map((row) => (
+                <BriefingCard key={row.id} row={row} />
+              ))}
+              <div className="rounded-lg border border-border bg-panel p-4 text-xs text-text-dim">
+                <strong className="text-text">What &ldquo;confidence&rdquo; means here:</strong> it&apos;s a plain
+                historical percentage — out of every past time this exact situation happened, how often it played
+                out the way described. It is not a mathematical certainty, and small sample sizes (shown as
+                &ldquo;n=&rdquo;) mean more uncertainty even when the percentage looks confident. Markets can and do
+                break from their own history. Nothing on this page is investment advice — see the disclaimer below.
+              </div>
+            </section>
+
+            <section className="mt-12">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-xl font-bold text-text">Part 1 — Full Econometrics Summary</h2>
-                <span className="text-xs text-text-dim">The technical detail behind Part 2 below</span>
+                <h2 className="text-xl font-bold text-text">Econometric Details</h2>
+                <span className="text-xs text-text-dim">The technical basis behind the briefing above</span>
               </div>
               <p className="mb-4 max-w-3xl text-sm text-text-dim">
                 Real Engle-Granger cointegration tests (for the two spreads) and real Augmented Dickey-Fuller
                 unit-root tests (for each individual commodity) — computed once via OpenBB&apos;s econometrics
-                extension (statsmodels) and documented in full on the pages linked below. This table is the
-                condensed reference; Part 2 translates it into plain language.
+                extension (statsmodels) against this app&apos;s own price history. Everything below is the raw
+                statistical basis for the plain-English briefing above, for anyone who wants to check the work.
               </p>
-              <div className="overflow-x-auto rounded border border-border">
+
+              <div className="mb-6 overflow-x-auto rounded border border-border">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-panel-raised text-text-dim">
                     <tr>
@@ -282,8 +307,25 @@ export default async function DailyReportPage() {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-3 text-xs text-text-dim">
-                Full methodology, ADF/cointegration statistics, price bands, and the econometrics-terms glossary:{" "}
+
+              <div className="space-y-4">
+                {report.rows.map((r) => (
+                  <div key={r.id} className="rounded border border-border p-4">
+                    <div className="mb-2 text-sm font-bold text-text">{r.title}</div>
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                      {r.econDetails.map((d, i) => (
+                        <div key={i} className="flex justify-between gap-3 border-b border-border/50 py-1 text-xs">
+                          <dt className="text-text-dim">{d.label}</dt>
+                          <dd className="gfew-mono text-right text-text">{d.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-4 text-xs text-text-dim">
+                Full methodology, charts, and the econometrics-terms glossary:{" "}
                 <Link href="/dashboard/commodities/oilseeds" className="text-accent hover:underline">
                   Oilseeds page
                 </Link>{" "}
@@ -293,30 +335,6 @@ export default async function DailyReportPage() {
                 </Link>{" "}
                 (WTI Crude Oil).
               </p>
-            </section>
-
-            <section>
-              <div className="mb-4">
-                <h2 className="text-xl font-bold text-text">Part 2 — Your Business Planning Briefing</h2>
-                <p className="mt-1 max-w-3xl text-sm text-text-dim">
-                  No statistics or economics background needed. Each card below walks through, in plain words: what
-                  the real test actually found, what it means if you&apos;re buying versus selling, which prices are
-                  historically good levels to buy or sell near, what the price has typically done next over short,
-                  medium, and long horizons, and how confident that historical pattern really is. This describes
-                  historical tendencies to help you plan — it is not personalized advice and not a guarantee that
-                  history repeats. Read the note at the end of each card.
-                </p>
-              </div>
-              {report.rows.map((row) => (
-                <BriefingCard key={row.id} row={row} />
-              ))}
-              <div className="rounded-lg border border-border bg-panel p-4 text-xs text-text-dim">
-                <strong className="text-text">What &ldquo;confidence&rdquo; means here:</strong> it&apos;s a plain
-                historical percentage — out of every past time this exact situation happened, how often it played
-                out the way described. It is not a mathematical certainty, and small sample sizes (shown as
-                &ldquo;n=&rdquo;) mean more uncertainty even when the percentage looks confident. Markets can and do
-                break from their own history. Nothing on this page is investment advice — see the disclaimer below.
-              </div>
             </section>
           </>
         )}
