@@ -67,7 +67,7 @@ const MONTH_CODES = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
  * than only a percentage-change calculation, where the native unit would
  * have been fine as-is. */
 const LB_PER_METRIC_TON = 2204.62262;
-function centsPerLbToUsdPerMt(centsPerLb: number): number {
+export function centsPerLbToUsdPerMt(centsPerLb: number): number {
   return (centsPerLb / 100) * LB_PER_METRIC_TON;
 }
 

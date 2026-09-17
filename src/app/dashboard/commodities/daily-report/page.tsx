@@ -47,10 +47,34 @@ function BriefingCard({ row }: { row: ReportRow }) {
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-bold text-text">{row.title}</h3>
-            <div className="gfew-mono text-2xl font-bold text-text">
-              {fmtNum(row.currentValue, row.currentValue !== null && Math.abs(row.currentValue) >= 100 ? 0 : 2)} {row.unit}
-            </div>
-            <div className="text-[11px] text-text-dim">as of {row.asOfDate?.slice(0, 10) ?? "—"}</div>
+            {row.liveQuote ? (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="gfew-mono text-2xl font-bold text-text">
+                    {fmtNum(row.liveQuote.price, Math.abs(row.liveQuote.price) >= 100 ? 0 : 2)} {row.liveQuote.unit}
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-[#e05a4d22] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#e05a4d]">
+                    {row.liveQuote.intraday ? "Live" : "Latest Close"}
+                  </span>
+                </div>
+                <div className="text-[11px] text-text-dim">
+                  {row.liveQuote.symbol} via Yahoo Finance · fetched{" "}
+                  {new Date(row.liveQuote.fetchedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })} · session{" "}
+                  {row.liveQuote.asOfIso.slice(0, 10)}
+                </div>
+                <div className="mt-1 text-[10px] text-text-dim">
+                  Statistics below use the last officially settled price: {fmtNum(row.currentValue, row.currentValue !== null && Math.abs(row.currentValue) >= 100 ? 0 : 2)}{" "}
+                  {row.unit} as of {row.asOfDate?.slice(0, 10) ?? "—"}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="gfew-mono text-2xl font-bold text-text">
+                  {fmtNum(row.currentValue, row.currentValue !== null && Math.abs(row.currentValue) >= 100 ? 0 : 2)} {row.unit}
+                </div>
+                <div className="text-[11px] text-text-dim">as of {row.asOfDate?.slice(0, 10) ?? "—"}</div>
+              </>
+            )}
           </div>
           <div className="text-right">
             <RegimeBadge regime={row.regime} />
@@ -202,7 +226,9 @@ export default async function DailyReportPage() {
               <h1 className="mt-1 text-3xl font-bold">Vegetable Oils &amp; Crude Oil — Daily Econometrics Report</h1>
               <p className="mt-2 max-w-2xl text-sm text-[#c7dcf0]">
                 Generated {report ? new Date(report.generatedAt).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" }) : "—"} — every
-                number below is recomputed fresh from real market data on each load, not a static snapshot.
+                number below is recomputed fresh from real market data on each load, not a static snapshot. Where marked{" "}
+                <strong>Live</strong>/<strong>Latest Close</strong>, the headline price is fetched directly from Yahoo Finance at the
+                moment this report is generated — not the once-daily database snapshot the underlying statistics are built on.
               </p>
             </div>
             <PrintButton />
@@ -225,9 +251,21 @@ export default async function DailyReportPage() {
                   return (
                     <div key={r.id} className="rounded-lg border border-border p-4" style={{ borderTopWidth: 4, borderTopColor: color }}>
                       <div className="mb-1 text-sm font-bold text-text">{r.title}</div>
-                      <div className="gfew-mono mb-2 text-lg font-bold text-text">
-                        {fmtNum(r.currentValue, r.currentValue !== null && Math.abs(r.currentValue) >= 100 ? 0 : 2)} {r.unit}
-                      </div>
+                      {r.liveQuote ? (
+                        <>
+                          <div className="gfew-mono text-lg font-bold text-text">
+                            {fmtNum(r.liveQuote.price, Math.abs(r.liveQuote.price) >= 100 ? 0 : 2)} {r.liveQuote.unit}
+                            <span className="ml-1 text-[9px] font-bold uppercase tracking-wide text-[#e05a4d]">
+                              {r.liveQuote.intraday ? "Live" : "Latest Close"}
+                            </span>
+                          </div>
+                          <div className="mb-2 text-[10px] text-text-dim">settled: {fmtNum(r.currentValue, r.currentValue !== null && Math.abs(r.currentValue) >= 100 ? 0 : 2)} {r.unit}</div>
+                        </>
+                      ) : (
+                        <div className="gfew-mono mb-2 text-lg font-bold text-text">
+                          {fmtNum(r.currentValue, r.currentValue !== null && Math.abs(r.currentValue) >= 100 ? 0 : 2)} {r.unit}
+                        </div>
+                      )}
                       <RegimeBadge regime={r.regime} />
                       <div className="mt-2 text-xs text-text-dim">{r.regime ? REGIME_ACTION[r.regime] : ""}</div>
                     </div>

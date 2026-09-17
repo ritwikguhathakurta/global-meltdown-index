@@ -16,6 +16,7 @@ import {
   type IndividualDiagnostics,
   type IndividualDiagnosticsConfig,
 } from "./individualMeanReversion";
+import { fetchLiveCommodityQuote, type LiveQuote, type LiveCommodityKey } from "../sources/liveCommodityQuotes";
 
 /**
  * Synthesizes the real cointegration + individual mean-reversion engines
@@ -239,6 +240,7 @@ export type ReportRow = {
   buyerAdvice: string;
   sellerAdvice: string;
   econDetails: EconDetail[];
+  liveQuote: LiveQuote | null;
 };
 
 function pairToRow(data: CointegratedPairSpread, config: typeof SOY_PALM_COINTEGRATION | typeof PALM_WTI_COINTEGRATION, id: string, title: string, unit: string): ReportRow {
@@ -275,6 +277,7 @@ function pairToRow(data: CointegratedPairSpread, config: typeof SOY_PALM_COINTEG
     buyerAdvice: advice.buyer,
     sellerAdvice: advice.seller,
     econDetails: buildPairEconDetails(config, data),
+    liveQuote: null,
   };
 }
 
@@ -310,6 +313,7 @@ function individualToRow(data: IndividualDiagnostics, id: string): ReportRow {
     buyerAdvice: advice.buyer,
     sellerAdvice: advice.seller,
     econDetails: buildIndividualEconDetails(data.config, data),
+    liveQuote: null,
   };
 }
 
@@ -318,13 +322,25 @@ export type DailyReport = {
   rows: ReportRow[];
 };
 
+/** Best-effort — a live quote is a nice-to-have overlay on top of the report, never a reason to fail the whole page if Yahoo's endpoint hiccups. */
+async function tryFetchLiveQuote(key: LiveCommodityKey): Promise<LiveQuote | null> {
+  try {
+    return await fetchLiveCommodityQuote(key);
+  } catch {
+    return null;
+  }
+}
+
 export async function getDailyReport(db: SupabaseClient): Promise<DailyReport | null> {
-  const [soyPalm, palmWti, palmDiag, soyDiag, wtiDiag] = await Promise.all([
+  const [soyPalm, palmWti, palmDiag, soyDiag, wtiDiag, palmLive, soyLive, wtiLive] = await Promise.all([
     getSoyPalmPairsSpread(db),
     getPalmWtiPairsSpread(db),
     getPalmOilIndividualDiagnostics(db),
     getSoybeanOilIndividualDiagnostics(db),
     getWtiCrudeIndividualDiagnostics(db),
+    tryFetchLiveQuote("palm_oil"),
+    tryFetchLiveQuote("soybean_oil"),
+    tryFetchLiveQuote("wti_crude"),
   ]);
 
   const rows: ReportRow[] = [];
@@ -333,18 +349,21 @@ export async function getDailyReport(db: SupabaseClient): Promise<DailyReport | 
     const series = await fetchSeries(db, palmDiag.config.metricKey, "1900-01-01T00:00:00.000Z");
     const row = individualToRow(palmDiag, "palm_oil");
     row.streak = computeStreakContinuation(series);
+    row.liveQuote = palmLive;
     rows.push(row);
   }
   if (soyDiag) {
     const series = await fetchSeries(db, soyDiag.config.metricKey, "1900-01-01T00:00:00.000Z");
     const row = individualToRow(soyDiag, "soybean_oil");
     row.streak = computeStreakContinuation(series);
+    row.liveQuote = soyLive;
     rows.push(row);
   }
   if (wtiDiag) {
     const series = await fetchSeries(db, wtiDiag.config.metricKey, "1900-01-01T00:00:00.000Z");
     const row = individualToRow(wtiDiag, "wti_crude");
     row.streak = computeStreakContinuation(series);
+    row.liveQuote = wtiLive;
     rows.push(row);
   }
   if (soyPalm) {
