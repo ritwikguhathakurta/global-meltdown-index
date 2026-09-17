@@ -16,6 +16,8 @@ import {
   getOilseedsRainfallImpact,
   getSoyPalmPairsSpread,
   getPalmWtiPairsSpread,
+  getPalmOilIndividualDiagnostics,
+  getSoybeanOilIndividualDiagnostics,
 } from "@/lib/api/engineData";
 import type { CountryClass } from "@/lib/engines/oilseedsCountry";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
@@ -23,6 +25,7 @@ import type { EnsoPhase } from "@/lib/engines/oilseedsEnso";
 import type { HeatmapCell } from "@/lib/engines/oilseedsPriceHeatmap";
 import { SOY_PALM_COINTEGRATION, PALM_WTI_COINTEGRATION } from "@/lib/engines/oilseedsPairsCointegration";
 import { PairsSpreadPanel } from "./_PairsSpreadPanel";
+import { IndividualDiagnosticsPanel } from "@/components/IndividualDiagnosticsPanel";
 
 const OILSEED_SLUGS = new Set([
   "soybeans",
@@ -186,25 +189,45 @@ function CycleGauge({ distanceFromPeakPct, phase }: { distanceFromPeakPct: numbe
 }
 
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall, priceHeatmap, rainfallImpact, soyPalmSpread, palmWtiSpread] =
-    await Promise.all([
-      getCommodityHeatmap(),
-      getCommodityBalances(),
-      getSoybeanCountryBalances(),
-      getSoybeanCrushMargin(),
-      getVegetableOilSpreads(),
-      getOilseedPositioning(),
-      getSeAsiaPalmBalances(),
-      getSoybeanTradeIntelligence(),
-      getEnsoState(),
-      getOilseedsPriceCycles(),
-      getOilseedsSeasonality(),
-      getOilseedsRainfall(),
-      getOilseedsPriceHeatmap(),
-      getOilseedsRainfallImpact(),
-      getSoyPalmPairsSpread(),
-      getPalmWtiPairsSpread(),
-    ]);
+  const [
+    heatmap,
+    balances,
+    countryBalances,
+    crush,
+    spreads,
+    positioning,
+    seAsia,
+    tradeIntel,
+    enso,
+    priceCycles,
+    seasonality,
+    rainfall,
+    priceHeatmap,
+    rainfallImpact,
+    soyPalmSpread,
+    palmWtiSpread,
+    palmOilDiagnostics,
+    soybeanOilDiagnostics,
+  ] = await Promise.all([
+    getCommodityHeatmap(),
+    getCommodityBalances(),
+    getSoybeanCountryBalances(),
+    getSoybeanCrushMargin(),
+    getVegetableOilSpreads(),
+    getOilseedPositioning(),
+    getSeAsiaPalmBalances(),
+    getSoybeanTradeIntelligence(),
+    getEnsoState(),
+    getOilseedsPriceCycles(),
+    getOilseedsSeasonality(),
+    getOilseedsRainfall(),
+    getOilseedsPriceHeatmap(),
+    getOilseedsRainfallImpact(),
+    getSoyPalmPairsSpread(),
+    getPalmWtiPairsSpread(),
+    getPalmOilIndividualDiagnostics(),
+    getSoybeanOilIndividualDiagnostics(),
+  ]);
 
   const regimeBySlug = new Map((rainfallImpact?.currentRegimeByRegion ?? []).map((r) => [r.slug, r.regime]));
 
@@ -568,6 +591,46 @@ export default async function OilseedsPage() {
               </div>
             </dl>
           </div>
+        </section>
+      )}
+
+      {(palmOilDiagnostics || soybeanOilDiagnostics) && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Individual Commodity Mean-Reversion Diagnostics</h2>
+          <p className="mb-6 max-w-3xl text-sm text-text-dim">
+            A different, more modest kind of test than the pairs above: does EACH commodity&apos;s own price
+            mean-revert to a fixed level, on its own? Tested directly rather than assumed — see each subsection for
+            the real result and what it does and doesn&apos;t support.
+          </p>
+
+          {palmOilDiagnostics && (
+            <div className="mb-10">
+              <h3 className="mb-2 text-base font-semibold">Palm Oil</h3>
+              <p className="mb-3 text-xs text-text-dim">
+                Uses real daily CME CPO=F futures settlement prices (the same live source as the Multi-Timeframe
+                Price Heatmap above) — the only one of these three commodities with enough real daily history (
+                {"~"}1 year) to genuinely support day-based short/medium/long buckets.
+              </p>
+              <IndividualDiagnosticsPanel data={palmOilDiagnostics} />
+            </div>
+          )}
+
+          {soybeanOilDiagnostics && (
+            <div className="mb-6">
+              <h3 className="mb-2 text-base font-semibold">Soybean Oil</h3>
+              <p className="mb-3 text-xs text-text-dim">
+                <strong className="text-text">Real daily futures history does not exist for this yet</strong> — the
+                Massive daily-futures ingest for Soybean Oil has 0 accumulated data points in production as of this
+                writing (a separate, known gap from the pairs spreads above, which use monthly data going back to
+                2000/1960). What follows uses the same real monthly World Bank Pink Sheet series as everywhere else
+                on this page, with the short/medium/long buckets re-expressed in months (~1/~3/12 months) rather than
+                the literal 0-30/31-90/&gt;90-day windows, since monthly data can&apos;t honestly support a
+                day-level read. This section will automatically start using real daily data instead once that
+                ingest gap closes — no rebuild needed.
+              </p>
+              <IndividualDiagnosticsPanel data={soybeanOilDiagnostics} />
+            </div>
+          )}
         </section>
       )}
 

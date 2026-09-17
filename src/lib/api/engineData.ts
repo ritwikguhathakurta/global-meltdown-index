@@ -56,6 +56,12 @@ import {
   getPalmWtiPairsSpread as computePalmWtiPairsSpread,
   type CointegratedPairSpread,
 } from "@/lib/engines/oilseedsPairsCointegration";
+import {
+  getPalmOilIndividualDiagnostics as computePalmOilIndividualDiagnostics,
+  getSoybeanOilIndividualDiagnostics as computeSoybeanOilIndividualDiagnostics,
+  getWtiCrudeIndividualDiagnostics as computeWtiCrudeIndividualDiagnostics,
+  type IndividualDiagnostics,
+} from "@/lib/engines/individualMeanReversion";
 import { getOilseedPositioning as computeOilseedPositioning, type OilseedPositioningRow } from "@/lib/engines/oilseedsPositioning";
 import { getSeAsiaPalmBalances as computeSeAsiaPalmBalances, type SeAsiaPalmResult } from "@/lib/engines/oilseedsSeAsia";
 import { getEnsoState as computeEnsoState, type EnsoState } from "@/lib/engines/oilseedsEnso";
@@ -551,6 +557,39 @@ export async function getPalmWtiPairsSpread(): Promise<CointegratedPairSpread | 
   try {
     const db = await createServerSupabase();
     return await computePalmWtiPairsSpread(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getPalmOilIndividualDiagnostics(): Promise<IndividualDiagnostics | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computePalmOilIndividualDiagnostics(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getSoybeanOilIndividualDiagnostics(): Promise<IndividualDiagnostics | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeSoybeanOilIndividualDiagnostics(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getWtiCrudeIndividualDiagnostics(): Promise<IndividualDiagnostics | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeWtiCrudeIndividualDiagnostics(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getChemicalsOverview, getChemicalFeedstockReferencePrices } from "@/lib/api/engineData";
+import { getChemicalsOverview, getChemicalFeedstockReferencePrices, getWtiCrudeIndividualDiagnostics } from "@/lib/api/engineData";
+import { IndividualDiagnosticsPanel } from "@/components/IndividualDiagnosticsPanel";
 import { CHEMICAL_CATEGORIES } from "@/lib/commodities/chemicalsTaxonomy";
 import type { ChemicalRow } from "@/lib/engines/chemicals";
 import { DirectionPill, fmt, fmtPct, pctColor } from "../_components";
@@ -11,7 +12,11 @@ const FEEDSTOCKS = [
 ];
 
 export default async function ChemicalsPage() {
-  const [overview, feedstockPrices] = await Promise.all([getChemicalsOverview(), getChemicalFeedstockReferencePrices()]);
+  const [overview, feedstockPrices, wtiDiagnostics] = await Promise.all([
+    getChemicalsOverview(),
+    getChemicalFeedstockReferencePrices(),
+    getWtiCrudeIndividualDiagnostics(),
+  ]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -70,6 +75,18 @@ export default async function ChemicalsPage() {
               );
             })}
           </div>
+        </section>
+      )}
+
+      {wtiDiagnostics && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">WTI Crude Oil — Individual Mean-Reversion Diagnostics</h2>
+          <p className="mb-3 max-w-3xl text-sm text-text-dim">
+            Does crude oil&apos;s own price mean-revert to a fixed level on its own? Tested directly (real ADF
+            unit-root test, not assumed) rather than just showing a spot price. Uses the same real monthly price
+            series as the reference price above.
+          </p>
+          <IndividualDiagnosticsPanel data={wtiDiagnostics} />
         </section>
       )}
 
