@@ -171,13 +171,17 @@ export default async function DailyReportPage() {
           header, .no-print { display: none !important; }
           body { background: white !important; }
           .print-report {
-            --color-bg: #ffffff;
-            --color-panel: #ffffff;
-            --color-panel-raised: #eef1f4;
-            --color-border: #b9c0ca;
-            --color-text: #10151d;
-            --color-text-dim: #3f4650;
-            --color-accent: #1a5fa8;
+            --gfew-bg: #ffffff;
+            --gfew-bg-panel: #ffffff;
+            --gfew-bg-panel-raised: #eef1f4;
+            --gfew-border: #b9c0ca;
+            --gfew-text: #10151d;
+            --gfew-text-dim: #3f4650;
+            --gfew-accent: #1a5fa8;
+            --gfew-green: #1a8a5f;
+            --gfew-yellow: #a9800b;
+            --gfew-orange: #b85f1d;
+            --gfew-red: #b8362a;
             background: #ffffff !important;
             color: #10151d !important;
           }
