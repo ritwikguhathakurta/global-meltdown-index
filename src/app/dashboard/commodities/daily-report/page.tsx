@@ -170,7 +170,17 @@ export default async function DailyReportPage() {
         @media print {
           header, .no-print { display: none !important; }
           body { background: white !important; }
-          .print-report { color: black !important; }
+          .print-report {
+            --color-bg: #ffffff;
+            --color-panel: #ffffff;
+            --color-panel-raised: #eef1f4;
+            --color-border: #b9c0ca;
+            --color-text: #10151d;
+            --color-text-dim: #3f4650;
+            --color-accent: #1a5fa8;
+            background: #ffffff !important;
+            color: #10151d !important;
+          }
         }
         .print-report, .print-report * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       `}</style>
