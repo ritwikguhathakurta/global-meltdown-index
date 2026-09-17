@@ -42,7 +42,7 @@ function BriefingCard({ row }: { row: ReportRow }) {
   const streakWord = row.streak.direction === 1 ? "up" : row.streak.direction === -1 ? "down" : "flat";
 
   return (
-    <div className="mb-6 overflow-hidden rounded-lg border border-border" style={{ borderLeftWidth: 6, borderLeftColor: color }}>
+    <div className="mb-8 overflow-hidden rounded-lg border border-border" style={{ borderLeftWidth: 6, borderLeftColor: color }}>
       <div className="bg-panel p-5">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -60,38 +60,77 @@ function BriefingCard({ row }: { row: ReportRow }) {
           </div>
         </div>
 
-        <p className="mb-4 rounded p-3 text-sm text-text" style={{ background: `${color}14` }}>
+        <div className="mb-4 rounded p-3 text-sm text-text" style={{ background: `${color}14` }}>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color }}>
+            In One Sentence
+          </div>
           {row.guidance}
-        </p>
+        </div>
+
+        <div className="mb-4 rounded border border-border p-3">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-text-dim">What We Actually Tested (In Plain Words)</div>
+          <p className="text-sm text-text-dim">{row.testExplainer}</p>
+        </div>
+
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded border border-[#34c08555] bg-[#34c08511] p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[#34c085]">If You&apos;re Buying / Procuring</div>
+            <p className="mt-1 text-sm text-text">{row.buyerAdvice}</p>
+          </div>
+          <div className="rounded border border-[#e0793d55] bg-[#e0793d11] p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[#e0793d]">If You&apos;re Selling / Holding Inventory</div>
+            <p className="mt-1 text-sm text-text">{row.sellerAdvice}</p>
+          </div>
+        </div>
 
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded border border-border p-3">
-            <div className="text-[10px] uppercase tracking-wide text-text-dim">Watch: Lower Level</div>
+            <div className="text-[10px] uppercase tracking-wide text-text-dim">Good Price To Buy Near</div>
             <div className="gfew-mono text-base font-semibold" style={{ color: "#34c085" }}>
               {fmtNum(row.watchLow, row.watchLow !== null && Math.abs(row.watchLow) >= 100 ? 0 : 2)} {row.unit}
             </div>
-            <div className="text-[10px] text-text-dim">A move down toward here has historically drawn more buying interest.</div>
+            <div className="text-[10px] text-text-dim">A price down near here has historically been a favorable time to purchase.</div>
           </div>
           <div className="rounded border border-border p-3">
-            <div className="text-[10px] uppercase tracking-wide text-text-dim">{row.fairValue !== null ? "Fair Value Anchor" : "Recent Average"}</div>
+            <div className="text-[10px] uppercase tracking-wide text-text-dim">{row.fairValue !== null ? "Fair / Normal Price" : "Recent Average Price"}</div>
             <div className="gfew-mono text-base font-semibold text-text">
               {fmtNum(row.fairValue, row.fairValue !== null && Math.abs(row.fairValue) >= 100 ? 0 : 2)} {row.unit}
             </div>
             <div className="text-[10px] text-text-dim">
-              {row.fairValue !== null ? "A real, tested turnaround anchor (see Part 1)." : "Not a proven turnaround target — see Part 1 for why."}
+              {row.fairValue !== null ? "A real, tested price anchor — see the test explanation above." : "Not a proven target price — see the test explanation above for why."}
             </div>
           </div>
           <div className="rounded border border-border p-3">
-            <div className="text-[10px] uppercase tracking-wide text-text-dim">Watch: Upper Level</div>
+            <div className="text-[10px] uppercase tracking-wide text-text-dim">Good Price To Sell Near</div>
             <div className="gfew-mono text-base font-semibold" style={{ color: "#e05a4d" }}>
               {fmtNum(row.watchHigh, row.watchHigh !== null && Math.abs(row.watchHigh) >= 100 ? 0 : 2)} {row.unit}
             </div>
-            <div className="text-[10px] text-text-dim">A move up toward here has historically struggled to hold without a pause.</div>
+            <div className="text-[10px] text-text-dim">A price up near here has historically been a favorable time to sell or lock in a contract.</div>
           </div>
         </div>
 
         <div className="mb-4">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-dim">Probable Turnaround Timeline &amp; Confidence</div>
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-dim">Price Outlook — Short, Medium &amp; Long Term</div>
+          <div className="space-y-2">
+            {row.trajectory.map((t, i) => (
+              <div key={i} className="rounded border border-border p-3">
+                <div className="mb-1 flex flex-wrap items-baseline gap-2">
+                  <span className="text-xs font-bold text-text">{i === 0 ? "Short Term" : i === 1 ? "Medium Term" : "Long Term"}</span>
+                  <span className="text-[10px] text-text-dim">({t.horizonLabel})</span>
+                  {t.rangeLow !== null && t.rangeHigh !== null && (
+                    <span className="gfew-mono ml-auto text-sm font-semibold text-text">
+                      {fmtNum(t.rangeLow, Math.abs(t.rangeLow) >= 100 ? 0 : 2)} – {fmtNum(t.rangeHigh, Math.abs(t.rangeHigh) >= 100 ? 0 : 2)} {row.unit}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-dim">{t.narrative}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-dim">At A Glance: Turnaround Confidence By Horizon</div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {row.turnaround.map((t, i) => (
               <div key={i} className="rounded bg-panel-raised p-2 text-center">
@@ -161,6 +200,29 @@ export default async function DailyReportPage() {
         {report && (
           <>
             <section className="mb-10">
+              <h2 className="mb-1 text-xl font-bold text-text">Executive Summary — For Business Planning</h2>
+              <p className="mb-4 max-w-3xl text-sm text-text-dim">
+                A 10-second read before the detail below. Written for planning purchases, sales, and inventory —
+                not for trading.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {report.rows.map((r) => {
+                  const color = r.regime ? REGIME_COLORS[r.regime] : "#8b96a8";
+                  return (
+                    <div key={r.id} className="rounded-lg border border-border p-4" style={{ borderTopWidth: 4, borderTopColor: color }}>
+                      <div className="mb-1 text-sm font-bold text-text">{r.title}</div>
+                      <div className="gfew-mono mb-2 text-lg font-bold text-text">
+                        {fmtNum(r.currentValue, r.currentValue !== null && Math.abs(r.currentValue) >= 100 ? 0 : 2)} {r.unit}
+                      </div>
+                      <RegimeBadge regime={r.regime} />
+                      <div className="mt-2 text-xs text-text-dim">{r.regime ? REGIME_ACTION[r.regime] : ""}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="mb-10">
               <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-xl font-bold text-text">Part 1 — Full Econometrics Summary</h2>
                 <span className="text-xs text-text-dim">The technical detail behind Part 2 below</span>
@@ -221,12 +283,14 @@ export default async function DailyReportPage() {
 
             <section>
               <div className="mb-4">
-                <h2 className="text-xl font-bold text-text">Part 2 — Plain-English Daily Briefing</h2>
+                <h2 className="text-xl font-bold text-text">Part 2 — Your Business Planning Briefing</h2>
                 <p className="mt-1 max-w-3xl text-sm text-text-dim">
-                  No statistics or economics background needed. Every card below explains, in plain words, what the
-                  real test found, what price levels are worth watching, how confident the historical record is, and
-                  what the data leans toward — Buy, Sell, or Hold. This is a description of historical tendencies,
-                  not personalized advice, and not a guarantee — read the note at the end of each card.
+                  No statistics or economics background needed. Each card below walks through, in plain words: what
+                  the real test actually found, what it means if you&apos;re buying versus selling, which prices are
+                  historically good levels to buy or sell near, what the price has typically done next over short,
+                  medium, and long horizons, and how confident that historical pattern really is. This describes
+                  historical tendencies to help you plan — it is not personalized advice and not a guarantee that
+                  history repeats. Read the note at the end of each card.
                 </p>
               </div>
               {report.rows.map((row) => (
