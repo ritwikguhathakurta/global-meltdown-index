@@ -62,6 +62,7 @@ import {
   getWtiCrudeIndividualDiagnostics as computeWtiCrudeIndividualDiagnostics,
   type IndividualDiagnostics,
 } from "@/lib/engines/individualMeanReversion";
+import { getDailyReport as computeDailyReport, type DailyReport } from "@/lib/engines/dailyReport";
 import { getOilseedPositioning as computeOilseedPositioning, type OilseedPositioningRow } from "@/lib/engines/oilseedsPositioning";
 import { getSeAsiaPalmBalances as computeSeAsiaPalmBalances, type SeAsiaPalmResult } from "@/lib/engines/oilseedsSeAsia";
 import { getEnsoState as computeEnsoState, type EnsoState } from "@/lib/engines/oilseedsEnso";
@@ -590,6 +591,17 @@ export async function getWtiCrudeIndividualDiagnostics(): Promise<IndividualDiag
   try {
     const db = await createServerSupabase();
     return await computeWtiCrudeIndividualDiagnostics(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getDailyReport(): Promise<DailyReport | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeDailyReport(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;

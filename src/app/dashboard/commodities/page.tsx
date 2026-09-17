@@ -59,9 +59,14 @@ export default async function CommoditiesPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-2xl font-semibold">Commodities</h1>
-        <Link href="/dashboard/commodities/oilseeds" className="text-sm text-accent hover:underline">
-          Oilseeds deep-dive (crush margins, country balances, positioning) →
-        </Link>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <Link href="/dashboard/commodities/daily-report" className="text-sm text-accent hover:underline">
+            Daily Econometrics Report (Soy Oil/Palm Oil/Crude, PDF) →
+          </Link>
+          <Link href="/dashboard/commodities/oilseeds" className="text-sm text-accent hover:underline">
+            Oilseeds deep-dive (crush margins, country balances, positioning) →
+          </Link>
+        </div>
       </div>
       <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs">
         {[

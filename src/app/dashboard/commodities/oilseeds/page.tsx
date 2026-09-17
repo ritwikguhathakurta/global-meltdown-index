@@ -243,9 +243,14 @@ export default async function OilseedsPage() {
       </div>
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-2xl font-semibold">Oilseeds</h1>
-        <Link href="/dashboard/commodities/oilseeds/history" className="text-xs text-accent hover:underline">
-          See full 10-year history →
-        </Link>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <Link href="/dashboard/commodities/daily-report" className="text-xs text-accent hover:underline">
+            Daily Econometrics Report (PDF) →
+          </Link>
+          <Link href="/dashboard/commodities/oilseeds/history" className="text-xs text-accent hover:underline">
+            See full 10-year history →
+          </Link>
+        </div>
       </div>
       <p className="mb-8 max-w-3xl text-sm text-text-dim">
         The oilseed complex modeled as seed → crush → oil + meal, not three unrelated prices. Built against the

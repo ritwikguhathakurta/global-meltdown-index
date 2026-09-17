@@ -244,6 +244,60 @@ export function rollingSum(points: Point[], window: number): Point[] {
   return out;
 }
 
+export type StreakContinuation = {
+  direction: 1 | -1 | 0; // current streak direction: up, down, or flat
+  currentLength: number;
+  historicalSampleSize: number; // how many past streaks of >= this length existed
+  continuationPct: number | null; // % of those that continued (same direction) the following period
+};
+
+/**
+ * Detects the current up/down streak (consecutive same-direction period-over-
+ * period moves ending at the latest point) and empirically checks, across
+ * every past occurrence of a streak at least this long, what fraction
+ * continued into the next period versus reversed. A plain historical
+ * frequency, not a fitted model or a claim of serial dependence — same
+ * convention as this app's other empirical-odds engines.
+ */
+export function computeStreakContinuation(points: Point[]): StreakContinuation {
+  const sorted = [...points].sort((a, b) => (a.t < b.t ? -1 : 1));
+  const signs: (1 | -1 | 0)[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const d = sorted[i].v - sorted[i - 1].v;
+    signs.push(d > 0 ? 1 : d < 0 ? -1 : 0);
+  }
+  if (signs.length === 0) return { direction: 0, currentLength: 0, historicalSampleSize: 0, continuationPct: null };
+
+  const direction = signs[signs.length - 1];
+  let currentLength = 0;
+  for (let i = signs.length - 1; i >= 0; i--) {
+    if (signs[i] === direction) currentLength++;
+    else break;
+  }
+
+  let sampleSize = 0;
+  let continued = 0;
+  for (let i = currentLength - 1; i < signs.length - 1; i++) {
+    let matches = true;
+    for (let k = 0; k < currentLength; k++) {
+      if (signs[i - k] !== direction) {
+        matches = false;
+        break;
+      }
+    }
+    if (!matches) continue;
+    sampleSize++;
+    if (signs[i + 1] === direction) continued++;
+  }
+
+  return {
+    direction,
+    currentLength,
+    historicalSampleSize: sampleSize,
+    continuationPct: sampleSize > 0 ? Math.round((continued / sampleSize) * 100) : null,
+  };
+}
+
 export function daysSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 86400000;
 }
