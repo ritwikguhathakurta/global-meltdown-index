@@ -51,6 +51,11 @@ import {
 } from "@/lib/engines/oilseedsCountry";
 import { getSoybeanCrushMargin as computeSoybeanCrushMargin, type CrushMarginResult } from "@/lib/engines/oilseedsCrush";
 import { getVegetableOilSpreads as computeVegetableOilSpreads, type OilSpreadRow } from "@/lib/engines/oilseedsSpreads";
+import {
+  getSoyPalmPairsSpread as computeSoyPalmPairsSpread,
+  getPalmWtiPairsSpread as computePalmWtiPairsSpread,
+  type CointegratedPairSpread,
+} from "@/lib/engines/oilseedsPairsCointegration";
 import { getOilseedPositioning as computeOilseedPositioning, type OilseedPositioningRow } from "@/lib/engines/oilseedsPositioning";
 import { getSeAsiaPalmBalances as computeSeAsiaPalmBalances, type SeAsiaPalmResult } from "@/lib/engines/oilseedsSeAsia";
 import { getEnsoState as computeEnsoState, type EnsoState } from "@/lib/engines/oilseedsEnso";
@@ -524,6 +529,28 @@ export async function getVegetableOilSpreads(): Promise<OilSpreadRow[] | null> {
   try {
     const db = await createServerSupabase();
     return await computeVegetableOilSpreads(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getSoyPalmPairsSpread(): Promise<CointegratedPairSpread | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computeSoyPalmPairsSpread(db);
+  } catch (e) {
+    console.error((e as Error).message);
+    return null;
+  }
+}
+
+export async function getPalmWtiPairsSpread(): Promise<CointegratedPairSpread | null> {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const db = await createServerSupabase();
+    return await computePalmWtiPairsSpread(db);
   } catch (e) {
     console.error((e as Error).message);
     return null;

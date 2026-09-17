@@ -14,11 +14,15 @@ import {
   getOilseedsRainfall,
   getOilseedsPriceHeatmap,
   getOilseedsRainfallImpact,
+  getSoyPalmPairsSpread,
+  getPalmWtiPairsSpread,
 } from "@/lib/api/engineData";
 import type { CountryClass } from "@/lib/engines/oilseedsCountry";
 import type { CommodityDirectionLabel } from "@/lib/engines/commodities";
 import type { EnsoPhase } from "@/lib/engines/oilseedsEnso";
 import type { HeatmapCell } from "@/lib/engines/oilseedsPriceHeatmap";
+import { SOY_PALM_COINTEGRATION, PALM_WTI_COINTEGRATION } from "@/lib/engines/oilseedsPairsCointegration";
+import { PairsSpreadPanel } from "./_PairsSpreadPanel";
 
 const OILSEED_SLUGS = new Set([
   "soybeans",
@@ -182,7 +186,7 @@ function CycleGauge({ distanceFromPeakPct, phase }: { distanceFromPeakPct: numbe
 }
 
 export default async function OilseedsPage() {
-  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall, priceHeatmap, rainfallImpact] =
+  const [heatmap, balances, countryBalances, crush, spreads, positioning, seAsia, tradeIntel, enso, priceCycles, seasonality, rainfall, priceHeatmap, rainfallImpact, soyPalmSpread, palmWtiSpread] =
     await Promise.all([
       getCommodityHeatmap(),
       getCommodityBalances(),
@@ -198,6 +202,8 @@ export default async function OilseedsPage() {
       getOilseedsRainfall(),
       getOilseedsPriceHeatmap(),
       getOilseedsRainfallImpact(),
+      getSoyPalmPairsSpread(),
+      getPalmWtiPairsSpread(),
     ]);
 
   const regimeBySlug = new Map((rainfallImpact?.currentRegimeByRegion ?? []).map((r) => [r.slug, r.regime]));
@@ -470,6 +476,97 @@ export default async function OilseedsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </section>
+      )}
+
+      {(soyPalmSpread || palmWtiSpread) && (
+        <section className="mb-10">
+          <h2 className="mb-2 text-lg font-semibold">Cross-Commodity Relative Value &amp; Mean-Reversion Analysis</h2>
+          <p className="mb-6 max-w-3xl text-sm text-text-dim">
+            Deeper, hedge-ratio-adjusted companions to the naive 1:1 spreads in the Relative Value Matrix above — each
+            pair below is tested for genuine cointegration (not assumed) before any spread or z-score is shown.
+          </p>
+
+          {soyPalmSpread && (
+            <div className="mb-10">
+              <h3 className="mb-2 text-base font-semibold">Soybean Oil / Palm Oil</h3>
+              <PairsSpreadPanel data={soyPalmSpread} config={SOY_PALM_COINTEGRATION} aUnit="$/mt" bUnit="$/mt" />
+            </div>
+          )}
+
+          {palmWtiSpread && (
+            <div className="mb-6">
+              <h3 className="mb-2 text-base font-semibold">Palm Oil / WTI Crude Oil (Biodiesel Linkage)</h3>
+              <PairsSpreadPanel data={palmWtiSpread} config={PALM_WTI_COINTEGRATION} aUnit="$/mt" bUnit="$/bbl" />
+            </div>
+          )}
+
+          <div className="gfew-panel mb-4 p-4">
+            <h3 className="mb-2 text-sm font-semibold">Econometrics Terms, Explained Simply</h3>
+            <dl className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="font-semibold text-text">Z-score (σ)</dt>
+                <dd className="text-text-dim">
+                  &ldquo;How weird is this compared to normal?&rdquo; A z-score of 0 means totally average. +1 means
+                  &ldquo;a bit more than usual.&rdquo; +2 means &ldquo;rare — this basically only happens a few
+                  times in the whole history.&rdquo;
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-text">Standard deviation</dt>
+                <dd className="text-text-dim">
+                  The normal &ldquo;wobble size&rdquo; of a number. If a spread usually wobbles by about $200 up or
+                  down, that $200 is one standard deviation — the ruler the z-score is measured with.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-text">Cointegration</dt>
+                <dd className="text-text-dim">
+                  Two prices that each wander around unpredictably on their own, but are &ldquo;tied together by a
+                  rubber band&rdquo; — they can drift apart for a while, but historically the gap between them keeps
+                  snapping back. Confirmed here with a real statistical test, not assumed.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-text">Mean reversion</dt>
+                <dd className="text-text-dim">
+                  The tendency for something stretched too far from &ldquo;normal&rdquo; to drift back toward normal
+                  over time — like a stretched rubber band pulling back, not snapping instantly. How strong and how
+                  fast this pull is varies a lot by pair, as the two sections above show.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-text">Half-life</dt>
+                <dd className="text-text-dim">
+                  How long it typically takes for half of an unusual gap to close. A 5.4-month half-life means: if
+                  the gap is $400 today, history suggests roughly $200 of that gap tends to be gone in about 5.4
+                  months. Some relationships are much slower — Palm Oil/WTI&apos;s half-life is measured in years.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-text">Hedge ratio</dt>
+                <dd className="text-text-dim">
+                  The real-world exchange rate between two prices implied by their history. It means the two sides
+                  don&apos;t move 1-for-1; on average, 1 unit of one tracks a fitted multiple of the other.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-text">Spread</dt>
+                <dd className="text-text-dim">
+                  The gap left over after accounting for the hedge ratio — how far one price actually is from what
+                  the other price says it &ldquo;should&rdquo; be. This is what gets z-scored above.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-text">&ldquo;Support&rdquo; / &ldquo;Resistance&rdquo; (as used here)</dt>
+                <dd className="text-text-dim">
+                  Borrowed trading language for the price bands above — but these come from a statistical model, not
+                  from chart patterns or order flow. Treat them as &ldquo;historically, prices this stretched tend to
+                  struggle to go further,&rdquo; not a wall the price literally can&apos;t cross.
+                </dd>
+              </div>
+            </dl>
           </div>
         </section>
       )}
