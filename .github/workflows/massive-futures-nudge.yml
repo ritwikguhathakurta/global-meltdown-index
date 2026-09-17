@@ -1,0 +1,25 @@
+name: Massive futures nudge
+
+# Checks every 3 hours whether Massive's aggregates-endpoint rate/quota
+# limit has cleared yet, so recovery is caught same-day instead of waiting
+# for the once-daily pipeline's own 21:30 UTC run. When still rate-limited,
+# the endpoint stops itself after one wasted call — cheap enough to run this
+# often. Safe to run alongside the daily pipeline: both call the same
+# resumable ingest_massive_futures stage, which always resumes from wherever
+# it last left off regardless of which trigger called it.
+#
+# Requires the same CRON_SECRET repo secret already used by
+# chemicals-spot-cron.yml (already set).
+on:
+  schedule:
+    - cron: "20 */3 * * *" # every 3 hours, offset from the top of the hour
+  workflow_dispatch: {}
+
+jobs:
+  nudge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call massive-nudge cron endpoint
+        run: |
+          curl -sf -X GET "https://globalmeltdownindex.net/api/cron/massive-nudge" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
