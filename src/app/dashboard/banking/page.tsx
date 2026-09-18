@@ -176,10 +176,10 @@ export default async function BankingPage() {
   // housekeeping amendments or unrelated items. fetchBojAnnouncementDetail
   // itself never throws (see that file) — a PDF-parsing failure degrades to
   // "the box doesn't show," never a page crash.
-  const bojDecisionUrl = (eventsByInstitution.get("Bank of Japan") ?? []).find(
+  const bojDecisionEvent = (eventsByInstitution.get("Bank of Japan") ?? []).find(
     (e) => e.title === "Change in the Guideline for Money Market Operations"
-  )?.url;
-  const bojAnnouncement = bojDecisionUrl ? await fetchBojAnnouncementDetail(bojDecisionUrl) : null;
+  );
+  const bojAnnouncement = bojDecisionEvent ? await fetchBojAnnouncementDetail(bojDecisionEvent.url) : null;
 
   // LLM-generated analyst commentary (impact + probable trajectory) for
   // every bank's most recently DETECTED decision — see
@@ -188,7 +188,21 @@ export default async function BankingPage() {
   // every other page load reads the cached row. Runs after bankImpacts
   // (rather than joining the Promise.all above) because it needs each
   // bank's already-detected lastEvent as input.
-  const decisionCommentary = await getCentralBankDecisionCommentary(bankImpacts);
+  //
+  // BOJ gets an override: rate.japan_call_rate is a REALIZED average that
+  // lags a same-day announcement by several business days (the same gap
+  // bojAnnouncement.ts exists to bridge for the PDF box above), so
+  // detectRateChangeEvents' persistence-confirmed lastEvent would otherwise
+  // still point at the PREVIOUS confirmed move, not today's real one — the
+  // commentary would explain the wrong decision. When BOJ's PDF-extracted
+  // target differs from what's already confirmed, generate commentary about
+  // the newly announced move instead (still real, verified numbers — the
+  // same PDF extraction, just also feeding the commentary generator).
+  const commentaryOverrides =
+    bojAnnouncement && bojAnnouncement.targetRatePercent !== null && bojDecisionEvent
+      ? { boj: { toLevel: bojAnnouncement.targetRatePercent, eventDate: bojDecisionEvent.date.slice(0, 10) } }
+      : undefined;
+  const decisionCommentary = await getCentralBankDecisionCommentary(bankImpacts, commentaryOverrides);
 
   const fsrCheckByKey = new Map(fsrChecks.map((c) => [c.key, c]));
   const rankedBanks = [...bankRows].sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));

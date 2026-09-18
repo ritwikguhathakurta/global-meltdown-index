@@ -27,6 +27,14 @@ export type StoredDecisionCommentary = DecisionCommentary & {
   generatedAt: string;
 };
 
+/**
+ * A newly-announced move a bank's own primary source already confirms (e.g.
+ * BOJ's decision PDF) that the persistence-confirmed rate SERIES hasn't
+ * caught up to yet — see bojAnnouncementText.ts and the doc comment on
+ * getCentralBankDecisionCommentary below for why this exists.
+ */
+export type AnnouncementOverride = { toLevel: number; eventDate: string };
+
 const FX_KEY_BY_BANK: Partial<Record<CentralBankKey, { key: string; label: string }>> = {
   ecb: { key: "fx.usdeur", label: "USD/EUR" },
   boe: { key: "fx.usdgbp", label: "USD/GBP" },
@@ -87,12 +95,36 @@ async function recentFxChange(db: SupabaseClient, key: string): Promise<{ latest
   return { latest, changePct: first !== 0 ? ((latest - first) / first) * 100 : null };
 }
 
-async function computeOne(db: SupabaseClient, impact: BankDecisionImpact): Promise<StoredDecisionCommentary | null> {
-  const event = impact.lastEvent;
-  if (!event) return null;
-  const eventDate = event.date.slice(0, 10);
+async function computeOne(db: SupabaseClient, impact: BankDecisionImpact, override?: AnnouncementOverride): Promise<StoredDecisionCommentary | null> {
+  const confirmed = impact.lastEvent;
 
-  const cached = await loadCached(db, impact.config.institution, eventDate, event.toLevel);
+  // Prefer the override (a bank's own primary source, e.g. BOJ's decision
+  // PDF) whenever it names a level the confirmed rate SERIES hasn't reached
+  // yet — otherwise the confirmed series has already caught up (or this
+  // override is stale/matches what's already confirmed) and there's nothing
+  // to override.
+  const useOverride = override && override.toLevel !== confirmed?.toLevel;
+
+  let eventDate: string;
+  let fromLevel: number;
+  let toLevel: number;
+  let changeBps: number;
+
+  if (useOverride) {
+    toLevel = override.toLevel;
+    fromLevel = confirmed?.toLevel ?? impact.latestRate ?? override.toLevel;
+    eventDate = override.eventDate;
+    changeBps = Math.round((toLevel - fromLevel) * 10000) / 100;
+  } else if (confirmed) {
+    toLevel = confirmed.toLevel;
+    fromLevel = confirmed.fromLevel;
+    eventDate = confirmed.date.slice(0, 10);
+    changeBps = confirmed.changeBps;
+  } else {
+    return null;
+  }
+
+  const cached = await loadCached(db, impact.config.institution, eventDate, toLevel);
   if (cached) return mapRow(cached);
 
   const fxDef = FX_KEY_BY_BANK[impact.config.key];
@@ -102,9 +134,9 @@ async function computeOne(db: SupabaseClient, impact: BankDecisionImpact): Promi
     institution: impact.config.institution,
     countryLabel: impact.config.countryLabel,
     rateLabel: impact.config.rateLabel,
-    fromLevel: event.fromLevel,
-    toLevel: event.toLevel,
-    changeBps: event.changeBps,
+    fromLevel,
+    toLevel,
+    changeBps,
     eventDate,
     fxLabel: fxDef?.label ?? null,
     fxLatest: fx?.latest ?? null,
@@ -121,9 +153,9 @@ async function computeOne(db: SupabaseClient, impact: BankDecisionImpact): Promi
     .insert({
       institution: impact.config.institution,
       event_date: eventDate,
-      from_level: event.fromLevel,
-      to_level: event.toLevel,
-      change_bps: event.changeBps,
+      from_level: fromLevel,
+      to_level: toLevel,
+      change_bps: changeBps,
       short_term: commentary.shortTerm,
       medium_term: commentary.mediumTerm,
       long_term: commentary.longTerm,
@@ -138,7 +170,7 @@ async function computeOne(db: SupabaseClient, impact: BankDecisionImpact): Promi
     // inserted this exact decision's commentary first — read what it wrote
     // rather than erroring, dropping our own (redundant) generation.
     if (error.code === "23505") {
-      const raced = await loadCached(db, impact.config.institution, eventDate, event.toLevel);
+      const raced = await loadCached(db, impact.config.institution, eventDate, toLevel);
       return raced ? mapRow(raced) : null;
     }
     console.error(`centralBankDecisionCommentary insert(${impact.config.key}):`, error.message);
@@ -150,13 +182,14 @@ async function computeOne(db: SupabaseClient, impact: BankDecisionImpact): Promi
 
 export async function getCentralBankDecisionCommentary(
   db: SupabaseClient,
-  bankImpacts: BankDecisionImpact[]
+  bankImpacts: BankDecisionImpact[],
+  overrides?: Partial<Record<CentralBankKey, AnnouncementOverride>>
 ): Promise<Map<CentralBankKey, StoredDecisionCommentary>> {
   const result = new Map<CentralBankKey, StoredDecisionCommentary>();
   await Promise.all(
     bankImpacts.map(async (impact) => {
       try {
-        const commentary = await computeOne(db, impact);
+        const commentary = await computeOne(db, impact, overrides?.[impact.config.key]);
         if (commentary) result.set(impact.config.key, commentary);
       } catch (e) {
         console.error(`getCentralBankDecisionCommentary(${impact.config.key}):`, (e as Error).message);

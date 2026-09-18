@@ -19,7 +19,7 @@ import { getCountryG7DebtTable as computeCountryG7DebtTable, getG7CompositeScore
 import { getCarryTradeTable as computeCarryTradeTable, getCarryCompositeScore, type CarryPairRow, type FundingCurrencyRow, type CarryStageDef } from "@/lib/engines/carryTrade";
 import { getBankingSystemicRiskTable as computeBankingSystemicRiskTable, getBankingCompositeScore, type CountryBankingRow, type BankingStageDef } from "@/lib/engines/bankingSystemicRisk";
 import { getCentralBankDecisionImpacts as computeCentralBankDecisionImpacts, type BankDecisionImpact, type CentralBankKey } from "@/lib/engines/centralBankDecisionImpact";
-import { getCentralBankDecisionCommentary as computeCentralBankDecisionCommentary, type StoredDecisionCommentary } from "@/lib/engines/centralBankDecisionCommentary";
+import { getCentralBankDecisionCommentary as computeCentralBankDecisionCommentary, type StoredDecisionCommentary, type AnnouncementOverride } from "@/lib/engines/centralBankDecisionCommentary";
 import { getBankLevelTable as computeBankLevelTable, type BankLevelRow } from "@/lib/engines/bankLevel";
 import {
   getPropertySystemicRiskTable as computePropertySystemicRiskTable,
@@ -327,11 +327,14 @@ export async function getCentralBankDecisionImpacts(): Promise<BankDecisionImpac
  * write access to under RLS — see centralBankDecisionCommentary.ts's own doc
  * comment for why that's the right client here.
  */
-export async function getCentralBankDecisionCommentary(bankImpacts: BankDecisionImpact[]): Promise<Map<CentralBankKey, StoredDecisionCommentary>> {
+export async function getCentralBankDecisionCommentary(
+  bankImpacts: BankDecisionImpact[],
+  overrides?: Partial<Record<CentralBankKey, AnnouncementOverride>>
+): Promise<Map<CentralBankKey, StoredDecisionCommentary>> {
   if (!isSupabaseConfigured) return new Map();
   try {
     const db = createAdminClient();
-    return await computeCentralBankDecisionCommentary(db, bankImpacts);
+    return await computeCentralBankDecisionCommentary(db, bankImpacts, overrides);
   } catch (e) {
     console.error((e as Error).message);
     return new Map();
