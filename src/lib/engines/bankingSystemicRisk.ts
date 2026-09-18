@@ -217,29 +217,32 @@ const CAPITAL_KEY = (key: string) => `banking.${key}.capital_to_assets_ratio`;
 const NPL_KEY = (key: string) => `banking.${key}.npl_ratio`;
 
 /** Per-country funding-cost proxy — the exact same series already wired in
- * for the Global Carry Trade engine (see carryTrade.ts/fred.ts), reused
- * rather than re-fetched. Japan is the one exception: carryTrade.ts still
- * uses the monthly OECD MEI proxy (rate.japan_interbank), but this table
- * uses BOJ's own daily uncollateralized O/N call rate (rate.japan_call_rate)
- * instead — already ingested for globalLiquidity.ts/treasuryRiskEngine.ts,
- * Tier 1, and same-day-of-publication rather than up to a month stale, so a
- * BOJ policy decision shows up here the next pipeline run instead of
- * potentially weeks later. See bojDecisionImpact.ts for the dedicated
- * decision/impact panel this also enables on the Banking page. */
+ * for the Global Carry Trade engine (see carryTrade.ts/fred.ts) for most
+ * countries, but four (UK/Japan/Canada/India) use each central bank's own
+ * daily official rate instead of carryTrade.ts's monthly OECD MEI proxy:
+ * rate.uk_bank_rate, rate.japan_call_rate, rate.canada_target and
+ * india.wacr are all already ingested elsewhere in this app (Tier 1,
+ * daily), same-day-of-publication rather than up to a month stale, so a
+ * policy decision shows up here the next pipeline run instead of
+ * potentially weeks later. China genuinely has no free daily PBOC-adjacent
+ * rate (checked directly — same conclusion the rest of this app's China
+ * coverage already documents), so it stays on the monthly proxy. See
+ * centralBankDecisionImpact.ts for the dedicated decision/impact panel this
+ * enables on the Banking page for every bank with a daily series. */
 const FUNDING_KEY: Record<string, string> = {
   us: "rate.fed_funds_effective",
-  uk: "rate.uk_short_term",
+  uk: "rate.uk_bank_rate",
   germany: "rate.ecb_deposit_facility",
   france: "rate.ecb_deposit_facility",
   italy: "rate.ecb_deposit_facility",
   japan: "rate.japan_call_rate",
-  canada: "rate.canada_interbank",
+  canada: "rate.canada_target",
   china: "rate.china_interbank_3m",
-  india: "rate.india_interbank",
+  india: "india.wacr",
 };
 const FUNDING_FREQ: Record<string, "daily" | "monthly"> = {
-  us: "daily", germany: "daily", france: "daily", italy: "daily", japan: "daily",
-  uk: "monthly", canada: "monthly", china: "monthly", india: "monthly",
+  us: "daily", uk: "daily", germany: "daily", france: "daily", italy: "daily", japan: "daily", canada: "daily", india: "daily",
+  china: "monthly",
 };
 
 /** Per-country liquidity proxy — each country's own central-bank balance-

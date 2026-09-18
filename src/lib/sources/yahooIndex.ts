@@ -67,25 +67,28 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   // (multi-week, current) daily bars before being added; two rejected
   // candidates are noted per-country below since they LOOKED plausible but
   // returned zero recent bars when actually checked.
-  { metricKey: "banking.equity_us", symbol: "^BKX", unit: "index" }, // KBW Nasdaq Bank Index
+  //
+  // All seven use 5y (not the 1y default) so the Central Bank Decision
+  // Impact panel (centralBankDecisionImpact.ts, Banking tab) has equity
+  // coverage deep enough to cover each bank's own real hiking-cycle history
+  // (the 2022-2023 global cycle for Fed/ECB/BoE/BoC, March 2024-present for
+  // BoJ) as its event-study sample — a 1y window would silently drop most
+  // or all of it.
+  { metricKey: "banking.equity_us", symbol: "^BKX", unit: "index", range: "5y" }, // KBW Nasdaq Bank Index
   // Europe (proxy for the Eurozone G7 members Germany/France/Italy):
   // EURO STOXX Banks (^SX7E) returned zero bars in the last month when
   // checked — dead on Yahoo despite resolving — so this uses the iShares
   // STOXX Europe 600 Banks UCITS ETF instead, a broader (not Eurozone-only)
   // but genuinely live European bank-sector proxy.
-  { metricKey: "banking.equity_europe", symbol: "EXV1.DE", unit: "EUR" },
+  { metricKey: "banking.equity_europe", symbol: "EXV1.DE", unit: "EUR", range: "5y" },
   // UK: FTSE 350 Banks (^NMX8350) also returned zero recent bars when
   // checked — Barclays, a large UK G-SIB, is used as a single-bank proxy
   // instead (disclosed as such, not presented as a broad index).
-  { metricKey: "banking.equity_uk", symbol: "BARC.L", unit: "GBp" },
-  // 5y (not the 1y default) so the BOJ Policy Decision Impact panel
-  // (bojDecisionImpact.ts, Banking tab) has equity coverage back through
-  // Japan's March 2024 NIRP exit — its own past hikes are the event-study
-  // sample, and a 1y window would silently drop most of them.
+  { metricKey: "banking.equity_uk", symbol: "BARC.L", unit: "GBp", range: "5y" },
   { metricKey: "banking.equity_japan", symbol: "1631.T", unit: "JPY", range: "5y" }, // NEXT FUNDS TOPIX-17 Banks ETF
-  { metricKey: "banking.equity_canada", symbol: "ZEB.TO", unit: "CAD" }, // BMO Equal Weight Banks Index ETF
-  { metricKey: "banking.equity_china", symbol: "3988.HK", unit: "HKD" }, // ICBC — single large-bank proxy, no free China bank-sector index found live
-  { metricKey: "banking.equity_india", symbol: "^NSEBANK", unit: "index" }, // Nifty Bank Index
+  { metricKey: "banking.equity_canada", symbol: "ZEB.TO", unit: "CAD", range: "5y" }, // BMO Equal Weight Banks Index ETF
+  { metricKey: "banking.equity_china", symbol: "3988.HK", unit: "HKD", range: "5y" }, // ICBC — single large-bank proxy, no free China bank-sector index found live
+  { metricKey: "banking.equity_india", symbol: "^NSEBANK", unit: "index", range: "5y" }, // Nifty Bank Index
   // Property Systemic Risk engine (propertySystemicRisk.ts) — Market Stress
   // domain. Same "broad REIT/property-sector ETF where one exists, single
   // large representative developer where it doesn't" pattern as the Banking

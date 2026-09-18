@@ -1,4 +1,4 @@
-import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getBojDecisionImpact } from "@/lib/api/engineData";
+import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts } from "@/lib/api/engineData";
 import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
 import { EngineDetail } from "@/components/EngineDetail";
 import {
@@ -121,12 +121,12 @@ function quadrantFor(r: CountryBankingRow): "healthy" | "solvency_watch" | "liqu
 }
 
 export default async function BankingPage() {
-  const [bankingRows, { rows, composite }, bankRows, fsrChecks, bojImpact, liveUsdJpy] = await Promise.all([
+  const [bankingRows, { rows, composite }, bankRows, fsrChecks, bankImpacts, liveUsdJpy] = await Promise.all([
     getLatestEngine("banking"),
     getBankingSystemicRiskTable(),
     getBankLevelTable(),
     getCentralBankFsrChecks(),
-    getBojDecisionImpact(),
+    getCentralBankDecisionImpacts(),
     fetchLiveMarketQuote("usdjpy"),
   ]);
   const fsrCheckByKey = new Map(fsrChecks.map((c) => [c.key, c]));
@@ -159,78 +159,81 @@ export default async function BankingPage() {
         LCR, NSFR, deposit concentration, interbank network) is genuinely unavailable rather than faked.
       </p>
 
-      {bojImpact && (
+      {bankImpacts.length > 0 && (
         <section className="gfew-panel mb-8 p-4">
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-dim">
-            Bank of Japan Policy Decisions — Live Level &amp; Historical Impact on Japanese Bank Equities
+            Central Bank Policy Decisions — Live Level &amp; Historical Impact on Bank Equities
           </h3>
-          <p className="mb-3 max-w-3xl text-xs text-text-dim">
-            BOJ isn&apos;t in this app&apos;s central-bank headline feed (Fed/ECB/BOE/RBI only), so a
-            policy decision shows up here instead. BOJ&apos;s own daily uncollateralized overnight call
-            rate (Tier 1, same-day as the next pipeline run — see the Funding Rate column for Japan
-            above) is checked for a genuine level change: rounded to the nearest 5bp and only confirmed
-            once the new level has held for 5+ consecutive trading days, which filters the rate&apos;s
-            own day-to-day noise without missing a real move by more than about a trading week.
+          <p className="mb-4 max-w-3xl text-xs text-text-dim">
+            None of these seven are in this app&apos;s central-bank headline feed (Fed/ECB/BOE/RBI press
+            releases there are dateless titles only, with no rate parsed out) — this is the only place a
+            policy decision&apos;s actual numeric effect shows up. Each bank&apos;s own daily official rate
+            (Tier 1, already feeding the Funding Rate column above) is checked for a genuine level change:
+            rounded to the nearest 5bp and confirmed only once the new level has held for 5 consecutive
+            trading days (monthly series need no such smoothing), which filters a realized rate&apos;s own
+            day-to-day noise without missing a real move by more than about a week. The panel below it is a
+            real historical event study — not a prediction — of that bank&apos;s own past hikes vs. its
+            bank-equity proxy; sample sizes are small by nature for a bank with a short hiking history and
+            are always shown, never hidden.
           </p>
 
-          <div className="mb-4 flex flex-wrap items-end gap-6">
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-text-dim">Current O/N Call Rate</div>
-              <div className="gfew-mono text-2xl font-bold text-text">
-                {bojImpact.latestRate !== null ? `${bojImpact.latestRate.toFixed(3)}%` : "—"}
-              </div>
-              <div className="text-[10px] text-text-dim">as of {bojImpact.latestDate?.slice(0, 10) ?? "—"}</div>
-            </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {bankImpacts.map((b) => (
+              <div key={b.config.key} className="rounded-lg border border-border p-3">
+                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-bold text-text">{b.config.institution}</div>
+                    <div className="text-[10px] text-text-dim">{b.config.countryLabel}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="gfew-mono text-xl font-bold text-text">{b.latestRate !== null ? `${b.latestRate.toFixed(3)}%` : "—"}</div>
+                    <div className="text-[9px] text-text-dim">
+                      {b.config.rateLabel} &middot; as of {b.latestDate?.slice(0, 10) ?? "—"}
+                    </div>
+                  </div>
+                </div>
 
-            {bojImpact.lastEvent && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-text-dim">Most Recent Detected Move</div>
-                <div
-                  className="gfew-mono text-lg font-bold"
-                  style={{ color: bojImpact.lastEvent.changeBps > 0 ? "#e0793d" : "#3fa9f5" }}
-                >
-                  {bojImpact.lastEvent.changeBps > 0 ? "+" : ""}
-                  {bojImpact.lastEvent.changeBps} bps ({bojImpact.lastEvent.fromLevel.toFixed(2)}% &rarr; {bojImpact.lastEvent.toLevel.toFixed(2)}%)
-                </div>
-                <div className="text-[10px] text-text-dim">
-                  {bojImpact.lastEvent.date.slice(0, 10)} &middot; {bojImpact.daysSinceLastEvent} day{bojImpact.daysSinceLastEvent === 1 ? "" : "s"} ago
-                </div>
-              </div>
-            )}
+                {b.lastEvent ? (
+                  <div className="mb-2 text-xs">
+                    <span className="font-semibold" style={{ color: b.lastEvent.changeBps > 0 ? "#e0793d" : "#3fa9f5" }}>
+                      {b.lastEvent.changeBps > 0 ? "+" : ""}
+                      {b.lastEvent.changeBps} bps
+                    </span>{" "}
+                    <span className="text-text-dim">
+                      ({b.lastEvent.fromLevel.toFixed(2)}% &rarr; {b.lastEvent.toLevel.toFixed(2)}%) &middot; {b.lastEvent.date.slice(0, 10)} &middot;{" "}
+                      {b.daysSinceLastEvent} day{b.daysSinceLastEvent === 1 ? "" : "s"} ago
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mb-2 text-xs text-text-dim">No confirmed level change detected yet in this series&apos; history.</div>
+                )}
 
-            {liveUsdJpy && (
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-text-dim">USD/JPY (Live)</div>
-                <div className="gfew-mono text-lg font-bold text-text">{liveUsdJpy.price.toFixed(2)}</div>
-                <div className="text-[10px]" style={{ color: (liveUsdJpy.changePct ?? 0) >= 0 ? "#e05a4d" : "#34c085" }}>
-                  {liveUsdJpy.changePct !== null ? `${liveUsdJpy.changePct >= 0 ? "+" : ""}${liveUsdJpy.changePct.toFixed(2)}%` : "—"} vs prior close
-                </div>
-                <div className="text-[9px] text-text-dim">
-                  fetched {new Date(liveUsdJpy.fetchedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}
-                </div>
-              </div>
-            )}
-          </div>
+                {b.config.key === "boj" && liveUsdJpy && (
+                  <div className="mb-2 text-xs text-text-dim">
+                    USD/JPY (live):{" "}
+                    <span className="gfew-mono font-semibold text-text">{liveUsdJpy.price.toFixed(2)}</span>{" "}
+                    <span style={{ color: (liveUsdJpy.changePct ?? 0) >= 0 ? "#e05a4d" : "#34c085" }}>
+                      {liveUsdJpy.changePct !== null ? `${liveUsdJpy.changePct >= 0 ? "+" : ""}${liveUsdJpy.changePct.toFixed(2)}%` : "—"}
+                    </span>
+                  </div>
+                )}
 
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-dim">
-            Historical Event Study: Japanese Bank Equities (TOPIX-17 Banks ETF) After Past BOJ Hikes
-          </div>
-          <p className="mb-2 max-w-3xl text-xs text-text-dim">
-            {bojImpact.eventStudySampleEvents.length} hike{bojImpact.eventStudySampleEvents.length === 1 ? "" : "s"} fall
-            {bojImpact.eventStudySampleEvents.length === 1 ? "s" : ""} within this ETF&apos;s own data history (
-            {bojImpact.equityCoverageStart?.slice(0, 10) ?? "—"} onward) — a genuinely small sample, since Japan only
-            exited its zero/negative-rate policy in March 2024. This is real historical fact, not a prediction, and
-            it says nothing about how a bank-specific, credit-quality, or macro shock would interact with a hike.
-          </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {bojImpact.equityImpact.map((h) => (
-              <div key={h.horizonLabel} className="rounded bg-panel-raised p-2 text-center">
-                <div className="text-[10px] uppercase tracking-wide text-text-dim">{h.horizonLabel}</div>
-                <div className="gfew-mono text-lg font-bold text-text">
-                  {h.avgChangePct !== null ? `${h.avgChangePct >= 0 ? "+" : ""}${h.avgChangePct}%` : "—"}
+                <div className="mb-1 text-[9px] uppercase tracking-wide text-text-dim">
+                  {b.config.equityLabel} after past hikes ({b.eventStudySampleEvents.length} in sample since{" "}
+                  {b.equityCoverageStart?.slice(0, 10) ?? "—"})
                 </div>
-                <div className="text-[9px] text-text-dim">
-                  avg change &middot; {h.positiveCount}/{h.sampleSize} rose &middot; n={h.sampleSize}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {b.equityImpact.map((h) => (
+                    <div key={h.horizonLabel} className="rounded bg-panel-raised p-1.5 text-center">
+                      <div className="text-[8px] uppercase tracking-wide text-text-dim">{h.horizonLabel.split(" (")[0]}</div>
+                      <div className="gfew-mono text-sm font-bold text-text">
+                        {h.avgChangePct !== null ? `${h.avgChangePct >= 0 ? "+" : ""}${h.avgChangePct}%` : "—"}
+                      </div>
+                      <div className="text-[8px] text-text-dim">
+                        {h.positiveCount}/{h.sampleSize} rose
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
