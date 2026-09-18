@@ -72,7 +72,8 @@ const EQUITY_HORIZONS: { label: string; tradingDays: number }[] = [
 ];
 
 function roundToBucket(v: number, bucket: number): number {
-  return Math.round(v / bucket) * bucket;
+  const r = Math.round(v / bucket) * bucket;
+  return r === 0 ? 0 : r; // normalizes -0 (e.g. a rate hovering just below zero) to plain 0 for display
 }
 
 /** Exported for testability/verification — see file doc comment for why the naive "value changed" check doesn't work here. */
