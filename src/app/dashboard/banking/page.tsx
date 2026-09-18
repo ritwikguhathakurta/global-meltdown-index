@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts, getRecentCentralBankEvents } from "@/lib/api/engineData";
+import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts, getCentralBankDecisionCommentary, getRecentCentralBankEvents } from "@/lib/api/engineData";
 import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
 import { fetchAllLiveCentralBankRates } from "@/lib/sources/liveCentralBankRates";
 import { fetchBojAnnouncementDetail } from "@/lib/sources/bojAnnouncementText";
-import { BOJ_SEPT_2026_COMMENTARY } from "@/lib/data/bojDecisionCommentary";
 import { EngineDetail } from "@/components/EngineDetail";
 import {
   BANKING_STAGES,
@@ -16,6 +15,11 @@ import { CENTRAL_BANKS } from "@/lib/engines/centralBankDecisionImpact";
 import { gfmiColor } from "@/components/RegimeBadge";
 import { TrendIndicator } from "@/components/TrendIndicator";
 import { CENTRAL_BANK_FSR_REGISTRY, fsrFreshness, ourStanceLevel, compareStance, FSR_REGION_ORDER } from "@/lib/data/centralBankFsrRegistry";
+
+// getCentralBankDecisionCommentary can call OpenAI (bounded to a 15s
+// per-request timeout, see centralBankCommentary.ts) the first time a bank's
+// decision has no cached commentary yet — generous margin above that.
+export const maxDuration = 30;
 
 function fmt(v: number | null, unit: string, decimals = 2): string {
   if (v === null) return "—";
@@ -176,6 +180,15 @@ export default async function BankingPage() {
     (e) => e.title === "Change in the Guideline for Money Market Operations"
   )?.url;
   const bojAnnouncement = bojDecisionUrl ? await fetchBojAnnouncementDetail(bojDecisionUrl) : null;
+
+  // LLM-generated analyst commentary (impact + probable trajectory) for
+  // every bank's most recently DETECTED decision — see
+  // centralBankDecisionCommentary.ts. Cached per (institution, event_date,
+  // to_level) so this only calls OpenAI once per genuinely new decision;
+  // every other page load reads the cached row. Runs after bankImpacts
+  // (rather than joining the Promise.all above) because it needs each
+  // bank's already-detected lastEvent as input.
+  const decisionCommentary = await getCentralBankDecisionCommentary(bankImpacts);
 
   const fsrCheckByKey = new Map(fsrChecks.map((c) => [c.key, c]));
   const rankedBanks = [...bankRows].sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));
@@ -348,35 +361,49 @@ export default async function BankingPage() {
                   ))}
                 </div>
 
-                {b.config.key === "boj" && (
-                  <div className="mt-2 rounded border border-[#7a6ff055] bg-[#7a6ff011] p-2 text-[10px] leading-relaxed text-text-dim">
-                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-[#a89af5]">
-                      Analyst Commentary — qualitative, not a computed metric
+                {(() => {
+                  const c = decisionCommentary.get(b.config.key);
+                  if (!c) return null;
+                  return (
+                    <div className="mt-2 rounded border border-[#7a6ff055] bg-[#7a6ff011] p-2 text-[10px] leading-relaxed text-text-dim">
+                      <div className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-[#a89af5]">
+                        AI Analyst Commentary — qualitative, not a computed metric
+                      </div>
+                      <p className="mb-1 text-text">
+                        {c.institution} moved {b.config.rateLabel} {c.fromLevel}% &rarr; {c.toLevel}%{" "}
+                        ({c.changeBps >= 0 ? "+" : ""}
+                        {c.changeBps}bp) around {c.eventDate}.
+                      </p>
+                      <p className="mb-1">
+                        <strong className="text-text">Short term: </strong>
+                        {c.shortTerm}
+                      </p>
+                      <p className="mb-1">
+                        <strong className="text-text">Medium term: </strong>
+                        {c.mediumTerm}
+                      </p>
+                      <p className="mb-1">
+                        <strong className="text-text">Long term: </strong>
+                        {c.longTerm}
+                      </p>
+                      <p className="mb-1">
+                        <strong className="text-text">Probable trajectory: </strong>
+                        {c.trajectory}
+                      </p>
+                      <p className="mt-2 text-[9px] italic text-text-dim/70">
+                        Generated {new Date(c.generatedAt).toISOString().slice(0, 10)} by an LLM (
+                        {process.env.OPENAI_PREDICTION_MODEL || "gpt-4.1-mini"}) from this bank&apos;s real detected
+                        rate move and this app&apos;s own computed event-study data — cached per decision, not
+                        regenerated on every visit. This is a probabilistic judgment call, not a verified data point
+                        the way this app&apos;s computed engines are — same discipline as{" "}
+                        <Link href="/dashboard/prediction" className="text-accent hover:underline">
+                          /dashboard/prediction
+                        </Link>
+                        .
+                      </p>
                     </div>
-                    <p className="mb-1 text-text">{BOJ_SEPT_2026_COMMENTARY.decisionSummary}</p>
-                    <p className="mb-1">
-                      <strong className="text-text">Short term: </strong>
-                      {BOJ_SEPT_2026_COMMENTARY.shortTerm}
-                    </p>
-                    <p className="mb-1">
-                      <strong className="text-text">Medium term: </strong>
-                      {BOJ_SEPT_2026_COMMENTARY.mediumTerm}
-                    </p>
-                    <p className="mb-1">
-                      <strong className="text-text">Long term: </strong>
-                      {BOJ_SEPT_2026_COMMENTARY.longTerm}
-                    </p>
-                    <p className="mb-1">
-                      <strong className="text-text">Probable trajectory: </strong>
-                      {BOJ_SEPT_2026_COMMENTARY.trajectory}
-                    </p>
-                    <p className="mt-2 text-[9px] italic text-text-dim/70">
-                      Written {BOJ_SEPT_2026_COMMENTARY.writtenAsOf} as a human/Claude judgment call on this one
-                      decision — not backtested, not sourced from an API, and not updated automatically. Treat as
-                      commentary, not as a signal this app verifies the way it verifies its computed engines.
-                    </p>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             ))}
           </div>

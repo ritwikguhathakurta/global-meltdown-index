@@ -1,4 +1,5 @@
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { computeIndiaSeasonalNotes } from "@/lib/engines/indiaSeasonality";
 import { getCentralBankLiquidityTable as computeCentralBankLiquidityTable, type CentralBankLiquidityRow } from "@/lib/engines/liquidityRegime";
@@ -17,7 +18,8 @@ import { NBFI_MONITORING_REGISTRY } from "@/lib/data/nbfiRegistry";
 import { getCountryG7DebtTable as computeCountryG7DebtTable, getG7CompositeScore, type CountryG7DebtRow, type G7CrisisStageDef } from "@/lib/engines/g7DebtRegime";
 import { getCarryTradeTable as computeCarryTradeTable, getCarryCompositeScore, type CarryPairRow, type FundingCurrencyRow, type CarryStageDef } from "@/lib/engines/carryTrade";
 import { getBankingSystemicRiskTable as computeBankingSystemicRiskTable, getBankingCompositeScore, type CountryBankingRow, type BankingStageDef } from "@/lib/engines/bankingSystemicRisk";
-import { getCentralBankDecisionImpacts as computeCentralBankDecisionImpacts, type BankDecisionImpact } from "@/lib/engines/centralBankDecisionImpact";
+import { getCentralBankDecisionImpacts as computeCentralBankDecisionImpacts, type BankDecisionImpact, type CentralBankKey } from "@/lib/engines/centralBankDecisionImpact";
+import { getCentralBankDecisionCommentary as computeCentralBankDecisionCommentary, type StoredDecisionCommentary } from "@/lib/engines/centralBankDecisionCommentary";
 import { getBankLevelTable as computeBankLevelTable, type BankLevelRow } from "@/lib/engines/bankLevel";
 import {
   getPropertySystemicRiskTable as computePropertySystemicRiskTable,
@@ -315,6 +317,24 @@ export async function getCentralBankDecisionImpacts(): Promise<BankDecisionImpac
   } catch (e) {
     console.error((e as Error).message);
     return [];
+  }
+}
+
+/**
+ * Uses the service-role client (not the user-scoped one every other function
+ * in this file uses) because it both reads AND writes a shared cache table
+ * (central_bank_decision_commentary) that regular signed-in users have no
+ * write access to under RLS — see centralBankDecisionCommentary.ts's own doc
+ * comment for why that's the right client here.
+ */
+export async function getCentralBankDecisionCommentary(bankImpacts: BankDecisionImpact[]): Promise<Map<CentralBankKey, StoredDecisionCommentary>> {
+  if (!isSupabaseConfigured) return new Map();
+  try {
+    const db = createAdminClient();
+    return await computeCentralBankDecisionCommentary(db, bankImpacts);
+  } catch (e) {
+    console.error((e as Error).message);
+    return new Map();
   }
 }
 
