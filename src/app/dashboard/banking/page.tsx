@@ -3,6 +3,7 @@ import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCen
 import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
 import { fetchAllLiveCentralBankRates } from "@/lib/sources/liveCentralBankRates";
 import { fetchBojAnnouncementDetail } from "@/lib/sources/bojAnnouncementText";
+import { BOJ_SEPT_2026_COMMENTARY } from "@/lib/data/bojDecisionCommentary";
 import { EngineDetail } from "@/components/EngineDetail";
 import {
   BANKING_STAGES,
@@ -346,6 +347,36 @@ export default async function BankingPage() {
                     </div>
                   ))}
                 </div>
+
+                {b.config.key === "boj" && (
+                  <div className="mt-2 rounded border border-[#7a6ff055] bg-[#7a6ff011] p-2 text-[10px] leading-relaxed text-text-dim">
+                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-[#a89af5]">
+                      Analyst Commentary — qualitative, not a computed metric
+                    </div>
+                    <p className="mb-1 text-text">{BOJ_SEPT_2026_COMMENTARY.decisionSummary}</p>
+                    <p className="mb-1">
+                      <strong className="text-text">Short term: </strong>
+                      {BOJ_SEPT_2026_COMMENTARY.shortTerm}
+                    </p>
+                    <p className="mb-1">
+                      <strong className="text-text">Medium term: </strong>
+                      {BOJ_SEPT_2026_COMMENTARY.mediumTerm}
+                    </p>
+                    <p className="mb-1">
+                      <strong className="text-text">Long term: </strong>
+                      {BOJ_SEPT_2026_COMMENTARY.longTerm}
+                    </p>
+                    <p className="mb-1">
+                      <strong className="text-text">Probable trajectory: </strong>
+                      {BOJ_SEPT_2026_COMMENTARY.trajectory}
+                    </p>
+                    <p className="mt-2 text-[9px] italic text-text-dim/70">
+                      Written {BOJ_SEPT_2026_COMMENTARY.writtenAsOf} as a human/Claude judgment call on this one
+                      decision — not backtested, not sourced from an API, and not updated automatically. Treat as
+                      commentary, not as a signal this app verifies the way it verifies its computed engines.
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
