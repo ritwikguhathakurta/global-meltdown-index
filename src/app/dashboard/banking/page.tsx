@@ -135,21 +135,29 @@ export default async function BankingPage() {
     fetchAllLiveCentralBankRates(CENTRAL_BANKS.map((b) => b.key)),
   ]);
 
-  // Most recent official-announcement date per institution, straight from
-  // the headline feed (centralBankRss.ts) — compared below against each
-  // bank's own rate SERIES latest date. A rate series (Fed Funds Effective,
-  // BOJ's O/N call rate, etc.) is a REALIZED market average, so it always
-  // lags a same-day decision by the source's own normal publish cycle
-  // (typically 1-3 business days) even though the announcement itself is
-  // already public. Surfacing that gap here, rather than pretending the
-  // rate series is instantaneous, is the honest way to answer "why does
-  // this look stale right after a decision."
-  const latestEventByInstitution = new Map<string, { date: string; title: string; url: string }>();
+  // Every recent headline, grouped by institution, straight from the
+  // headline feed (centralBankRss.ts) — searched below against each bank's
+  // own rate SERIES latest date. A rate series (Fed Funds Effective, BOJ's
+  // O/N call rate, etc.) is a REALIZED market average, so it always lags a
+  // same-day decision by the source's own normal publish cycle (typically
+  // 1-3 business days) even though the announcement itself is already
+  // public. Surfacing that gap here, rather than pretending the rate series
+  // is instantaneous, is the honest way to answer "why does this look
+  // stale right after a decision."
+  //
+  // Grouped as an array per institution, not collapsed to a single
+  // "latest" event: a central bank often posts several items on its
+  // decision day (BOJ posted four on 2026-09-18 alone — the actual
+  // decision plus three housekeeping amendments), and picking just
+  // whichever one happened to sort first for a tied date/time previously
+  // meant the real decision could lose to an unrelated same-day item
+  // purely by accident of query ordering. Every item is kept so the
+  // rate-relatedness check below can search all of them, not just one.
+  const eventsByInstitution = new Map<string, { date: string; title: string; url: string }[]>();
   for (const e of recentEvents) {
-    const existing = latestEventByInstitution.get(e.institution);
-    if (!existing || e.event_date > existing.date) {
-      latestEventByInstitution.set(e.institution, { date: e.event_date, title: e.title, url: e.source_url });
-    }
+    const arr = eventsByInstitution.get(e.institution) ?? [];
+    arr.push({ date: e.event_date, title: e.title, url: e.source_url });
+    eventsByInstitution.set(e.institution, arr);
   }
   const fsrCheckByKey = new Map(fsrChecks.map((c) => [c.key, c]));
   const rankedBanks = [...bankRows].sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));
@@ -251,15 +259,22 @@ export default async function BankingPage() {
                 )}
 
                 {(() => {
-                  const latestEvent = latestEventByInstitution.get(b.config.institution);
-                  if (!latestEvent || !b.latestDate || latestEvent.date <= b.latestDate.slice(0, 10)) return null;
+                  if (!b.latestDate) return null;
+                  const rateSeriesDate = b.latestDate.slice(0, 10);
+                  const events = eventsByInstitution.get(b.config.institution) ?? [];
                   // A loose keyword check, not a claim this IS a rate decision — the headline
                   // feed carries every press item (speeches, staff appointments, research
-                  // notes...), most of which have nothing to do with the policy rate. Only
-                  // surface the banner when the title itself suggests otherwise, so a routine
-                  // item doesn't get presented as if a decision might be pending.
-                  const looksRateRelated = /rate|monetary\s*policy|money\s*market|interest|guideline|mpm|fomc/i.test(latestEvent.title);
-                  if (!looksRateRelated) return null;
+                  // notes...), most of which have nothing to do with the policy rate. Searches
+                  // EVERY newer event for this bank, not just whichever one happened to be
+                  // "the latest" by date — a decision day often produces several same-dated
+                  // items (BOJ posted four on 2026-09-18: the real decision plus three
+                  // housekeeping amendments), and collapsing to a single "latest" pick let an
+                  // unrelated item win purely by incidental query order.
+                  const candidates = events
+                    .filter((e) => e.date > rateSeriesDate && /rate|monetary\s*policy|money\s*market|interest|guideline|mpm|fomc/i.test(e.title))
+                    .sort((a, b2) => (a.date < b2.date ? 1 : -1));
+                  const latestEvent = candidates[0];
+                  if (!latestEvent) return null;
                   return (
                     <div className="mb-2 rounded border border-[#e0b93d55] bg-[#e0b93d11] p-2 text-[10px] text-text-dim">
                       <strong className="text-text">Newer rate-related announcement found:</strong> &ldquo;{latestEvent.title}&rdquo; (
