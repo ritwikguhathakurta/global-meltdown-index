@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { upsertMetrics } from "../metrics/store";
-import { FRED_SERIES, fetchFredSeries } from "../sources/fred";
+import { FRED_SERIES, fetchFredSeries, type FredSeriesDef } from "../sources/fred";
 import { fetchFxCrossSeries } from "../sources/fx";
 import { YAHOO_INDEX_SERIES, fetchYahooIndexSeries } from "../sources/yahooIndex";
 import { COT_MARKETS, fetchCotSeries } from "../sources/cftcCot";
@@ -201,6 +201,51 @@ export async function ingestEnergyBacktestSeries(db: SupabaseClient, runDate: st
     await logRun(db, runDate, "ingest_energy_backtest_series", "failed", detail);
     return { stage: "ingest_energy_backtest_series", status: "failed", detail };
   }
+}
+
+// Same reasoning as ingestEnergyBacktestSeries above, for a different feature:
+// centralBankDecisionImpact.ts's event study needs genuine past HIKE cycles to
+// have anything to sample, but ingestFred's generic 400-day daily lookback
+// (lookbackDaysFor — sized only for zScore()'s 20-observation minimum) means
+// rate.fed_funds_effective and rate.ecb_deposit_facility only ever carried
+// ~13 months of real history: enough to see 2025's cutting cycle, but not the
+// 2022-2023 hiking cycle (or, for Fed, 2004-2006/2015-2018 either) — verified
+// live against this app's own stored data (0 sampled Fed hikes despite the
+// real 2022-2023 cycle existing) before writing this fix. The other five
+// banks' own connectors (govBondYields.ts) already fetch deep, unwindowed
+// history directly from their source (UK/Canada from 2000, BOJ's full
+// available series) — this brings the two FRED-sourced series to the same
+// standard rather than inventing a new convention. 2000-01-01 matches the
+// UK/Canada connectors' own start date for consistency; both series' real
+// FRED history goes back further still (DFF to 1954, ECBDFR to the euro's
+// 1999 launch) but 2000 already covers three real Fed hiking cycles.
+export async function ingestCentralBankRateHistory(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const apiKey = process.env.FRED_API_KEY;
+  if (!apiKey) {
+    await logRun(db, runDate, "ingest_central_bank_rate_history", "warning", { reason: "FRED_API_KEY not set" });
+    return { stage: "ingest_central_bank_rate_history", status: "warning", detail: { reason: "FRED_API_KEY not set" } };
+  }
+  const DEEP_HISTORY_SERIES: FredSeriesDef[] = [
+    { metricKey: "rate.fed_funds_effective", seriesId: "DFF", frequency: "daily", unit: "%" },
+    { metricKey: "rate.ecb_deposit_facility", seriesId: "ECBDFR", frequency: "daily", unit: "%" },
+  ];
+  let ok = 0;
+  let totalPoints = 0;
+  const errors: string[] = [];
+  for (const def of DEEP_HISTORY_SERIES) {
+    try {
+      const points = await fetchFredSeries(def, apiKey, "2000-01-01");
+      await upsertMetrics(db, points);
+      totalPoints += points.length;
+      ok++;
+    } catch (e) {
+      errors.push(`${def.seriesId}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  const detail = { ok, total: DEEP_HISTORY_SERIES.length, points: totalPoints, errors };
+  await logRun(db, runDate, "ingest_central_bank_rate_history", status, detail);
+  return { stage: "ingest_central_bank_rate_history", status, detail };
 }
 
 export async function ingestFx(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
@@ -1652,6 +1697,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_entsoe_generation", ingestEntsoeGeneration(db, runDate)),
     withTimeout("ingest_entsoe_cross_border_flows", ingestEntsoeCrossBorderFlows(db, runDate)),
     withTimeout("ingest_energy_backtest_series", ingestEnergyBacktestSeries(db, runDate)),
+    withTimeout("ingest_central_bank_rate_history", ingestCentralBankRateHistory(db, runDate)),
     withTimeout("ingest_world_bank_commodities", ingestWorldBankCommodities(db, runDate)),
     withTimeout("ingest_critical_minerals", ingestCriticalMinerals(db, runDate)),
     withTimeout("ingest_usda_psd_balances", ingestUsdaPsdBalances(db, runDate)),
