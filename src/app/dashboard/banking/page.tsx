@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts } from "@/lib/api/engineData";
+import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts, getRecentCentralBankEvents } from "@/lib/api/engineData";
 import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
 import { EngineDetail } from "@/components/EngineDetail";
 import {
@@ -122,14 +122,32 @@ function quadrantFor(r: CountryBankingRow): "healthy" | "solvency_watch" | "liqu
 }
 
 export default async function BankingPage() {
-  const [bankingRows, { rows, composite }, bankRows, fsrChecks, bankImpacts, liveUsdJpy] = await Promise.all([
+  const [bankingRows, { rows, composite }, bankRows, fsrChecks, bankImpacts, liveUsdJpy, recentEvents] = await Promise.all([
     getLatestEngine("banking"),
     getBankingSystemicRiskTable(),
     getBankLevelTable(),
     getCentralBankFsrChecks(),
     getCentralBankDecisionImpacts(),
     fetchLiveMarketQuote("usdjpy"),
+    getRecentCentralBankEvents(200),
   ]);
+
+  // Most recent official-announcement date per institution, straight from
+  // the headline feed (centralBankRss.ts) — compared below against each
+  // bank's own rate SERIES latest date. A rate series (Fed Funds Effective,
+  // BOJ's O/N call rate, etc.) is a REALIZED market average, so it always
+  // lags a same-day decision by the source's own normal publish cycle
+  // (typically 1-3 business days) even though the announcement itself is
+  // already public. Surfacing that gap here, rather than pretending the
+  // rate series is instantaneous, is the honest way to answer "why does
+  // this look stale right after a decision."
+  const latestEventByInstitution = new Map<string, { date: string; title: string; url: string }>();
+  for (const e of recentEvents) {
+    const existing = latestEventByInstitution.get(e.institution);
+    if (!existing || e.event_date > existing.date) {
+      latestEventByInstitution.set(e.institution, { date: e.event_date, title: e.title, url: e.source_url });
+    }
+  }
   const fsrCheckByKey = new Map(fsrChecks.map((c) => [c.key, c]));
   const rankedBanks = [...bankRows].sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));
 
@@ -213,6 +231,29 @@ export default async function BankingPage() {
                 ) : (
                   <div className="mb-2 text-xs text-text-dim">No confirmed level change detected yet in this series&apos; history.</div>
                 )}
+
+                {(() => {
+                  const latestEvent = latestEventByInstitution.get(b.config.institution);
+                  if (!latestEvent || !b.latestDate || latestEvent.date <= b.latestDate.slice(0, 10)) return null;
+                  // A loose keyword check, not a claim this IS a rate decision — the headline
+                  // feed carries every press item (speeches, staff appointments, research
+                  // notes...), most of which have nothing to do with the policy rate. Only
+                  // surface the banner when the title itself suggests otherwise, so a routine
+                  // item doesn't get presented as if a decision might be pending.
+                  const looksRateRelated = /rate|monetary\s*policy|money\s*market|interest|guideline|mpm|fomc/i.test(latestEvent.title);
+                  if (!looksRateRelated) return null;
+                  return (
+                    <div className="mb-2 rounded border border-[#e0b93d55] bg-[#e0b93d11] p-2 text-[10px] text-text-dim">
+                      <strong className="text-text">Newer rate-related announcement found:</strong> &ldquo;{latestEvent.title}&rdquo; (
+                      {latestEvent.date}) is more recent than this bank&apos;s rate reading above (as of {b.latestDate.slice(0, 10)}). That
+                      reading is a realized market average, which normally takes this source a few business days to catch up to any real
+                      change — read the announcement itself for what it actually says.{" "}
+                      <a href={latestEvent.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                        Read the announcement &rarr;
+                      </a>
+                    </div>
+                  );
+                })()}
 
                 {b.config.key === "boj" && liveUsdJpy && (
                   <div className="mb-2 text-xs text-text-dim">
