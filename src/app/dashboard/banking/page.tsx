@@ -289,36 +289,6 @@ export default async function BankingPage() {
                   <div className="mb-2 text-xs text-text-dim">No confirmed level change detected yet in this series&apos; history.</div>
                 )}
 
-                {(() => {
-                  if (!b.latestDate) return null;
-                  const rateSeriesDate = b.latestDate.slice(0, 10);
-                  const events = eventsByInstitution.get(b.config.institution) ?? [];
-                  // A loose keyword check, not a claim this IS a rate decision — the headline
-                  // feed carries every press item (speeches, staff appointments, research
-                  // notes...), most of which have nothing to do with the policy rate. Searches
-                  // EVERY newer event for this bank, not just whichever one happened to be
-                  // "the latest" by date — a decision day often produces several same-dated
-                  // items (BOJ posted four on 2026-09-18: the real decision plus three
-                  // housekeeping amendments), and collapsing to a single "latest" pick let an
-                  // unrelated item win purely by incidental query order.
-                  const candidates = events
-                    .filter((e) => e.date > rateSeriesDate && /rate|monetary\s*policy|money\s*market|interest|guideline|mpm|fomc/i.test(e.title))
-                    .sort((a, b2) => (a.date < b2.date ? 1 : -1));
-                  const latestEvent = candidates[0];
-                  if (!latestEvent) return null;
-                  return (
-                    <div className="mb-2 rounded border border-[#e0b93d55] bg-[#e0b93d11] p-2 text-[10px] text-text-dim">
-                      <strong className="text-text">Newer rate-related announcement found:</strong> &ldquo;{latestEvent.title}&rdquo; (
-                      {latestEvent.date}) is more recent than this bank&apos;s rate reading above (as of {b.latestDate.slice(0, 10)}). That
-                      reading is a realized market average, which normally takes this source a few business days to catch up to any real
-                      change — read the announcement itself for what it actually says.{" "}
-                      <a href={latestEvent.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                        Read the announcement &rarr;
-                      </a>
-                    </div>
-                  );
-                })()}
-
                 {b.config.key === "boj" && bojAnnouncement && bojAnnouncement.targetRatePercent !== null && (
                   <div className="mb-2 rounded border border-[#34c08555] bg-[#34c08511] p-2 text-[10px] text-text-dim">
                     <strong className="text-text">Newly announced target: {bojAnnouncement.targetRatePercent.toFixed(2)}%</strong>
