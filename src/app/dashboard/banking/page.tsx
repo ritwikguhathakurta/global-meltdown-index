@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts } from "@/lib/api/engineData";
 import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
 import { EngineDetail } from "@/components/EngineDetail";
@@ -165,16 +166,18 @@ export default async function BankingPage() {
             Central Bank Policy Decisions — Live Level &amp; Historical Impact on Bank Equities
           </h3>
           <p className="mb-4 max-w-3xl text-xs text-text-dim">
-            None of these seven are in this app&apos;s central-bank headline feed (Fed/ECB/BOE/RBI press
-            releases there are dateless titles only, with no rate parsed out) — this is the only place a
-            policy decision&apos;s actual numeric effect shows up. Each bank&apos;s own daily official rate
-            (Tier 1, already feeding the Funding Rate column above) is checked for a genuine level change:
-            rounded to the nearest 5bp and confirmed only once the new level has held for 5 consecutive
-            trading days (monthly series need no such smoothing), which filters a realized rate&apos;s own
-            day-to-day noise without missing a real move by more than about a week. The panel below it is a
-            real historical event study — not a prediction — of that bank&apos;s own past hikes vs. its
-            bank-equity proxy; sample sizes are small by nature for a bank with a short hiking history and
-            are always shown, never hidden.
+            The <Link href="/dashboard/central-banks" className="text-accent hover:underline">Central Bank Intelligence</Link>{" "}
+            tab tracks dateless press-release headlines (Fed/ECB/BOE/RBI/BOJ) — this panel is the only place a
+            decision&apos;s actual numeric effect shows up. Each bank&apos;s own daily official rate (Tier 1,
+            already feeding the Funding Rate column above) is checked for a genuine level change: rounded to
+            the nearest 5bp and confirmed only once the new level has held for 5 consecutive trading days
+            (monthly series need no such smoothing), which filters a realized rate&apos;s own day-to-day noise
+            without missing a real move by more than about a week. &ldquo;Latest official announcements&rdquo;
+            on each card below links to that bank&apos;s own primary source for decision detail (vote counts,
+            dissents, forward guidance) this app doesn&apos;t have as structured data and won&apos;t fabricate.
+            The event-study panel is real historical fact, not a prediction, of that bank&apos;s own past
+            hikes vs. its bank-equity proxy; sample sizes are small by nature for a bank with a short hiking
+            history and are always shown, never hidden.
           </p>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -184,6 +187,9 @@ export default async function BankingPage() {
                   <div>
                     <div className="text-sm font-bold text-text">{b.config.institution}</div>
                     <div className="text-[10px] text-text-dim">{b.config.countryLabel}</div>
+                    <a href={b.config.officialUrl} target="_blank" rel="noreferrer" className="text-[10px] text-accent hover:underline">
+                      Latest official announcements &rarr;
+                    </a>
                   </div>
                   <div className="text-right">
                     <div className="gfew-mono text-xl font-bold text-text">{b.latestRate !== null ? `${b.latestRate.toFixed(3)}%` : "—"}</div>

@@ -56,6 +56,15 @@ export type CentralBankConfig = {
   equityMetricKey: string;
   equityLabel: string;
   minPersistObs: number;
+  /** The bank's own official monetary-policy page — every URL here was
+   * live-verified (HTTP 200) before being hardcoded, and links to the
+   * bank's own always-current page rather than a dated press release, so it
+   * never goes stale the way embedding a specific announcement's text
+   * would. This is deliberately the ONLY way this app surfaces a policy
+   * decision's narrative detail (vote counts, dissents, forward guidance) —
+   * that content isn't structured free data anywhere, so this links to the
+   * primary source instead of fabricating a summary of it. */
+  officialUrl: string;
 };
 
 export const CENTRAL_BANKS: CentralBankConfig[] = [
@@ -69,6 +78,7 @@ export const CENTRAL_BANKS: CentralBankConfig[] = [
     equityMetricKey: "banking.equity_us",
     equityLabel: "KBW Nasdaq Bank Index",
     minPersistObs: 5,
+    officialUrl: "https://www.federalreserve.gov/newsevents/pressreleases.htm",
   },
   {
     key: "ecb",
@@ -80,6 +90,7 @@ export const CENTRAL_BANKS: CentralBankConfig[] = [
     equityMetricKey: "banking.equity_europe",
     equityLabel: "iShares STOXX Europe 600 Banks ETF",
     minPersistObs: 5,
+    officialUrl: "https://www.ecb.europa.eu/press/govcdec/mopo/html/index.en.html",
   },
   {
     key: "boe",
@@ -91,6 +102,7 @@ export const CENTRAL_BANKS: CentralBankConfig[] = [
     equityMetricKey: "banking.equity_uk",
     equityLabel: "Barclays (single-bank proxy)",
     minPersistObs: 5,
+    officialUrl: "https://www.bankofengland.co.uk/monetary-policy/the-interest-rate-bank-rate",
   },
   {
     key: "boj",
@@ -102,6 +114,7 @@ export const CENTRAL_BANKS: CentralBankConfig[] = [
     equityMetricKey: "banking.equity_japan",
     equityLabel: "TOPIX-17 Banks ETF",
     minPersistObs: 5,
+    officialUrl: "https://www.boj.or.jp/en/mopo/mpmdeci/index.htm",
   },
   {
     key: "boc",
@@ -113,6 +126,7 @@ export const CENTRAL_BANKS: CentralBankConfig[] = [
     equityMetricKey: "banking.equity_canada",
     equityLabel: "BMO Equal Weight Banks ETF",
     minPersistObs: 5,
+    officialUrl: "https://www.bankofcanada.ca/core-functions/monetary-policy/key-interest-rate/",
   },
   {
     key: "pboc",
@@ -130,6 +144,7 @@ export const CENTRAL_BANKS: CentralBankConfig[] = [
     equityMetricKey: "banking.equity_china",
     equityLabel: "ICBC (single-bank proxy)",
     minPersistObs: 1,
+    officialUrl: "http://www.pbc.gov.cn/en/3688006/index.html",
   },
   {
     key: "rbi",
@@ -141,6 +156,7 @@ export const CENTRAL_BANKS: CentralBankConfig[] = [
     equityMetricKey: "banking.equity_india",
     equityLabel: "Nifty Bank Index",
     minPersistObs: 5,
+    officialUrl: "https://www.rbi.org.in/pressreleases.aspx",
   },
 ];
 

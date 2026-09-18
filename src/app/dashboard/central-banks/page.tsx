@@ -8,8 +8,9 @@ export default async function CentralBanksPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-2 text-2xl font-semibold">Central Bank Intelligence</h1>
       <p className="mb-6 max-w-2xl text-sm text-text-dim">
-        Headline-level tracking of official press releases from the Federal Reserve, ECB, Bank of England
-        and RBI (more institutions to be added). Hawkishness/dovishness NLP scoring and stance-change
+        Headline-level tracking of official press releases from the Federal Reserve, ECB, Bank of England,
+        RBI and Bank of Japan (Bank of Canada&apos;s feed uses a different, unparsed format and PBOC has no
+        confirmed working feed — both checked directly, not assumed). Hawkishness/dovishness NLP scoring and stance-change
         detection (V3 §8-10) is not implemented yet — this phase only captures what was published, when,
         and links to the primary source.
       </p>

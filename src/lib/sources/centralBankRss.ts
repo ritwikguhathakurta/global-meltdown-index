@@ -20,6 +20,15 @@ export const CENTRAL_BANK_FEEDS: CentralBankFeedDef[] = [
   { institution: "European Central Bank", url: "https://www.ecb.europa.eu/rss/press.html", sourceKey: "ecb_press" },
   { institution: "Bank of England", url: "https://www.bankofengland.co.uk/rss/news", sourceKey: "boe_press" },
   { institution: "Reserve Bank of India", url: "https://www.rbi.org.in/pressreleases_rss.xml", sourceKey: "rbi_press" },
+  // Verified live: a real, working RSS 2.0 feed (same shape as the other four
+  // above, so no parser changes needed), English-language, includes actual
+  // policy-decision releases (e.g. "Change in the Guideline for Money Market
+  // Operations") linked straight to the official PDF. BoC and PBOC were also
+  // checked: BoC's feed is RDF/RSS 1.0 (a different item structure this
+  // reader doesn't parse) and PBOC's URLs only returned redirects, not a
+  // confirmed working feed — neither added rather than silently returning
+  // zero events forever.
+  { institution: "Bank of Japan", url: "https://www.boj.or.jp/en/rss/whatsnew.xml", sourceKey: "boj_press" },
 ];
 
 export type CentralBankEventRecord = {
