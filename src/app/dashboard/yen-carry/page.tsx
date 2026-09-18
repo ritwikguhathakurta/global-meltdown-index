@@ -4,6 +4,7 @@ import { CARRY_STAGES } from "@/lib/engines/carryTrade";
 import type { CarryPairRow } from "@/lib/engines/carryTrade";
 import { gfmiColor } from "@/components/RegimeBadge";
 import { TrendIndicator } from "@/components/TrendIndicator";
+import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
 
 function fmtPct(v: number | null, decimals = 2): string {
   if (v === null) return "—";
@@ -36,9 +37,10 @@ const VOL_REGIME_LABEL: Record<string, string> = {
 };
 
 export default async function GlobalCarryTradePage() {
-  const [yenCarryRows, { pairs, funding, composite }] = await Promise.all([
+  const [yenCarryRows, { pairs, funding, composite }, liveUsdJpy] = await Promise.all([
     getLatestEngine("yen_carry"),
     getCarryTradeTable(),
+    fetchLiveMarketQuote("usdjpy"),
   ]);
 
   const ranked = [...pairs].sort((a, b) => (b.fragilityScore ?? -1) - (a.fragilityScore ?? -1));
@@ -63,6 +65,20 @@ export default async function GlobalCarryTradePage() {
         separate analytical layer that does not add a second vote to GFMI. See the methodology page
         for exactly what each layer does and doesn&apos;t cover.
       </p>
+
+      {liveUsdJpy && (
+        <div className="mb-6 flex flex-wrap items-baseline gap-3 rounded-lg border border-border p-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-text-dim">USD/JPY (Live)</span>
+          <span className="gfew-mono text-xl font-bold text-text">{liveUsdJpy.price.toFixed(2)}</span>
+          <span className="text-xs" style={{ color: (liveUsdJpy.changePct ?? 0) >= 0 ? "#e05a4d" : "#34c085" }}>
+            {liveUsdJpy.changePct !== null ? `${liveUsdJpy.changePct >= 0 ? "+" : ""}${liveUsdJpy.changePct.toFixed(2)}%` : "—"} vs prior close
+          </span>
+          <span className="text-[10px] text-text-dim">
+            fetched at generation time, not the batch series below &middot;{" "}
+            {new Date(liveUsdJpy.fetchedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}
+          </span>
+        </div>
+      )}
 
       {yenComposite && (
         <section className="gfew-panel mb-6 p-4">

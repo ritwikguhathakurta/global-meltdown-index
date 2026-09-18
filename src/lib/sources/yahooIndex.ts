@@ -78,7 +78,11 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   // checked — Barclays, a large UK G-SIB, is used as a single-bank proxy
   // instead (disclosed as such, not presented as a broad index).
   { metricKey: "banking.equity_uk", symbol: "BARC.L", unit: "GBp" },
-  { metricKey: "banking.equity_japan", symbol: "1631.T", unit: "JPY" }, // NEXT FUNDS TOPIX-17 Banks ETF
+  // 5y (not the 1y default) so the BOJ Policy Decision Impact panel
+  // (bojDecisionImpact.ts, Banking tab) has equity coverage back through
+  // Japan's March 2024 NIRP exit — its own past hikes are the event-study
+  // sample, and a 1y window would silently drop most of them.
+  { metricKey: "banking.equity_japan", symbol: "1631.T", unit: "JPY", range: "5y" }, // NEXT FUNDS TOPIX-17 Banks ETF
   { metricKey: "banking.equity_canada", symbol: "ZEB.TO", unit: "CAD" }, // BMO Equal Weight Banks Index ETF
   { metricKey: "banking.equity_china", symbol: "3988.HK", unit: "HKD" }, // ICBC — single large-bank proxy, no free China bank-sector index found live
   { metricKey: "banking.equity_india", symbol: "^NSEBANK", unit: "index" }, // Nifty Bank Index

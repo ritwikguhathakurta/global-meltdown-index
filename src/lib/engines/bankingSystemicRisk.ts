@@ -218,21 +218,28 @@ const NPL_KEY = (key: string) => `banking.${key}.npl_ratio`;
 
 /** Per-country funding-cost proxy — the exact same series already wired in
  * for the Global Carry Trade engine (see carryTrade.ts/fred.ts), reused
- * rather than re-fetched. */
+ * rather than re-fetched. Japan is the one exception: carryTrade.ts still
+ * uses the monthly OECD MEI proxy (rate.japan_interbank), but this table
+ * uses BOJ's own daily uncollateralized O/N call rate (rate.japan_call_rate)
+ * instead — already ingested for globalLiquidity.ts/treasuryRiskEngine.ts,
+ * Tier 1, and same-day-of-publication rather than up to a month stale, so a
+ * BOJ policy decision shows up here the next pipeline run instead of
+ * potentially weeks later. See bojDecisionImpact.ts for the dedicated
+ * decision/impact panel this also enables on the Banking page. */
 const FUNDING_KEY: Record<string, string> = {
   us: "rate.fed_funds_effective",
   uk: "rate.uk_short_term",
   germany: "rate.ecb_deposit_facility",
   france: "rate.ecb_deposit_facility",
   italy: "rate.ecb_deposit_facility",
-  japan: "rate.japan_interbank",
+  japan: "rate.japan_call_rate",
   canada: "rate.canada_interbank",
   china: "rate.china_interbank_3m",
   india: "rate.india_interbank",
 };
 const FUNDING_FREQ: Record<string, "daily" | "monthly"> = {
-  us: "daily", germany: "daily", france: "daily", italy: "daily",
-  uk: "monthly", japan: "monthly", canada: "monthly", china: "monthly", india: "monthly",
+  us: "daily", germany: "daily", france: "daily", italy: "daily", japan: "daily",
+  uk: "monthly", canada: "monthly", china: "monthly", india: "monthly",
 };
 
 /** Per-country liquidity proxy — each country's own central-bank balance-
