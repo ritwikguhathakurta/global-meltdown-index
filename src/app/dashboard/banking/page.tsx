@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts, getRecentCentralBankEvents } from "@/lib/api/engineData";
 import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
+import { fetchAllLiveCentralBankRates } from "@/lib/sources/liveCentralBankRates";
 import { EngineDetail } from "@/components/EngineDetail";
 import {
   BANKING_STAGES,
@@ -9,6 +10,7 @@ import {
   getLeadingCompositeScore,
   type CountryBankingRow,
 } from "@/lib/engines/bankingSystemicRisk";
+import { CENTRAL_BANKS } from "@/lib/engines/centralBankDecisionImpact";
 import { gfmiColor } from "@/components/RegimeBadge";
 import { TrendIndicator } from "@/components/TrendIndicator";
 import { CENTRAL_BANK_FSR_REGISTRY, fsrFreshness, ourStanceLevel, compareStance, FSR_REGION_ORDER } from "@/lib/data/centralBankFsrRegistry";
@@ -122,7 +124,7 @@ function quadrantFor(r: CountryBankingRow): "healthy" | "solvency_watch" | "liqu
 }
 
 export default async function BankingPage() {
-  const [bankingRows, { rows, composite }, bankRows, fsrChecks, bankImpacts, liveUsdJpy, recentEvents] = await Promise.all([
+  const [bankingRows, { rows, composite }, bankRows, fsrChecks, bankImpacts, liveUsdJpy, recentEvents, liveRates] = await Promise.all([
     getLatestEngine("banking"),
     getBankingSystemicRiskTable(),
     getBankLevelTable(),
@@ -130,6 +132,7 @@ export default async function BankingPage() {
     getCentralBankDecisionImpacts(),
     fetchLiveMarketQuote("usdjpy"),
     getRecentCentralBankEvents(200),
+    fetchAllLiveCentralBankRates(CENTRAL_BANKS.map((b) => b.key)),
   ]);
 
   // Most recent official-announcement date per institution, straight from
@@ -186,8 +189,12 @@ export default async function BankingPage() {
           <p className="mb-4 max-w-3xl text-xs text-text-dim">
             The <Link href="/dashboard/central-banks" className="text-accent hover:underline">Central Bank Intelligence</Link>{" "}
             tab tracks dateless press-release headlines (Fed/ECB/BOE/RBI/BOJ) — this panel is the only place a
-            decision&apos;s actual numeric effect shows up. Each bank&apos;s own daily official rate (Tier 1,
-            already feeding the Funding Rate column above) is checked for a genuine level change: rounded to
+            decision&apos;s actual numeric effect shows up. Each bank&apos;s big number is the once-daily batch
+            reading everything below it is computed from; the small green &ldquo;Live&rdquo; line under it is
+            the same official source (FRED for Fed/ECB/PBOC, BoE&apos;s own database, BoC&apos;s Valet API,
+            BOJ&apos;s Time-Series API, RBI&apos;s daily press release) queried fresh at page load, and turns
+            green when it&apos;s newer than the batch figure. Rate changes are checked for a genuine level
+            change: rounded to
             the nearest 5bp and confirmed only once the new level has held for 5 consecutive trading days
             (monthly series need no such smoothing), which filters a realized rate&apos;s own day-to-day noise
             without missing a real move by more than about a week. &ldquo;Latest official announcements&rdquo;
@@ -214,6 +221,17 @@ export default async function BankingPage() {
                     <div className="text-[9px] text-text-dim">
                       {b.config.rateLabel} &middot; as of {b.latestDate?.slice(0, 10) ?? "—"}
                     </div>
+                    {(() => {
+                      const live = liveRates.get(b.config.key);
+                      if (!live) return null;
+                      const isNewer = !b.latestDate || live.asOfDate > b.latestDate.slice(0, 10);
+                      return (
+                        <div className="mt-0.5 text-[10px]" style={{ color: isNewer ? "#34c085" : "#8b96a8" }}>
+                          Live: <span className="gfew-mono font-semibold">{live.rate.toFixed(3)}%</span> as of {live.asOfDate}
+                          {isNewer ? " (newer)" : ""}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
