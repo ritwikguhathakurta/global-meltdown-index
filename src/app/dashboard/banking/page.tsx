@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getLatestEngine, getBankingSystemicRiskTable, getBankLevelTable, getCentralBankFsrChecks, getCentralBankDecisionImpacts, getRecentCentralBankEvents } from "@/lib/api/engineData";
 import { fetchLiveMarketQuote } from "@/lib/sources/liveMarketQuotes";
 import { fetchAllLiveCentralBankRates } from "@/lib/sources/liveCentralBankRates";
-import { fetchBojAnnouncementDetail } from "@/lib/sources/bojAnnouncementText";
 import { EngineDetail } from "@/components/EngineDetail";
 import {
   BANKING_STAGES,
@@ -160,20 +159,6 @@ export default async function BankingPage() {
     arr.push({ date: e.event_date, title: e.title, url: e.source_url });
     eventsByInstitution.set(e.institution, arr);
   }
-
-  // BOJ is the one bank where a decision's actual new rate can be read
-  // straight from its own PDF the same day it's published — see
-  // bojAnnouncementText.ts for why this is safe to do (a verified regex
-  // extraction from BOJ's own standing template, not a guess) and why it
-  // isn't attempted for the other six banks (no equivalent template
-  // confirmed for them). Only fetched for the exact decision title, not
-  // every rate-related headline, to avoid wasting a PDF fetch+parse on
-  // housekeeping amendments or unrelated items.
-  const bojDecisionUrl = (eventsByInstitution.get("Bank of Japan") ?? []).find(
-    (e) => e.title === "Change in the Guideline for Money Market Operations"
-  )?.url;
-  const bojAnnouncement = bojDecisionUrl ? await fetchBojAnnouncementDetail(bojDecisionUrl) : null;
-
   const fsrCheckByKey = new Map(fsrChecks.map((c) => [c.key, c]));
   const rankedBanks = [...bankRows].sort((a, b) => (b.riskScore ?? -1) - (a.riskScore ?? -1));
 
@@ -302,20 +287,6 @@ export default async function BankingPage() {
                     </div>
                   );
                 })()}
-
-                {b.config.key === "boj" && bojAnnouncement && bojAnnouncement.targetRatePercent !== null && (
-                  <div className="mb-2 rounded border border-[#34c08555] bg-[#34c08511] p-2 text-[10px] text-text-dim">
-                    <strong className="text-text">Newly announced target: {bojAnnouncement.targetRatePercent.toFixed(2)}%</strong>
-                    {bojAnnouncement.voteFor !== null && bojAnnouncement.voteAgainst !== null && (
-                      <> ({bojAnnouncement.voteFor}-{bojAnnouncement.voteAgainst} vote)</>
-                    )}
-                    {bojAnnouncement.effectiveDate && <>, effective {bojAnnouncement.effectiveDate}</>} — read directly from BOJ&apos;s own
-                    decision PDF (the number above is the realized market rate, which hasn&apos;t caught up to this yet).{" "}
-                    <a href={bojAnnouncement.sourceUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                      Source PDF &rarr;
-                    </a>
-                  </div>
-                )}
 
                 {b.config.key === "boj" && liveUsdJpy && (
                   <div className="mb-2 text-xs text-text-dim">
