@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fetchWorldNews } from "@/lib/sources/gdeltNews";
 import { fetchNewsFeed, NEWS_CATEGORIES, type NewsCategory, type NewsPriority } from "@/lib/sources/newsFeeds";
+import { fetchSocialTrends } from "@/lib/sources/socialTrends";
 
 // Both sources are live network round trips this app doesn't control the
 // latency of (the curated feed fans out to ~55 publisher feeds, each bounded
@@ -30,7 +31,7 @@ export default async function WorldNewsPage({ searchParams }: { searchParams: Pr
   const { cat } = await searchParams;
   const activeCategory = NEWS_CATEGORIES.find((c) => c === cat) as NewsCategory | undefined;
 
-  const [feed, { regions, error }] = await Promise.all([fetchNewsFeed(), fetchWorldNews()]);
+  const [feed, { regions, error }, trends] = await Promise.all([fetchNewsFeed(), fetchWorldNews(), fetchSocialTrends()]);
 
   const countByCategory = new Map<NewsCategory, number>();
   for (const it of feed.items) countByCategory.set(it.category, (countByCategory.get(it.category) ?? 0) + 1);
@@ -63,6 +64,51 @@ export default async function WorldNewsPage({ searchParams }: { searchParams: Pr
         access.
       </p>
 
+      <h2 className="mb-1 text-lg font-semibold text-text">Trending today</h2>
+      <p className="mb-4 max-w-3xl text-xs text-text-dim/80">
+        Top 10 from every platform that publishes trend data for free. Each list is that platform&apos;s own ranking,
+        taken as-is — nothing here is re-ranked or written by this app. X, TikTok, Instagram, Facebook, Threads,
+        Snapchat, Telegram and YouTube aren&apos;t shown: none offers a public trends feed without paid or approved
+        API access, and third-party sites that republish their trends do so by scraping. Mastodon is one instance
+        (mastodon.social), and Google Trends is search interest rather than a social app — included as the closest
+        free proxy for what&apos;s trending elsewhere.
+      </p>
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {trends.map((p) => (
+          <section key={p.key} className="gfew-panel p-4">
+            <h3 className="text-sm font-semibold text-text">
+              {p.name}
+              {p.kind === "search" && <span className="ml-2 text-[10px] font-normal uppercase tracking-wide text-text-dim">search</span>}
+            </h3>
+            <p className="mb-3 text-[11px] text-text-dim">{p.basis}</p>
+            {p.items.length === 0 ? (
+              <p className="text-xs text-text-dim">Unavailable right now ({p.error ?? "no data"}) — reload shortly.</p>
+            ) : (
+              <ol className="space-y-2">
+                {p.items.map((t) => (
+                  <li key={`${p.key}-${t.rank}`} className="flex gap-2">
+                    <span className="gfew-mono w-5 shrink-0 text-right text-xs text-text-dim">{t.rank}</span>
+                    <div className="min-w-0">
+                      <a
+                        href={t.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-text hover:text-accent hover:underline"
+                      >
+                        {t.title}
+                      </a>
+                      {t.meta && <div className="text-[11px] text-text-dim">{t.meta}</div>}
+                      {t.note && <div className="text-[11px] text-text-dim/80">{t.note}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        ))}
+      </div>
+
+      <h2 className="mb-1 text-lg font-semibold text-text">News headlines</h2>
       <div className="mb-4 flex flex-wrap gap-2">
         <Link
           href="/dashboard/world-news"
