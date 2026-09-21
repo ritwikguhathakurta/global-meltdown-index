@@ -17,12 +17,20 @@ import { XMLParser } from "fast-xml-parser";
  *   not a social app — labeled as such on the page — included because it's the
  *   closest free proxy for what is trending on the platforms below.
  *
- * NOT available, and deliberately not faked or scraped: X/Twitter, TikTok,
- * Instagram, Facebook, Threads, Snapchat, Telegram (no public trends API at
- * all) and YouTube (its trending chart needs a YouTube Data API key this app
- * doesn't have — the feed that used to work without one now returns HTTP 400).
- * Third-party sites that republish X/TikTok trends do so by scraping and
- * against those platforms' terms, so they aren't used.
+ * - X: no free API, so this scrapes getdaytrends.com's public page (a third
+ *   party that republishes X's trending list). Fragile by nature, and
+ *   attributed on the page as third-party.
+ * - YouTube: charts.youtube.com's undocumented backend — a weekly music chart
+ *   only (see youtubeCharts). YouTube's general trending page has no video
+ *   list in its HTML any more and its Data API needs a key.
+ *
+ * Probed live and NOT shippable (each returns no trend data, and nothing is
+ * faked in its place): Instagram, Threads, Snapchat, Facebook, Discord (public
+ * pages are login shells with no trend list), Telegram (no trends feature;
+ * TGStat lists channels by size, not trends), TikTok (its Creative Center
+ * host doesn't resolve from here, and its trend API is request-signed —
+ * forging those signatures would be circumventing its access controls, not
+ * scraping a public page).
  *
  * Every list is the platform's own ranking, taken as-is; nothing is scored,
  * re-ranked, summarized or written by this app.
@@ -44,6 +52,8 @@ export type PlatformTrends = {
   kind: "social" | "search";
   /** How this platform's list is ranked/what it measures — shown on the page. */
   basis: string;
+  /** Set when the list is read from a third party rather than the platform itself. */
+  via?: { label: string; url: string };
   items: TrendItem[];
   error?: string;
 };
@@ -171,7 +181,89 @@ async function googleTrends(): Promise<TrendItem[]> {
     .filter((t) => t.title);
 }
 
-const PLATFORMS: { key: string; name: string; kind: PlatformTrends["kind"]; basis: string; load: () => Promise<TrendItem[]> }[] = [
+// X has no free trends API. getdaytrends.com is a third-party tracker that
+// republishes X's own trending list (scraped from its public HTML: rank +
+// name, no volumes); if it changes its markup this returns nothing and the
+// card shows "unavailable" rather than stale or invented data.
+async function xTrends(path: string): Promise<TrendItem[]> {
+  const html = await (await get(`https://getdaytrends.com/${path}`)).text();
+  const rows = [...html.matchAll(/<th scope="row" class="pos">(\d+)<\/th><td class="main"><a [^>]*>([^<]+)<\/a>/g)];
+  return rows.slice(0, TOP_N).map((r) => {
+    const title = decode(r[2]);
+    return { rank: Number(r[1]), title, meta: "trending on X", url: `https://x.com/search?q=${encodeURIComponent(title)}` };
+  });
+}
+
+// YouTube's own Charts site (charts.youtube.com) backend, using the public
+// key embedded in that site — undocumented, so it can change. It serves ONE
+// weekly chart of the most-viewed music videos: requesting the "trending" and
+// "top" chart types returned the identical list when tested, so this is
+// labeled as exactly that, not as YouTube's general trending page (which no
+// longer carries a server-rendered video list, and whose API needs a key).
+async function youtubeCharts(): Promise<TrendItem[]> {
+  const res = await fetch("https://charts.youtube.com/youtubei/v1/browse?alt=json&key=AIzaSyCzEW7JUJdGbtTRvfUkOoMt5Uh9JnKzrXA", {
+    method: "POST",
+    headers: { "User-Agent": UA, "Content-Type": "application/json", Origin: "https://charts.youtube.com", Referer: "https://charts.youtube.com/charts/TrendingVideos/us" },
+    body: JSON.stringify({
+      context: { client: { clientName: "WEB_MUSIC_ANALYTICS", clientVersion: "2.0", hl: "en", gl: "US" } },
+      browseId: "FEmusic_analytics_charts_home",
+      query: "perspective=CHART&chart_params_country_code=us&chart_params_chart_type=TRENDING_VIDEOS&chart_params_period_type=WEEKLY",
+    }),
+    next: { revalidate: REVALIDATE_SECONDS },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = (await res.json()) as {
+    contents?: { sectionListRenderer?: { contents?: { musicAnalyticsSectionRenderer?: { content?: { videos?: { videoViews?: {
+      id?: string;
+      title?: string;
+      viewCount?: string;
+      channelName?: string;
+      artists?: { name?: string }[];
+      chartEntryMetadata?: { currentPosition?: number };
+    }[] }[] } } }[] } };
+  };
+  const list = json.contents?.sectionListRenderer?.contents?.[0]?.musicAnalyticsSectionRenderer?.content?.videos?.[0]?.videoViews ?? [];
+  return list
+    .filter((v) => v.id && v.title)
+    .slice(0, TOP_N)
+    .map((v, i) => {
+      const who = v.artists?.map((a) => a.name).filter(Boolean).join(", ") || v.channelName || "";
+      const views = Number(v.viewCount);
+      return {
+        rank: v.chartEntryMetadata?.currentPosition ?? i + 1,
+        title: decode(v.title as string),
+        meta: [who, Number.isFinite(views) ? `${views.toLocaleString("en-US")} views this week` : null].filter(Boolean).join(" · "),
+        url: `https://www.youtube.com/watch?v=${v.id}`,
+      };
+    });
+}
+
+const PLATFORMS: { key: string; name: string; kind: PlatformTrends["kind"]; basis: string; via?: PlatformTrends["via"]; load: () => Promise<TrendItem[]> }[] = [
+  {
+    key: "x_us",
+    name: "X (Twitter) — United States",
+    kind: "social",
+    basis: "X's current trending topics, in X's own order (no volumes published)",
+    via: { label: "getdaytrends.com", url: "https://getdaytrends.com/united-states/" },
+    load: () => xTrends("united-states/"),
+  },
+  {
+    key: "x_world",
+    name: "X (Twitter) — Worldwide",
+    kind: "social",
+    basis: "X's current worldwide trending topics, in X's own order (no volumes published)",
+    via: { label: "getdaytrends.com", url: "https://getdaytrends.com/" },
+    load: () => xTrends(""),
+  },
+  {
+    key: "youtube_charts",
+    name: "YouTube — Top Music Videos (US)",
+    kind: "social",
+    basis: "YouTube Charts' weekly most-viewed music videos. Music only and weekly — not YouTube's general trending page, which has no free data source",
+    via: { label: "charts.youtube.com", url: "https://charts.youtube.com/charts/TrendingVideos/us" },
+    load: youtubeCharts,
+  },
   { key: "reddit", name: "Reddit", kind: "social", basis: "Top posts on r/all over the past day, in Reddit's own order", load: reddit },
   { key: "bluesky", name: "Bluesky", kind: "social", basis: "Bluesky's own trending-topics ranking", load: bluesky },
   { key: "mastodon", name: "Mastodon", kind: "social", basis: "Trending hashtags on mastodon.social only (one instance, not the whole network)", load: mastodon },
@@ -181,12 +273,12 @@ const PLATFORMS: { key: string; name: string; kind: PlatformTrends["kind"]; basi
 
 export async function fetchSocialTrends(): Promise<PlatformTrends[]> {
   return Promise.all(
-    PLATFORMS.map(async ({ key, name, kind, basis, load }): Promise<PlatformTrends> => {
+    PLATFORMS.map(async ({ key, name, kind, basis, via, load }): Promise<PlatformTrends> => {
       try {
         const items = await load();
-        return { key, name, kind, basis, items, ...(items.length === 0 ? { error: "no items returned" } : {}) };
+        return { key, name, kind, basis, via, items, ...(items.length === 0 ? { error: "no items returned" } : {}) };
       } catch (e) {
-        return { key, name, kind, basis, items: [], error: (e as Error).message.slice(0, 80) };
+        return { key, name, kind, basis, via, items: [], error: (e as Error).message.slice(0, 80) };
       }
     })
   );

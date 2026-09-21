@@ -66,12 +66,17 @@ export default async function WorldNewsPage({ searchParams }: { searchParams: Pr
 
       <h2 className="mb-1 text-lg font-semibold text-text">Trending today</h2>
       <p className="mb-4 max-w-3xl text-xs text-text-dim/80">
-        Top 10 from every platform that publishes trend data for free. Each list is that platform&apos;s own ranking,
-        taken as-is — nothing here is re-ranked or written by this app. X, TikTok, Instagram, Facebook, Threads,
-        Snapchat, Telegram and YouTube aren&apos;t shown: none offers a public trends feed without paid or approved
-        API access, and third-party sites that republish their trends do so by scraping. Mastodon is one instance
-        (mastodon.social), and Google Trends is search interest rather than a social app — included as the closest
-        free proxy for what&apos;s trending elsewhere.
+        Top 10 from every platform where trend data could be read. Each list is that platform&apos;s own ranking,
+        taken as-is — nothing here is re-ranked or written by this app. Read directly: Reddit, Bluesky, Mastodon
+        (mastodon.social only), Hacker News and YouTube Charts (a weekly <em>music-video</em> chart, not YouTube&apos;s
+        general trending). Scraped from a third party: X, via getdaytrends.com, which republishes X&apos;s list without
+        volumes and could break if that site changes. Google Trends is search interest, not a social app.
+      </p>
+      <p className="mb-4 max-w-3xl text-xs text-text-dim/80">
+        <strong>Not shown, because no real trend data was reachable:</strong> Instagram, Threads, Snapchat, Facebook
+        and Discord (their public pages are login walls with no trend list), Telegram (no trends feature exists),
+        and TikTok (its trend data sits behind request-signed API calls — reproducing those signatures would bypass
+        its access controls rather than read a public page). These are omitted rather than filled with guesses.
       </p>
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {trends.map((p) => (
@@ -80,7 +85,18 @@ export default async function WorldNewsPage({ searchParams }: { searchParams: Pr
               {p.name}
               {p.kind === "search" && <span className="ml-2 text-[10px] font-normal uppercase tracking-wide text-text-dim">search</span>}
             </h3>
-            <p className="mb-3 text-[11px] text-text-dim">{p.basis}</p>
+            <p className="mb-3 text-[11px] text-text-dim">
+              {p.basis}
+              {p.via && (
+                <>
+                  {" "}
+                  · via{" "}
+                  <a href={p.via.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                    {p.via.label}
+                  </a>
+                </>
+              )}
+            </p>
             {p.items.length === 0 ? (
               <p className="text-xs text-text-dim">Unavailable right now ({p.error ?? "no data"}) — reload shortly.</p>
             ) : (
