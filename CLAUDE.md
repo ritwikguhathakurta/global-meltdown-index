@@ -173,6 +173,20 @@ text, priority/tags are keyword rules. Gotcha when editing regexes via shell one
 backslashes can arrive collapsed (`\\b` becomes a literal backspace character) — write the file with the
 Write/Edit tools, and grep for control characters if a regex mysteriously never matches.
 
+### Funding Carry engine (`src/lib/carry/`, page `/dashboard/funding-carry`)
+
+A self-contained, deterministic **OTC funding-carry calculator** (foreign-currency borrowing → INR, incl. FCY→USD→INR
+routes): the user types dealer quotes into the page (kept in `localStorage`, no DB, no migration) and the engine builds
+real multi-currency ledgers and derives the effective INR rate as an IRR. Full conventions/formulas/limitations are in
+`docs/CARRY_ENGINE.md` — read it before changing any formula (borrower sign convention, bid/ask derived from direction,
+decimal rates, CCS spread pass-through). `src/lib/carry/` imports nothing server-side, so it runs in tests and the browser;
+run `npm run test:carry` (golden case + 25 checks) after touching it. Rules that matter: never fabricate CCS/dealer
+quotes (blank stays blank → `INSUFFICIENT_DATA`); illustrative/model/scenario inputs must never reach `EXECUTE`;
+regulatory rules are date-versioned data in `regulatory.ts` with provenance (currently secondary-sourced = `DERIVED`, so
+"ELIGIBLE" is unreachable until the user confirms) — don't hard-code rules in logic. The interactive page is
+client-only (`CarryLoader` uses `dynamic(..., { ssr: false })` because state lives in `localStorage`).
+`/api/carry/calculate` is authenticated and rate-limited itself (`/api/*` is outside the proxy).
+
 ### Commodities taxonomy
 
 `src/lib/commodities/taxonomy.ts` (`COMMODITIES`) is the master list mapping each commodity to its

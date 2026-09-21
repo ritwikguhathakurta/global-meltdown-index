@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:carry": "tsx src/lib/carry/tests/golden.test.ts && tsx src/lib/carry/tests/engine.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
@@ -27,6 +28,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
