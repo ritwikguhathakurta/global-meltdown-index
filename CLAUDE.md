@@ -35,6 +35,14 @@ To exercise a single engine/connector during development without waiting for the
 as admin and use `/admin` → "Run pipeline now", or hit `/api/cron/pipeline` directly with
 `Authorization: Bearer $CRON_SECRET`.
 
+**Migrations are applied manually, not via a CLI.** There is no linked/authenticated Supabase CLI and no
+direct Postgres connection string in this environment (`npx supabase` works but isn't logged in, and
+`.env.local` has no `DATABASE_URL`) — `supabase/migrations/*.sql` files are reference copies the human
+operator pastes into the Supabase Studio SQL Editor themselves (see `README.md`'s setup section). After
+adding a migration, tell the user which file to run rather than assuming it's already live; a new table
+or column won't exist in production until they do, and code that reads/writes it should fail gracefully
+(return `null`/empty, never throw) until then — see `centralBankDecisionCommentary.ts` for the pattern.
+
 ## Architecture
 
 ### The `metric_series` table is the entire data layer
@@ -50,7 +58,7 @@ through `src/lib/metrics/store.ts` only:
   inserts, not schema rewrites — there hasn't been a breaking schema change since `0001_init.sql`.
 - `fetchSeries` / `fetchLatest` / `fetchLatestForKeys` — read path, used by every engine.
 
-### Two different meanings of "engine" live in `src/lib/engines/` (73 files)
+### Two different meanings of "engine" live in `src/lib/engines/` (75 files)
 
 1. **The 24 registered risk engines** (`src/lib/engines/registry.ts`, `ENGINE_REGISTRY`) — each has a
    `run*Engine(db, asOf)` returning `EngineResult` (see `types.ts`) for short/medium/long horizons
@@ -68,8 +76,8 @@ Never assume a file under `src/lib/engines/` feeds the GFMI score — check `reg
 
 ### The daily pipeline (`/api/cron/pipeline`, `vercel.json` → 21:30 UTC)
 
-`runIngestionPipeline` (`src/lib/pipeline/ingest.ts`, ~1600 lines) fans out to every connector in
-`src/lib/sources/` (65 files, one per external API/feed) and `upsertMetrics`s the results; then
+`runIngestionPipeline` (`src/lib/pipeline/ingest.ts`, ~1700 lines) fans out to every connector in
+`src/lib/sources/` (68 files, one per external API/feed) and `upsertMetrics`s the results; then
 `runComputePipeline` runs the registry engines and writes `risk_engine_scores` + the GFMI rows. The
 whole thing is one Vercel serverless function with a **hard 300s ceiling** — if any single stage runs
 long, Vercel kills the *entire* function, silently dropping every other concurrently-running stage's
@@ -84,6 +92,18 @@ either):
 
 Every stage logs to `pipeline_runs` (status `ok`/`warning`/`failed` + detail) — check that table (or
 `/admin`) first when a metric looks stale, before assuming the connector code is broken.
+
+**The generic daily lookback window is short — deep-history features need their own stage.**
+`src/lib/metrics/lookback.ts`'s `lookbackDaysFor("daily")` is 400 days, sized only to give
+`zScore()` (`stats.ts`) its 20-observation minimum, and most `ingestFred`-style stages reuse it
+uncritically. This silently starves anything that needs multi-year history to find real historical
+events — verified live in production: `rate.fed_funds_effective` only ever carried ~13 months of
+history, so `centralBankDecisionImpact.ts`'s hike/cut event study had zero sampled Fed hikes despite
+the real 2022–2023 tightening cycle existing, simply because it predated the window. The fix is a
+dedicated stage with its own explicit `sinceIso`, same pattern as `ingestEnergyBacktestSeries` (WTI
+back to 1946), `ingestWorldBankCommodities` (back to 1960), and `ingestCentralBankRateHistory` (Fed/ECB
+back to 2000) — before assuming a thin sample or "0 in sample" is a genuine data gap, check whether the
+series' own lookback window is the actual cause.
 
 ### Adding a new data source connector
 
@@ -101,7 +121,7 @@ Every stage logs to `pipeline_runs` (status `ok`/`warning`/`failed` + detail) �
 
 ### `src/lib/api/engineData.ts` — the wrapper layer between engines and pages
 
-One large file (~60 exported functions) wraps every engine/compute function in the same pattern:
+One large file (~64 exported functions) wraps every engine/compute function in the same pattern:
 
 ```ts
 export async function getSoyPalmPairsSpread(): Promise<CointegratedPairSpread | null> {
@@ -141,6 +161,18 @@ statistics, so don't. Where a page needs to show a genuinely current headline pr
 Yahoo Finance's public chart endpoint, and display it as a clearly labeled overlay ("Live"/"Latest
 Close") alongside — never instead of — the settled price the statistics use.
 
+### World News feed (`src/lib/sources/newsFeeds.ts`)
+
+Fetched live per request (no DB, no pipeline stage) from ~55 publisher RSS feeds in `NEWS_SOURCES`, each
+verified live before listing; dead/blocked ones are documented in that file's header rather than listed.
+It deliberately does **not** read X/Twitter (no free read API, no credentials here) even though the spec
+that motivated it (`News_Engine.pdf`) is X-handle-based — don't "add X support" without an API key.
+Reuters/AP/Bloomberg/IMF/OECD/etc. come via Google News RSS restricted to the publisher's own domain
+(`sourceMatch` drops results whose publisher differs). Nothing is LLM-written: summaries are the feed's own
+text, priority/tags are keyword rules. Gotcha when editing regexes via shell one-liners: doubled
+backslashes can arrive collapsed (`\\b` becomes a literal backspace character) — write the file with the
+Write/Edit tools, and grep for control characters if a regex mysteriously never matches.
+
 ### Commodities taxonomy
 
 `src/lib/commodities/taxonomy.ts` (`COMMODITIES`) is the master list mapping each commodity to its
@@ -148,14 +180,49 @@ World Bank Pink Sheet column, unit, etc. — most of `worldBankCommodities.ts`'s
 Energy/Metals/Grains/Oilseeds/Softs/Livestock/Fertilizers off this one table. Related taxonomies:
 `chemicalsTaxonomy.ts`, `oilseedsTaxonomy.ts`, `balanceTaxonomy.ts`.
 
-### The one place an LLM computes something user-facing
+### The two places an LLM computes something user-facing
 
-`src/lib/prediction/` (`openaiAnalysis.ts` using `gpt-4.1-mini`, `geminiAnalysis.ts`) runs an
-LLM-driven commodity backtest/analysis for `/dashboard/prediction` only. This is the deliberate
-exception to the rest of the app's rule that every score/number is a deterministic function of stored
-data (`src/lib/metrics/stats.ts`) — don't extend LLM-computed numbers to any other dashboard page
-without calling that out explicitly, since it breaks an invariant the rest of the app (and its
-credibility framing) depends on.
+Every score/number elsewhere in the app is a deterministic function of stored data
+(`src/lib/metrics/stats.ts`) — these two are the deliberate, disclosed exceptions. Don't extend
+LLM-computed content to any other dashboard page without calling that out explicitly and disclosing it
+in the UI, since it breaks an invariant the rest of the app (and its credibility framing) depends on.
+
+1. `src/lib/prediction/` (`openaiAnalysis.ts` using `gpt-4.1-mini`, `geminiAnalysis.ts`) — a commodity
+   backtest/analysis for `/dashboard/prediction`, user-triggered per commodity (a button click, via
+   `/api/prediction/analyze`), not run automatically on page load.
+2. `src/lib/prediction/centralBankCommentary.ts` + `src/lib/engines/centralBankDecisionCommentary.ts` —
+   short/medium/long-term impact + probable-trajectory commentary for the Banking tab's central-bank
+   decision cards, generated automatically the first time a bank's detected rate move has no cached
+   commentary, then cached in `central_bank_decision_commentary` (migration `0040`, keyed on
+   `institution, event_date, to_level`) so the LLM runs once per real decision, not on every render.
+   Bounded with a 15s per-request timeout (`AbortSignal.timeout`) and the page's own
+   `export const maxDuration = 30`, so a slow/hung OpenAI response degrades to "the box doesn't show"
+   rather than risking the page — this one runs inline in a Server Component, unlike #1's
+   button-triggered flow, so it can't be allowed to hang.
+
+### Known gotchas (each caused a real production incident)
+
+- **Supabase/PostgREST's default 1000-row cap silently truncates unpaginated queries.** Any
+  `.select()` against `metric_series` (or any table) that could return more than 1000 rows must page
+  through with `.range(offset, offset + PAGE_SIZE - 1)` — without it, Postgres/PostgREST just returns
+  the first 1000 rows with no error, no warning, nothing to indicate truncation happened. This silently
+  broke `fetchSeries`/`fetchLatestForKeys` in production for every daily series with >1000 rows (BoE:
+  cut off in 2003; BOJ, BoC similarly affected) — a live user report ("this event looks 20 years stale")
+  is what surfaced it, not a test. Both functions in `src/lib/metrics/store.ts` now paginate correctly;
+  copy that pattern for any new direct query against a long series, and don't trust a query "worked in
+  testing" against a short series as proof it handles a long one.
+- **`pdf-parse` / `pdfjs-dist` crash Vercel's Node serverless runtime** with
+  `ReferenceError: DOMMatrix is not defined` during module evaluation — a real production outage on
+  `/dashboard/banking` (the whole page 500'd, not just the PDF feature), because `pdfjs-dist` references
+  browser-only globals that a bare `node`/`tsx` test script never exercises the same way Next.js's actual
+  SSR bundle does, so it can look fine locally and still take the page down. Use `unpdf` instead (built
+  for edge/serverless, no canvas/DOM dependency for plain text extraction — see
+  `src/lib/sources/bojAnnouncementText.ts`), and load it via a **dynamic** `await import("unpdf")` inside
+  a `try/catch`, not a static top-level `import` — a static import's module-evaluation error crashes the
+  page before any `try/catch` can run; a dynamic import's rejection is catchable. Before shipping any
+  library with native/WASM/browser-API dependencies into a Server Component, verify with an actual
+  `next build && next start` + real HTTP request against the compiled server, not just a standalone
+  script — that's the only thing that would have caught this before it shipped.
 
 ### Data freshness badges
 
