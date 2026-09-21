@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAuthorizedCron } from "@/lib/api/cronAuth";
 import { runIngestionPipeline } from "@/lib/pipeline/ingest";
 import { runComputePipeline } from "@/lib/pipeline/compute";
 
@@ -14,9 +15,7 @@ export const maxDuration = 300;
  * endpoint can't be triggered by an outside caller.
  */
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

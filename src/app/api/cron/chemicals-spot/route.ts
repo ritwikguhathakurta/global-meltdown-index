@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAuthorizedCron } from "@/lib/api/cronAuth";
 import { ingestEiaChemicalFeedstockSpot } from "@/lib/pipeline/ingest";
 
 export const runtime = "nodejs";
@@ -17,9 +18,7 @@ export const maxDuration = 30;
  * outside caller.
  */
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

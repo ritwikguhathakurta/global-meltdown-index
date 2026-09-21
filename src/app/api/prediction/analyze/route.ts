@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getCurrentUserAndRole } from "@/lib/supabase/session";
 import { fetchSeries } from "@/lib/metrics/store";
 import { COMMODITIES } from "@/lib/commodities/taxonomy";
 import { getCandidateCovariates } from "@/lib/prediction/covariates";
@@ -26,10 +27,38 @@ function pickProvider(): "gemini" | "openai" | null {
   return null;
 }
 
+// Each call runs a paid, code-executing LLM analysis (up to 280s), and signup
+// is open — so requiring login alone still lets any new account loop it.
+// This is a best-effort per-user cooldown held in this serverless instance's
+// memory: it stops a single account hammering one instance, but is NOT a
+// global limit (separate instances don't share it). A hard limit needs shared
+// storage (e.g. a Postgres counter or Vercel KV).
+const COOLDOWN_MS = 60_000;
+const lastCallByUser = new Map<string, number>();
+
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured) {
     return NextResponse.json({ error: "backend not configured" }, { status: 503 });
   }
+
+  // /api/* is outside the proxy's protected prefixes, so this route has to
+  // authenticate for itself (the page that calls it is behind login, the API
+  // was not).
+  const { user } = await getCurrentUserAndRole();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const now = Date.now();
+  const last = lastCallByUser.get(user.id);
+  if (last !== undefined && now - last < COOLDOWN_MS) {
+    const retryAfter = Math.ceil((COOLDOWN_MS - (now - last)) / 1000);
+    return NextResponse.json({ error: `please wait ${retryAfter}s between analyses` }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
+  }
+  lastCallByUser.set(user.id, now);
+  if (lastCallByUser.size > 1000) {
+    for (const [id, t] of lastCallByUser) if (now - t > COOLDOWN_MS) lastCallByUser.delete(id);
+  }
+
   const provider = pickProvider();
   if (!provider) {
     return NextResponse.json({ error: "no prediction LLM provider configured (need GEMINI_API_KEY or OPENAI_API_KEY)" }, { status: 503 });

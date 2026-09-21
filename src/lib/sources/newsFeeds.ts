@@ -281,7 +281,8 @@ async function fetchSource(src: NewsSource, now: number): Promise<{ items: NewsI
       if (publisher) headline = headline.replace(new RegExp(`\\s+[-–|]\\s+${publisher.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"), "");
       const link = linkOf(item.link);
       const ts = parseDate(item.pubDate ?? item.published ?? item.updated ?? item["dc:date"]);
-      if (!headline || !link || ts === null || ts < cutoff || ts > now + 3600_000) continue;
+      // Feed-supplied links go straight into href — only ever http(s).
+      if (!headline || !/^https?:\/\//i.test(link) || ts === null || ts < cutoff || ts > now + 3600_000) continue;
 
       let summary = cleanText(item.description ?? item.summary ?? item["content:encoded"]);
       // Google News' <description> is just the headline + publisher again, and

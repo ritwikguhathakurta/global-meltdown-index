@@ -275,7 +275,8 @@ export async function fetchSocialTrends(): Promise<PlatformTrends[]> {
   return Promise.all(
     PLATFORMS.map(async ({ key, name, kind, basis, via, load }): Promise<PlatformTrends> => {
       try {
-        const items = await load();
+        // Platform-supplied links go straight into href — only ever http(s).
+        const items = (await load()).filter((i) => /^https?:\/\//i.test(i.url));
         return { key, name, kind, basis, via, items, ...(items.length === 0 ? { error: "no items returned" } : {}) };
       } catch (e) {
         return { key, name, kind, basis, via, items: [], error: (e as Error).message.slice(0, 80) };

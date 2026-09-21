@@ -18,7 +18,6 @@ export async function GET() {
   }
 
   checks.fred_api_key_configured = process.env.FRED_API_KEY ? "ok" : "error";
-  checks.cron_secret_configured = process.env.CRON_SECRET ? "ok" : "error";
 
   return NextResponse.json(
     { status: dbOk ? "ok" : "degraded", checks, timestamp: new Date().toISOString() },
