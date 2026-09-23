@@ -9,6 +9,8 @@ import { fetchNyFedRepoRates } from "../sources/nyFedRepoRates";
 import { fetchBinancePerpetuals } from "../sources/binancePerpetuals";
 import { fetchNseFoBhavcopy } from "../sources/nseFoBhavcopy";
 import { fetchDtccSwapData } from "../sources/dtccSwapData";
+import { fetchHkexDerivatives } from "../sources/hkexDerivatives";
+import { fetchB3Derivatives } from "../sources/b3Derivatives";
 import { CENTRAL_BANK_FEEDS, fetchCentralBankFeed } from "../sources/centralBankRss";
 import { fetchGscpiSeries } from "../sources/gscpi";
 import { fetchGprSeries } from "../sources/gpr";
@@ -407,6 +409,34 @@ export async function ingestDtccSwapData(db: SupabaseClient, runDate: string): P
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_dtcc_swap_data", "failed", detail);
     return { stage: "ingest_dtcc_swap_data", status: "failed", detail };
+  }
+}
+
+export async function ingestHkexDerivatives(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchHkexDerivatives();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_hkex_derivatives", "ok", detail);
+    return { stage: "ingest_hkex_derivatives", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_hkex_derivatives", "failed", detail);
+    return { stage: "ingest_hkex_derivatives", status: "failed", detail };
+  }
+}
+
+export async function ingestB3Derivatives(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchB3Derivatives();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_b3_derivatives", "ok", detail);
+    return { stage: "ingest_b3_derivatives", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_b3_derivatives", "failed", detail);
+    return { stage: "ingest_b3_derivatives", status: "failed", detail };
   }
 }
 
@@ -1756,6 +1786,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // Downloads and streams 4 separate multi-MB DTCC files sequentially (own internal
     // 180s budget, see dtccSwapData.ts) — longer stage ceiling than the default 150s.
     withStageTimeout("ingest_dtcc_swap_data", ingestDtccSwapData(db, runDate), 220_000, db, runDate),
+    withTimeout("ingest_hkex_derivatives", ingestHkexDerivatives(db, runDate)),
+    withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
     withTimeout("ingest_gscpi", ingestGscpi(db, runDate)),
     withTimeout("ingest_gpr", ingestGpr(db, runDate)),

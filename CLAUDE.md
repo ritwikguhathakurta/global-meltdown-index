@@ -214,6 +214,14 @@ what they first appear to — a lesson worth reading before adding a similar met
 also added "Ask Derivatives" (`src/lib/prediction/askDerivatives.ts`), this project's third disclosed
 LLM-computed surface — see "The three places an LLM computes something user-facing" below.
 
+A later pass widened the registered `derivatives_leverage` engine's own "Leading Indicators" table
+with real non-US exchange data — `hkexDerivatives.ts` (Hong Kong) and `b3Derivatives.ts` (Brazil) —
+after explicitly checking equity/derivatives regulators across G7, Middle East, Africa, Asia, Latin
+America, Europe and Scandinavia. Most turned out gated/paid (Japan's JPX, Eurex, South Africa's JSE)
+or bot-protected (Singapore's SGX, Saudi Tadawul) rather than free — see
+`docs/DERIVATIVES_ENGINE.md`'s "Global leading-indicator coverage" section for the full per-region
+list before re-attempting one of the already-checked dead ends.
+
 ### Commodities taxonomy
 
 `src/lib/commodities/taxonomy.ts` (`COMMODITIES`) is the master list mapping each commodity to its

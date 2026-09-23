@@ -355,6 +355,19 @@ export function SourcesPanel() {
           <li>Binance Futures public API (crypto perpetual funding/OI) — Tier 3</li>
           <li>NSE India F&amp;O bhavcopy (index/stock futures &amp; options OI, PCR, market turnover) — Tier 1</li>
           <li>DTCC public swap-transaction dissemination (Rates/Credit/FX/Commodity — CFTC Part 43/SEC Reg SBSR-mandated) — Tier 1</li>
+          <li>HKEX (Hong Kong) Daily Trading Activity &amp; Open Positions Summary (HSI/HHI/MHI futures Gross OI, whole-market options put/call OI ratio) — Tier 1</li>
+          <li>B3 (Brazil) COTAHIST daily file (equity-options put/call volume ratio, cash-market turnover) — Tier 1</li>
+        </ul>
+      </Panel>
+      <Panel>
+        <SectionTitle>Global regulator/exchange coverage check (G7, Middle East, Africa, Asia, Latin America, Europe, Scandinavia)</SectionTitle>
+        <p className="mb-3 text-[11px] text-text-dim">Every exchange/regulator below was checked live before deciding to build or skip it — see docs/DERIVATIVES_ENGINE.md&rsquo;s &quot;Global leading-indicator coverage&quot; section for the full list and reasoning.</p>
+        <ul className="list-inside list-disc text-sm text-text-dim">
+          <li><b>Built (real, free, verified live):</b> USA (CFTC), India (NSE), Hong Kong (HKEX), Brazil (B3)</li>
+          <li><b>Checked, confirmed gated/paid, not free:</b> Japan (JPX — comprehensive OI needs a paid contract), Germany/pan-Europe (Eurex — needs an MD+S login), South Africa (JSE — a paid CME DataMine product)</li>
+          <li><b>Checked, blocked by bot protection either way:</b> Singapore (SGX), Saudi Arabia (Tadawul)</li>
+          <li><b>Checked, has a real Open API but needs registration not completed this pass:</b> South Korea (KRX)</li>
+          <li><b>Not reached this pass (genuinely not thoroughly checked, not confirmed unavailable):</b> UK, France/Italy (Euronext), Canada, mainland China, Taiwan, Mexico, EU-wide ESMA statistics, Nasdaq Nordic (Scandinavia), UAE/Qatar/Egypt</li>
         </ul>
       </Panel>
       <Panel>

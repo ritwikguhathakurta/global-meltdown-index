@@ -2,6 +2,15 @@ import type { EngineContext, EngineResult, Horizon } from "./types";
 import { buildIndicator } from "./indicator";
 import { composeEngineResult } from "./compose";
 import { absSeries } from "../metrics/stats";
+import type { Point } from "../metrics/stats";
+
+/** log(ratio) is 0 at parity (e.g. put OI == call OI), positive when the
+ * first leg dominates, negative when the second does — the same symmetric-
+ * around-neutral transform this file already relies on for net %OI, applied
+ * to a ratio input (HKEX/B3 put/call) that isn't naturally zero-centered. */
+function logSeries(points: Point[]): Point[] {
+  return points.filter((p) => p.v > 0).map((p) => ({ t: p.t, v: Math.log(p.v) }));
+}
 
 /**
  * CFTC-based positioning/leverage proxy. No free source exists for options
@@ -20,15 +29,30 @@ import { absSeries } from "../metrics/stats";
  * managed-money extremity (commodity speculative crowding). This changes the
  * engine's GFMI score going forward (more inputs -> different z-scores) as an
  * expected side effect of genuinely broader coverage, not a bug.
+ *
+ * Widened again with real non-US exchange data after a live re-check found
+ * two Phase-1 "not free" disclosures were wrong (see hkexDerivatives.ts and
+ * b3Derivatives.ts): HKEX (Hong Kong) Hang Seng/H-shares index futures Gross
+ * OI as a rising-leverage-in-the-system proxy, and both HKEX's and B3's
+ * (Brazil) equity/index options put/call ratios as positioning-extremity
+ * proxies (log-transformed to be symmetric around parity, same principle as
+ * the existing net-%OI extremity inputs above). Every regulatory
+ * body/exchange actually checked for this pass — including ones that turned
+ * out to be paid/gated/bot-protected rather than free — is listed in
+ * docs/DERIVATIVES_ENGINE.md's "Global leading-indicator coverage" section.
  */
 export async function runDerivativesLeverageEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [sp500Net, vixNet, treasury10yNet, goldNet, crudeNet, natGasNet] = await Promise.all([
+  const [sp500Net, vixNet, treasury10yNet, goldNet, crudeNet, natGasNet, hsiOi, hhiOi, hkexPcr, b3Pcr] = await Promise.all([
     buildIndicator(ctx.db, "cot.sp500_emini.noncomm_net_pct_oi", "CFTC E-mini S&P 500 Non-Commercial Net Position (% OI)", "leading", "weekly", "%"),
     buildIndicator(ctx.db, "cot.vix_futures.noncomm_net_pct_oi", "CFTC VIX Futures Non-Commercial Net Position (% OI)", "leading", "weekly", "%"),
     buildIndicator(ctx.db, "cot_tff.treasury_10y.leveraged_funds_net_pct_oi", "CFTC 10Y Treasury Leveraged-Funds Net Position (% OI)", "leading", "weekly", "%"),
     buildIndicator(ctx.db, "cot_disagg.gold.managed_money_net_pct_oi", "CFTC Gold Managed-Money Net Position (% OI)", "leading", "weekly", "%"),
     buildIndicator(ctx.db, "cot_disagg.crude_oil.managed_money_net_pct_oi", "CFTC Crude Oil Managed-Money Net Position (% OI)", "leading", "weekly", "%"),
     buildIndicator(ctx.db, "cot_disagg.natural_gas.managed_money_net_pct_oi", "CFTC Natural Gas Managed-Money Net Position (% OI)", "leading", "weekly", "%"),
+    buildIndicator(ctx.db, "derivatives.hkex.hsi_futures.gross_oi", "HKEX Hang Seng Index Futures Gross Open Interest", "leading", "daily", "contracts"),
+    buildIndicator(ctx.db, "derivatives.hkex.hhi_futures.gross_oi", "HKEX H-shares Index Futures Gross Open Interest", "leading", "daily", "contracts"),
+    buildIndicator(ctx.db, "derivatives.hkex.options.pcr_oi", "HKEX Equity/Index Options Put/Call OI Ratio", "leading", "daily", "ratio"),
+    buildIndicator(ctx.db, "derivatives.b3.options.pcr_volume", "B3 (Brazil) Equity Options Put/Call Volume Ratio", "leading", "daily", "ratio"),
   ]);
 
   const sp500Extremity = absSeries(sp500Net.series);
@@ -36,6 +60,8 @@ export async function runDerivativesLeverageEngine(ctx: EngineContext, horizon: 
   const goldExtremity = absSeries(goldNet.series);
   const crudeExtremity = absSeries(crudeNet.series);
   const natGasExtremity = absSeries(natGasNet.series);
+  const hkexPcrExtremity = absSeries(logSeries(hkexPcr.series));
+  const b3PcrExtremity = absSeries(logSeries(b3Pcr.series));
 
   return composeEngineResult({
     engineKey: "derivatives_leverage",
@@ -77,6 +103,30 @@ export async function runDerivativesLeverageEngine(ctx: EngineContext, horizon: 
         ref: { ...natGasNet.ref, key: "cot_disagg.natural_gas.positioning_extremity", label: "Natural Gas Managed-Money Positioning Extremity (|net %OI|, derived)" },
         series: natGasExtremity,
         weight: 0.3,
+        zDirection: 1,
+      },
+      {
+        ref: hsiOi.ref,
+        series: hsiOi.series,
+        weight: 0.4,
+        zDirection: 1,
+      },
+      {
+        ref: hhiOi.ref,
+        series: hhiOi.series,
+        weight: 0.3,
+        zDirection: 1,
+      },
+      {
+        ref: { ...hkexPcr.ref, key: "derivatives.hkex.options.pcr_extremity", label: "HKEX Options Put/Call Extremity (|log ratio|, derived)" },
+        series: hkexPcrExtremity,
+        weight: 0.5,
+        zDirection: 1,
+      },
+      {
+        ref: { ...b3Pcr.ref, key: "derivatives.b3.options.pcr_extremity", label: "B3 (Brazil) Options Put/Call Extremity (|log ratio|, derived)" },
+        series: b3PcrExtremity,
+        weight: 0.4,
         zDirection: 1,
       },
     ],

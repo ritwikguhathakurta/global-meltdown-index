@@ -73,6 +73,49 @@ Two Phase 1 disclosures turned out to be wrong and were corrected rather than le
   (Gemini free tier, OpenAI fallback) and per-user cooldown pattern as
   `/api/prediction/analyze`.
 
+## Global leading-indicator coverage (regulator/exchange-by-region check)
+
+The registered `derivatives_leverage` engine's "Leading Indicators" table (Overview tab) is the
+one place new country/exchange positioning data shows up directly, since it's the GFMI-registered
+engine's own indicator list. Per an explicit request to check equity/derivatives regulators across
+G7, the Middle East, Africa, Asia, Latin America, Europe and Scandinavia, every exchange/regulator
+below was checked live (not assumed) before deciding to build or skip it:
+
+**Built (real, free, verified live)**:
+- 🇺🇸 USA — CFTC COT (`cftcCot.ts`, 6 markets already in the engine)
+- 🇮🇳 India — NSE F&O bhavcopy (`nseFoBhavcopy.ts`)
+- 🇭🇰 Hong Kong — HKEX Daily Trading Activity & Open Positions Summary (`hkexDerivatives.ts`): real
+  Gross OI for HSI/HHI/MHI index futures, plus a whole-market equity/index options put/call OI ratio
+- 🇧🇷 Brazil — B3 COTAHIST daily file (`b3Derivatives.ts`): real equity-options put/call **volume**
+  ratio (this file has no open-interest field) and cash-market turnover
+
+**Checked and found gated/paid, not free** (confirmed live, not assumed):
+- 🇯🇵 Japan — JPX's comprehensive open-interest data requires a paid data-services contract; only a
+  short-window (last ~2 months) options-only free CSV exists, not enough for this engine's z-score
+  window
+- 🇩🇪 Germany / pan-Europe — Eurex's open-interest File Service requires an MD+S login; not free
+- 🇿🇦 South Africa — JSE's derivatives historical data is a paid CME DataMine product, not free
+
+**Checked and blocked by bot protection, unable to verify either way**:
+- 🇸🇬 Singapore — SGX's data API returned 403/bot-challenge responses; no working free endpoint found
+  in this pass (matches the same pattern already documented for BSE/MCX)
+- 🇸🇦 Saudi Arabia — Tadawul's market-data pages returned 403
+
+**Checked, has a real "Open API" but requires registration this pass didn't complete**:
+- 🇰🇷 South Korea — KRX publishes an official Open API (`openapi.krx.co.kr`) covering derivatives,
+  but it requires signing up for a key; not verified end-to-end, not built. A real candidate for a
+  future pass if the user wants to register for a key.
+
+**Not reached this pass** (a first-guess URL didn't resolve/existed and wasn't investigated further
+— genuinely "not checked thoroughly," not "confirmed unavailable"): UK/ICE Futures Europe, France
+and Italy's Euronext-based markets, Canada's Montreal Exchange, mainland China's CFFEX/SSE/SZSE,
+Taiwan's TAIFEX, Mexico's MexDer, the EU-wide ESMA statistics register, Nasdaq Nordic (Scandinavia),
+and UAE/Qatar/Egypt's exchanges. Most emerging-market exchanges bot-protect their main sites the same
+way BSE/MCX/JSE/SGX do, or gate real open-interest data behind a paid vendor the way Japan/Eurex/JSE
+do — the pattern found repeatedly in this pass — so the realistic expectation for a future attempt is
+more "gated or blocked" than "another free NSE/HKEX/B3." This list exists so a future session doesn't
+re-attempt an already-checked dead end without reading this first.
+
 ## Tests
 
 `src/lib/derivatives/tests/engine.test.ts` (13 checks): positioning-crowding threshold logic, PCI/GLI/CRI/MSI/CSI computation and UNAVAILABLE fallbacks, the CALCI amplification behavior (stress amplifies leverage rather than averaging with it), scenario-calculator monotonicity, and the historical reference table's structural completeness.
