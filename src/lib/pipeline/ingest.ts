@@ -3,7 +3,10 @@ import { upsertMetrics } from "../metrics/store";
 import { FRED_SERIES, fetchFredSeries, type FredSeriesDef } from "../sources/fred";
 import { fetchFxCrossSeries } from "../sources/fx";
 import { YAHOO_INDEX_SERIES, fetchYahooIndexSeries } from "../sources/yahooIndex";
-import { COT_MARKETS, fetchCotSeries } from "../sources/cftcCot";
+import { COT_MARKETS, fetchCotSeries, COT_DISAGGREGATED_MARKETS, fetchDisaggregatedCotSeries, COT_TFF_MARKETS, fetchTffCotSeries } from "../sources/cftcCot";
+import { fetchBisOtcDerivativesNotional } from "../sources/bisOtcDerivatives";
+import { fetchNyFedRepoRates } from "../sources/nyFedRepoRates";
+import { fetchBinancePerpetuals } from "../sources/binancePerpetuals";
 import { CENTRAL_BANK_FEEDS, fetchCentralBankFeed } from "../sources/centralBankRss";
 import { fetchGscpiSeries } from "../sources/gscpi";
 import { fetchGprSeries } from "../sources/gpr";
@@ -302,6 +305,79 @@ export async function ingestCftc(db: SupabaseClient, runDate: string): Promise<I
   const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
   await logRun(db, runDate, "ingest_cftc", status, { ok, total: COT_MARKETS.length, errors });
   return { stage: "ingest_cftc", status, detail: { ok, total: COT_MARKETS.length, errors } };
+}
+
+/** Disaggregated COT + Traders-in-Financial-Futures — separate stage from Legacy COT above so a
+ * naming/schema issue in either report can't take down the other's well-established 15 markets. */
+export async function ingestCftcExtended(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const since = new Date();
+  since.setUTCDate(since.getUTCDate() - 400);
+  let ok = 0;
+  const errors: string[] = [];
+  const total = COT_DISAGGREGATED_MARKETS.length + COT_TFF_MARKETS.length;
+  for (const def of COT_DISAGGREGATED_MARKETS) {
+    try {
+      const points = await fetchDisaggregatedCotSeries(def, since.toISOString());
+      await upsertMetrics(db, points);
+      ok++;
+    } catch (e) {
+      errors.push(`${def.marketName}: ${(e as Error).message}`);
+    }
+  }
+  for (const def of COT_TFF_MARKETS) {
+    try {
+      const points = await fetchTffCotSeries(def, since.toISOString());
+      await upsertMetrics(db, points);
+      ok++;
+    } catch (e) {
+      errors.push(`${def.marketName}: ${(e as Error).message}`);
+    }
+  }
+  const status = errors.length === 0 ? "ok" : ok > 0 ? "warning" : "failed";
+  await logRun(db, runDate, "ingest_cftc_extended", status, { ok, total, errors });
+  return { stage: "ingest_cftc_extended", status, detail: { ok, total, errors } };
+}
+
+export async function ingestBisOtcDerivatives(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchBisOtcDerivativesNotional();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_bis_otc_derivatives", "ok", detail);
+    return { stage: "ingest_bis_otc_derivatives", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_bis_otc_derivatives", "failed", detail);
+    return { stage: "ingest_bis_otc_derivatives", status: "failed", detail };
+  }
+}
+
+export async function ingestNyFedRepo(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchNyFedRepoRates();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_nyfed_repo", "ok", detail);
+    return { stage: "ingest_nyfed_repo", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_nyfed_repo", "failed", detail);
+    return { stage: "ingest_nyfed_repo", status: "failed", detail };
+  }
+}
+
+export async function ingestBinancePerpetuals(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchBinancePerpetuals();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_binance_perpetuals", "ok", detail);
+    return { stage: "ingest_binance_perpetuals", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_binance_perpetuals", "failed", detail);
+    return { stage: "ingest_binance_perpetuals", status: "failed", detail };
+  }
 }
 
 export async function ingestCentralBankFeeds(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
@@ -1642,6 +1718,10 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_fx", ingestFx(db, runDate)),
     withTimeout("ingest_yahoo_indices", ingestYahooIndices(db, runDate)),
     withTimeout("ingest_cftc", ingestCftc(db, runDate)),
+    withTimeout("ingest_cftc_extended", ingestCftcExtended(db, runDate)),
+    withTimeout("ingest_bis_otc_derivatives", ingestBisOtcDerivatives(db, runDate)),
+    withTimeout("ingest_nyfed_repo", ingestNyFedRepo(db, runDate)),
+    withTimeout("ingest_binance_perpetuals", ingestBinancePerpetuals(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
     withTimeout("ingest_gscpi", ingestGscpi(db, runDate)),
     withTimeout("ingest_gpr", ingestGpr(db, runDate)),

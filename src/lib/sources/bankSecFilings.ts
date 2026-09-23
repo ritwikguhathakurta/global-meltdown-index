@@ -78,6 +78,14 @@ const INSTANT_CONCEPTS: { metricKey: string; tags: string[] }[] = [
   // (ASU 2016-13, ~2020+) transition between these — verified all three
   // exist for at least one sampled bank each.
   { metricKey: "total_loans", tags: ["LoansAndLeasesReceivableNetReportedAmount", "FinancingReceivableExcludingAccruedInterestAfterAllowanceForCreditLoss", "LoansAndLeasesReceivableNetOfDeferredIncome"] },
+  // Derivatives & Leverage engine's Bank & Dealer Leverage tab (spec §45-46) — verified live
+  // against JPMorgan (real ~$48tn notional at 2018-12-31, in line with its public disclosures) and
+  // Goldman/PNC before adding. Wells Fargo checked and confirmed 404 on this exact tag — some
+  // banks tag derivative notional under a bank-specific extension element rather than this common
+  // `us-gaap` concept, so those banks' rows come back empty (shown as UNAVAILABLE, not estimated).
+  { metricKey: "derivative_notional", tags: ["DerivativeNotionalAmount"] },
+  { metricKey: "derivative_assets", tags: ["DerivativeAssets"] },
+  { metricKey: "derivative_liabilities", tags: ["DerivativeLiabilities"] },
 ];
 
 const DURATION_CONCEPTS: { metricKey: string; tags: string[]; allowNegative: boolean }[] = [

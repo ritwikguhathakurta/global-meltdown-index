@@ -59,6 +59,11 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   // stablecoin peg/supply, which Yahoo doesn't publish.
   { metricKey: "crypto.btc_price_usd", symbol: "BTC-USD", unit: "USD", range: "5y" },
   { metricKey: "crypto.eth_price_usd", symbol: "ETH-USD", unit: "USD", range: "5y" },
+  // Derivatives & Leverage engine — ICE BofA MOVE index (Treasury options implied volatility),
+  // the rates-market analog of VIX. No FRED series exists for it; verified live on Yahoo (^MOVE,
+  // real daily history back to the index's 2002 base) before adding, same mechanism already used
+  // here for VIX-adjacent series.
+  { metricKey: "derivatives.move_index", symbol: "^MOVE", unit: "index", range: "5y" },
   // Banking Systemic Risk engine (bankingSystemicRisk.ts) — Market Stress
   // domain. No free source publishes bank CDS or a uniform cross-country
   // bank-equity-sector index API, so this is the free next-best: a broad

@@ -187,6 +187,21 @@ regulatory rules are date-versioned data in `regulatory.ts` with provenance (cur
 client-only (`CarryLoader` uses `dynamic(..., { ssr: false })` because state lives in `localStorage`).
 `/api/carry/calculate` is authenticated and rate-limited itself (`/api/*` is outside the proxy).
 
+### Derivatives & Leverage engine (`src/lib/derivatives/`, page `/dashboard/derivatives`)
+
+Built against a 151-section institutional spec; per explicit instruction, everything lives under the one
+existing "Derivatives / Leverage" nav entry/route — no new nav item, no second GFMI-registry engine. Two
+independent things share the page: the GFMI-registered `derivatives_leverage` engine
+(`src/lib/engines/derivativesLeverage.ts`, weight 0.7, a real CFTC-COT positioning proxy widened from 2 to
+6 markets) and the page-level analytical layer (`src/lib/derivatives/`, pure/no-server-imports like
+`src/lib/carry/`, GLI/CRI/MSI/CSI/FDR/DLS/CALCI/PCI — **not** registered in `gfmi.ts`). Full detail,
+including exactly what's REAL vs `MODEL_ESTIMATE` vs not built and why, is in `docs/DERIVATIVES_ENGINE.md`
+— read it before touching any index formula. Most of the spec's asks (DTCC/ISDA/CCP granular feeds, live
+options Greeks/gamma, WFE/FIA data, 13F/N-PORT/Form PF, ML-validated backtesting) need paid/licensed data
+or a labeled ground-truth dataset that doesn't exist for free and are deliberately not built — disclosed
+on the page's own Sources & Limitations tab. Run `npm run test:derivatives` after touching
+`src/lib/derivatives/`.
+
 ### Commodities taxonomy
 
 `src/lib/commodities/taxonomy.ts` (`COMMODITIES`) is the master list mapping each commodity to its

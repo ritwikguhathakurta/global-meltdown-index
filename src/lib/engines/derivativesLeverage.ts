@@ -11,14 +11,31 @@ import { absSeries } from "../metrics/stats";
  * direction can be a crowded, forced-unwind-prone trade); VIX futures uses
  * net-short specifically, since crowded short-vol positioning has a
  * well-documented history of disorderly unwinds (e.g. Feb 2018).
+ *
+ * Widened for the Derivatives & Leverage dashboard rebuild (see
+ * docs/DERIVATIVES_ENGINE.md) with real participant-category positioning from
+ * the Disaggregated COT and Traders-in-Financial-Futures reports (cftcCot.ts):
+ * Treasury 10Y leveraged-funds extremity (the same participant category behind
+ * the 2020 Treasury cash-futures basis-trade unwind) and gold/crude/natural-gas
+ * managed-money extremity (commodity speculative crowding). This changes the
+ * engine's GFMI score going forward (more inputs -> different z-scores) as an
+ * expected side effect of genuinely broader coverage, not a bug.
  */
 export async function runDerivativesLeverageEngine(ctx: EngineContext, horizon: Horizon): Promise<EngineResult> {
-  const [sp500Net, vixNet] = await Promise.all([
+  const [sp500Net, vixNet, treasury10yNet, goldNet, crudeNet, natGasNet] = await Promise.all([
     buildIndicator(ctx.db, "cot.sp500_emini.noncomm_net_pct_oi", "CFTC E-mini S&P 500 Non-Commercial Net Position (% OI)", "leading", "weekly", "%"),
     buildIndicator(ctx.db, "cot.vix_futures.noncomm_net_pct_oi", "CFTC VIX Futures Non-Commercial Net Position (% OI)", "leading", "weekly", "%"),
+    buildIndicator(ctx.db, "cot_tff.treasury_10y.leveraged_funds_net_pct_oi", "CFTC 10Y Treasury Leveraged-Funds Net Position (% OI)", "leading", "weekly", "%"),
+    buildIndicator(ctx.db, "cot_disagg.gold.managed_money_net_pct_oi", "CFTC Gold Managed-Money Net Position (% OI)", "leading", "weekly", "%"),
+    buildIndicator(ctx.db, "cot_disagg.crude_oil.managed_money_net_pct_oi", "CFTC Crude Oil Managed-Money Net Position (% OI)", "leading", "weekly", "%"),
+    buildIndicator(ctx.db, "cot_disagg.natural_gas.managed_money_net_pct_oi", "CFTC Natural Gas Managed-Money Net Position (% OI)", "leading", "weekly", "%"),
   ]);
 
   const sp500Extremity = absSeries(sp500Net.series);
+  const treasury10yExtremity = absSeries(treasury10yNet.series);
+  const goldExtremity = absSeries(goldNet.series);
+  const crudeExtremity = absSeries(crudeNet.series);
+  const natGasExtremity = absSeries(natGasNet.series);
 
   return composeEngineResult({
     engineKey: "derivatives_leverage",
@@ -37,6 +54,30 @@ export async function runDerivativesLeverageEngine(ctx: EngineContext, horizon: 
         series: vixNet.series,
         weight: 1.0,
         zDirection: -1,
+      },
+      {
+        ref: { ...treasury10yNet.ref, key: "cot_tff.treasury_10y.positioning_extremity", label: "10Y Treasury Leveraged-Funds Positioning Extremity (|net %OI|, derived)" },
+        series: treasury10yExtremity,
+        weight: 0.8,
+        zDirection: 1,
+      },
+      {
+        ref: { ...goldNet.ref, key: "cot_disagg.gold.positioning_extremity", label: "Gold Managed-Money Positioning Extremity (|net %OI|, derived)" },
+        series: goldExtremity,
+        weight: 0.4,
+        zDirection: 1,
+      },
+      {
+        ref: { ...crudeNet.ref, key: "cot_disagg.crude_oil.positioning_extremity", label: "Crude Oil Managed-Money Positioning Extremity (|net %OI|, derived)" },
+        series: crudeExtremity,
+        weight: 0.4,
+        zDirection: 1,
+      },
+      {
+        ref: { ...natGasNet.ref, key: "cot_disagg.natural_gas.positioning_extremity", label: "Natural Gas Managed-Money Positioning Extremity (|net %OI|, derived)" },
+        series: natGasExtremity,
+        weight: 0.3,
+        zDirection: 1,
       },
     ],
     triggerDesc:

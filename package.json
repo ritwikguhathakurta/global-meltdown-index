@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:carry": "tsx src/lib/carry/tests/golden.test.ts && tsx src/lib/carry/tests/engine.test.ts"
+    "test:carry": "tsx src/lib/carry/tests/golden.test.ts && tsx src/lib/carry/tests/engine.test.ts",
+    "test:derivatives": "tsx src/lib/derivatives/tests/engine.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
