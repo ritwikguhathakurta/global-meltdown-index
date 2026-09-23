@@ -674,6 +674,15 @@ export async function ingestRbiLiquidity(db: SupabaseClient, runDate: string): P
 }
 
 export async function ingestRbiYieldCurve(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  // Upserts T-Bill points and G-Sec points as soon as each is ready (see
+  // fetchIndiaYieldCurveSeries's onBatch doc comment) rather than waiting
+  // for both — a real pipeline run showed this stage sometimes needs more
+  // wall-clock time than its isolated pre-phase budget allows, especially
+  // during a multi-year backfill; this way an abandonment (which doesn't
+  // cancel the underlying fetch, just stops waiting for it) still keeps
+  // whichever half already finished, instead of losing both to an
+  // all-or-nothing single upsert at the very end.
+  let upserted = 0;
   try {
     const { count, error: countError } = await db
       .from("metric_series")
@@ -682,16 +691,18 @@ export async function ingestRbiYieldCurve(db: SupabaseClient, runDate: string): 
     if (countError) throw new Error(`row count check: ${countError.message}`);
     const needsBackfill = (count ?? 0) < MIN_RBI_YIELD_CURVE_OBSERVATIONS;
 
-    const points = await fetchIndiaYieldCurveSeries(needsBackfill ? priorCalendarYears(3) : []);
-    await upsertMetrics(db, points);
+    const points = await fetchIndiaYieldCurveSeries(needsBackfill ? priorCalendarYears(3) : [], async (batch) => {
+      await upsertMetrics(db, batch);
+      upserted += batch.length;
+    });
     const status = points.length > 0 ? "ok" : "warning";
     const detail = { points: points.length, backfilled: needsBackfill };
     await logRun(db, runDate, "ingest_rbi_yield_curve", status, detail);
     return { stage: "ingest_rbi_yield_curve", status, detail };
   } catch (e) {
-    const detail = { error: (e as Error).message };
-    await logRun(db, runDate, "ingest_rbi_yield_curve", "failed", detail);
-    return { stage: "ingest_rbi_yield_curve", status: "failed", detail };
+    const detail = { error: (e as Error).message, upserted };
+    await logRun(db, runDate, "ingest_rbi_yield_curve", upserted > 0 ? "warning" : "failed", detail);
+    return { stage: "ingest_rbi_yield_curve", status: upserted > 0 ? "warning" : "failed", detail };
   }
 }
 

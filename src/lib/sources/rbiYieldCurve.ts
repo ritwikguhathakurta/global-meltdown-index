@@ -104,7 +104,20 @@ function mean(xs: number[]): number {
   return xs.reduce((a, b) => a + b, 0) / xs.length;
 }
 
-export async function fetchIndiaYieldCurveSeries(backfillYears: number[] = []): Promise<MetricPoint[]> {
+/**
+ * `onBatch`, if given, is called with the T-Bill points and then (a
+ * separate call) the G-Sec points as soon as each finishes, rather than
+ * only after both complete — added after a live pipeline run showed this
+ * stage's own isolated pre-phase budget (ingest.ts) is sometimes too tight
+ * for a full T-Bill-then-G-Sec pass in one go, especially when a multi-year
+ * backfill is still needed. Without this, a stage-timeout abandonment
+ * (which doesn't cancel this function, just stops waiting for it) meant
+ * even genuinely-finished T-Bill data never reached Supabase because the
+ * caller's single upsert was gated behind G-Sec finishing too. The caller
+ * (ingest.ts) upserts each batch immediately; this function still also
+ * returns the full combined array at the end for its own return contract.
+ */
+export async function fetchIndiaYieldCurveSeries(backfillYears: number[] = [], onBatch?: (points: MetricPoint[]) => Promise<void>): Promise<MetricPoint[]> {
   const currentHtml = await fetchRbiCurrentListingHtml();
   const archiveHtmls = backfillYears.length > 0 ? await mapWithConcurrency(backfillYears, 2, (y) => fetchRbiArchiveYearHtml(y)) : [];
   const allHtml = [currentHtml, ...archiveHtmls];
@@ -117,8 +130,6 @@ export async function fetchIndiaYieldCurveSeries(backfillYears: number[] = []): 
   }
   if (tbillPrids.size === 0 && gsecPrids.size === 0) throw new Error("RBI T-Bill/G-Sec auctions: no releases discovered");
 
-  const points: MetricPoint[] = [];
-
   const tbillRows = await mapWithConcurrency([...tbillPrids], 8, async (prid) => {
     const text = await fetchReleaseText(prid);
     const date = parseAbbrevDate(text);
@@ -126,10 +137,12 @@ export async function fetchIndiaYieldCurveSeries(backfillYears: number[] = []): 
     if (!date || !yields) return null;
     return { date, yields };
   });
+  const tbillPoints: MetricPoint[] = [];
   for (const r of tbillRows) {
-    points.push({ metric_key: "india.tbill_91d", observed_at: r.date, value: r.yields.d91, unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "weekly" });
-    points.push({ metric_key: "india.tbill_364d", observed_at: r.date, value: r.yields.d364, unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "weekly" });
+    tbillPoints.push({ metric_key: "india.tbill_91d", observed_at: r.date, value: r.yields.d91, unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "weekly" });
+    tbillPoints.push({ metric_key: "india.tbill_364d", observed_at: r.date, value: r.yields.d364, unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "weekly" });
   }
+  if (onBatch) await onBatch(tbillPoints);
 
   const gsecRows = await mapWithConcurrency([...gsecPrids], 8, async (prid) => {
     const text = await fetchReleaseText(prid);
@@ -138,15 +151,18 @@ export async function fetchIndiaYieldCurveSeries(backfillYears: number[] = []): 
     const { medium, long } = parseGsecAuction(text, Number(date.slice(0, 4)));
     return { date, medium, long };
   });
+  const gsecPoints: MetricPoint[] = [];
   for (const r of gsecRows) {
     if (r.medium.length > 0) {
-      points.push({ metric_key: "india.gsec_medium_yield", observed_at: r.date, value: mean(r.medium), unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "monthly" });
+      gsecPoints.push({ metric_key: "india.gsec_medium_yield", observed_at: r.date, value: mean(r.medium), unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "monthly" });
     }
     if (r.long.length > 0) {
-      points.push({ metric_key: "india.gsec_long_yield", observed_at: r.date, value: mean(r.long), unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "monthly" });
+      gsecPoints.push({ metric_key: "india.gsec_long_yield", observed_at: r.date, value: mean(r.long), unit: "%", source_key: "rbi_gsec_auctions", source_tier: 1, frequency: "monthly" });
     }
   }
+  if (onBatch) await onBatch(gsecPoints);
 
+  const points = [...tbillPoints, ...gsecPoints];
   if (points.length === 0) throw new Error("RBI T-Bill/G-Sec auctions: no data parsed from any release");
   return points;
 }
