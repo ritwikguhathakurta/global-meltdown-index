@@ -93,7 +93,7 @@ import { fetchEiaChemicalFeedstockSpot } from "../sources/eiaChemicalFeedstockSp
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
 import { fetchUnComtradeEnergyFlowsForCommodity, TRADE_COMMODITIES, fetchUnComtradeOleochemicalFlowsForCommodity, OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
-import { ComtradeRateLimitedError } from "../sources/unComtradeRateLimit";
+import { ComtradeRateLimitedError, ComtradeQuotaExceededError as SharedComtradeQuotaExceededError } from "../sources/unComtradeRateLimit";
 import { fetchEntsoeDayAheadPrices, fetchEntsoeLoad, fetchEntsoeGeneration, fetchEntsoeCrossBorderFlowsForBorder, EU_GRID_BORDERS } from "../sources/entsoe";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
@@ -1277,7 +1277,7 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
       await upsertMetrics(db, points);
       totalPoints += points.length;
     } catch (e) {
-      if (e instanceof ComtradeRateLimitedError) {
+      if (e instanceof ComtradeRateLimitedError || e instanceof SharedComtradeQuotaExceededError) {
         errors.push(`stopped early: ${e.message} (${commodity.slug} onward deferred to a later run)`);
         stoppedAtIndex = index;
         break;
@@ -1332,7 +1332,7 @@ export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runD
       await upsertMetrics(db, points);
       totalPoints += points.length;
     } catch (e) {
-      if (e instanceof ComtradeRateLimitedError) {
+      if (e instanceof ComtradeRateLimitedError || e instanceof SharedComtradeQuotaExceededError) {
         errors.push(`stopped early: ${e.message} (${commodity.slug} onward deferred to a later run)`);
         stoppedAtIndex = index;
         break;
@@ -1851,18 +1851,24 @@ export async function runIngestionPipeline(db: SupabaseClient) {
   // invocation happens to be under, i.e. event-loop/network contention from
   // ~75 other stages all firing at once, not RBI or its timeout value.
   // Running these two to completion first gives them a much quieter
-  // environment. Bounded at 60s each (not the 220s they got inline, and not
-  // the 100s first tried here — see route.ts's own comment on why 100s+a
-  // raised maxDuration got reverted) so a bad RBI day still only costs 60s
-  // up front. This does add up to 60s of real serial time on top of the
-  // route's existing (unchanged, plan-capped) 300s ceiling rather than
-  // creating headroom for it the way a maxDuration raise would have —
-  // accepted as the same "not every stage hits its worst case
-  // simultaneously" empirical assumption the whole pipeline already ran on
-  // before this change, not a formally airtight worst-case guarantee.
+  // environment. Not the 220s they got inline, and not the 100s first tried
+  // here (see route.ts's own comment on why 100s + a raised maxDuration got
+  // reverted — this account's plan caps function duration at 300s). Live-
+  // tested at 60s each: liquidity succeeded (20 real points) but yield
+  // curve was abandoned at 60s — it fetches more releases per run (299
+  // points in an earlier full-backfill run) than liquidity typically does,
+  // so it genuinely needs more wall-clock time even fully uncontended. The
+  // two run concurrently with each other here, so giving yield curve more
+  // only costs extra time on days it actually needs it — liquidity finishing
+  // early doesn't wait around. This adds up to 90s of real serial time on
+  // top of the route's existing (unchanged, plan-capped) 300s ceiling
+  // rather than creating dedicated headroom for it — accepted as the same
+  // "not every stage hits its worst case simultaneously" empirical
+  // assumption the whole pipeline already ran on before this change, not a
+  // formally airtight worst-case guarantee.
   const rbiResults = await Promise.all([
     withStageTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate), 60_000, db, runDate),
-    withStageTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate), 60_000, db, runDate),
+    withStageTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate), 90_000, db, runDate),
   ]);
 
   // Every stage below races against a shared 150s safety net (see

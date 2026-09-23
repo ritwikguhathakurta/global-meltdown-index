@@ -70,3 +70,22 @@ export function throttleComtradeCall(): Promise<void> {
  * into full stage-timeout abandonments instead of a clean early stop.
  */
 export class ComtradeRateLimitedError extends Error {}
+
+/**
+ * The DAILY call-volume quota (distinct from the rolling-window rate limit
+ * above), confirmed live via Azure APIM's real 403 body: `{"statusCode":403,
+ * "message":"Out of call volume quota. Quota will be replenished in
+ * HH:MM:SS."}`. unComtradeCommodityTrade.ts and unComtradeChemicalPrices.ts
+ * already had their own identically-behaved classes for this before this
+ * shared one existed; unComtrade.ts (energy + oleochemical flows) had NO
+ * 403 handling at all — confirmed live during this same investigation: a
+ * pipeline run where the daily quota was already exhausted (by this
+ * session's own extensive live rate-limit calibration testing) showed
+ * energy/oleochemical flows trying every remaining commodity one by one,
+ * each failing fast on 403 but logged as an ordinary per-commodity error
+ * rather than stopping cleanly like usgs/chemical's quota handling already
+ * did. Used by unComtrade.ts now for that reason; the other two modules'
+ * own classes are left as-is (not worth the churn of migrating already-
+ * correct call sites just for naming consistency).
+ */
+export class ComtradeQuotaExceededError extends Error {}

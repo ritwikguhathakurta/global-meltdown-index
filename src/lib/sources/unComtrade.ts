@@ -1,6 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { EIA_COUNTRIES } from "./eiaApi";
-import { throttleComtradeCall, ComtradeRateLimitedError } from "./unComtradeRateLimit";
+import { throttleComtradeCall, ComtradeRateLimitedError, ComtradeQuotaExceededError } from "./unComtradeRateLimit";
 
 /**
  * UN Comtrade — official bilateral trade statistics. Two tiers, both
@@ -146,6 +146,10 @@ async function comtradeQuery(params: { reporterCode: string; partnerCode: string
   for (let attempt = 0; attempt <= 2; attempt++) {
     await throttleComtradeCall();
     const res = await fetch(url.toString(), { next: { revalidate: 0 }, headers });
+    if (res.status === 403) {
+      const body = await res.text().catch(() => "");
+      throw new ComtradeQuotaExceededError(`UN Comtrade quota exceeded: ${body || "HTTP 403"}`);
+    }
     if (res.status === 429) {
       if (attempt === 2) throw new ComtradeRateLimitedError(`UN Comtrade: rate limited after retries (cmd ${params.cmdCode}, reporter ${params.reporterCode})`);
       await delay(4000 * (attempt + 1));
