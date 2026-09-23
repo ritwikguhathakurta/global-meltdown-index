@@ -1,5 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { COUNTRY_BALANCE_COMMODITIES, type CountryBalanceCommodityDef } from "../commodities/countryBalanceTaxonomy";
+import { throttleComtradeCall } from "./unComtradeRateLimit";
 
 export const USGS_TRADE_COMMODITIES: CountryBalanceCommodityDef[] = COUNTRY_BALANCE_COMMODITIES.filter(
   (c) => c.source === "usgs_mcs" && c.comtradeHsCodes
@@ -94,6 +95,7 @@ async function comtradeQuery(reporterCode: string, period: string, cmdCodes: str
   const headers: HeadersInit | undefined = SUBSCRIPTION_KEY ? { "Ocp-Apim-Subscription-Key": SUBSCRIPTION_KEY } : undefined;
 
   for (let attempt = 0; attempt <= 2; attempt++) {
+    await throttleComtradeCall();
     const res = await fetch(url.toString(), { next: { revalidate: 0 }, headers });
     if (res.status === 403) {
       const body = await res.text().catch(() => "");

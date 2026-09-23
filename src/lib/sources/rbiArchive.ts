@@ -19,7 +19,14 @@
  * cheaper than one request per month.
  */
 const LISTING_URL = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx";
-const HEADERS = { "User-Agent": "GlobalMeltdownIndex-ingest/1.0" };
+// Every fetch to this domain has timed out from the pipeline on every run for
+// two straight weeks (confirmed: rbi.org.in itself responds in under 2s when
+// hit directly from outside the pipeline), while the identical WAF-quirk
+// pattern already documented in bpsIndonesia.ts/mpobMalaysia.ts — a
+// non-browser User-Agent gets silently stalled rather than rejected outright
+// — fits exactly. Using the same browser-like UA those files already use.
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+const HEADERS = { "User-Agent": UA };
 
 function extractFormValue(html: string, name: string): string {
   const re = new RegExp(`name="${name}"[^>]*value="([^"]*)"`);

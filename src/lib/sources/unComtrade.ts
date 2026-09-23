@@ -1,5 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { EIA_COUNTRIES } from "./eiaApi";
+import { throttleComtradeCall } from "./unComtradeRateLimit";
 
 /**
  * UN Comtrade — official bilateral trade statistics. Two tiers, both
@@ -143,6 +144,7 @@ async function comtradeQuery(params: { reporterCode: string; partnerCode: string
 
   const headers: HeadersInit | undefined = UN_COMTRADE_SUBSCRIPTION_KEY ? { "Ocp-Apim-Subscription-Key": UN_COMTRADE_SUBSCRIPTION_KEY } : undefined;
   for (let attempt = 0; attempt <= 2; attempt++) {
+    await throttleComtradeCall();
     const res = await fetch(url.toString(), { next: { revalidate: 0 }, headers });
     if (res.status === 429) {
       if (attempt === 2) throw new Error(`UN Comtrade: rate limited after retries (cmd ${params.cmdCode}, reporter ${params.reporterCode})`);

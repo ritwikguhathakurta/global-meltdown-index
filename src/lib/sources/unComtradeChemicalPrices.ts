@@ -1,5 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { CHEMICAL_PRODUCTS, priceHsCodesFor, type ChemicalPriceHsCodes } from "../commodities/chemicalProductsDatabase";
+import { throttleComtradeCall } from "./unComtradeRateLimit";
 
 /**
  * Average export/import unit value (declared customs value ÷ net weight)
@@ -70,6 +71,7 @@ async function comtradeQuery(cmdCode: string, period: string): Promise<ComtradeR
   const headers: HeadersInit | undefined = SUBSCRIPTION_KEY ? { "Ocp-Apim-Subscription-Key": SUBSCRIPTION_KEY } : undefined;
 
   for (let attempt = 0; attempt <= 2; attempt++) {
+    await throttleComtradeCall();
     const res = await fetch(url.toString(), { next: { revalidate: 0 }, headers });
     if (res.status === 403) {
       const body = await res.text().catch(() => "");
