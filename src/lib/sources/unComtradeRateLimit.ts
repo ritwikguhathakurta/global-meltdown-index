@@ -16,16 +16,27 @@
  */
 const UN_COMTRADE_SUBSCRIPTION_KEY = process.env.UN_COMTRADE_SUBSCRIPTION_KEY;
 // The original 400ms figure came from a short burst test (5 rapid calls, no
-// 429s) and looked safe — but that only measures burst tolerance, not a
-// sustained rate. Live-tested directly against the real API on the
-// registered tier: 30 sequential calls at 400ms apart succeeded for the
-// first ~20 (roughly 16s of sustained traffic) before every subsequent call
-// 429'd — a real, lower SUSTAINED ceiling than the burst test suggested,
-// and exactly consistent with pipeline_runs still showing "rate limited
-// after retries" on this stage even after the cross-stage serialization
-// fix below was deployed. 1000ms keeps sustained throughput comfortably
-// under the ~1.25 req/s wall actually observed.
-const MIN_GAP_MS = UN_COMTRADE_SUBSCRIPTION_KEY ? 1000 : 3000;
+// 429s) — that only measures burst tolerance, not a sustained rate, and
+// this endpoint turns out to behave like a rolling-window token bucket
+// (roughly N requests per ~60s window), not a smooth per-second rate — so a
+// short burst test always looks safe right up until the bucket empties.
+// Two rounds of live sustained testing against the real API on the
+// registered tier nailed the actual shape:
+//   - 400ms gap: 30 sequential calls, first ~20 succeeded (~16s elapsed),
+//     then every call 429'd — a real ceiling near ~20 requests per rolling
+//     window, not the ~2.5 req/s the gap implies.
+//   - 1000ms gap: deployed as the fix for the above, but pipeline_runs
+//     still showed the exact same "rate limited after retries" failure —
+//     60 req/min still overshoots a ~20-per-window bucket by 3x.
+//   - 3000ms gap: 25 sequential calls, ALL succeeded over 91s elapsed —
+//     this is the first setting that actually held under sustained load,
+//     confirmed live, not assumed.
+// 3000ms is what's shipped. The unkeyed tier's own doc comment already
+// describes it as 429-ing after just 2-3 rapid calls (i.e. a much smaller
+// bucket) — 5000ms is a conservative scale-up from the now-confirmed keyed
+// figure, not independently sustained-tested (this deployment has a key
+// configured, so the unkeyed path is rarely exercised in practice).
+const MIN_GAP_MS = UN_COMTRADE_SUBSCRIPTION_KEY ? 3000 : 5000;
 
 let queue: Promise<void> = Promise.resolve();
 let lastCallAt = 0;

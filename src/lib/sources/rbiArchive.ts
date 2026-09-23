@@ -19,25 +19,19 @@
  * cheaper than one request per month.
  *
  * TIMEOUT HISTORY — read before touching this again: every fetch to this
- * domain has timed out from the pipeline for weeks. A browser-like
- * User-Agent was tried first (matching the documented WAF-quirk pattern in
- * bpsIndonesia.ts/mpobMalaysia.ts) and DID NOT fix it — re-verified live in
- * this same session: rbi.org.in responds in 1.3-2.6s when hit directly
- * (with or without a browser UA) from a normal network, yet the exact same
- * URL still times out from the Vercel pipeline after that UA change shipped.
- * A header can't explain "fast from anywhere else, hangs specifically from
- * one cloud platform" — the much more likely cause is RBI blocking Vercel's
- * outbound IP ranges at the network level (a common pattern for Indian
- * government sites against cloud-provider ASNs), which manifests as a
- * connection that never completes (hence a timeout, not a fast 403) and
- * which no request header can work around. The timeouts below were
- * widened from 15-20s to a more patient 45-60s as a genuine test of the
- * competing "just slow from this network path" hypothesis — check
- * pipeline_runs after a real run for whether this is now succeeding,
- * still timing out (supports the IP-block theory — see AGENTS/CLAUDE.md
- * before attempting yet another header/UA change, which is very unlikely
- * to be the actual lever here), or failing with a different, more specific
- * error (would newly rule in/out other causes).
+ * domain timed out from the pipeline for weeks despite rbi.org.in itself
+ * responding in 1.3-2.6s from a normal network. A browser-like User-Agent
+ * was tried first (matching the documented WAF-quirk pattern in
+ * bpsIndonesia.ts/mpobMalaysia.ts) and did NOT fix it. An IP-range-block
+ * theory was tried next and was directly disproved: a standalone diagnostic
+ * route hitting this exact function from the actual Vercel production
+ * environment returned in 3.8s, no block. The real fix was simpler than
+ * either theory — the original 15-20s per-fetch timeouts were just
+ * genuinely too tight for this specific server on a bad day (confirmed:
+ * after widening to 45-60s below, a real pipeline run succeeded end to end,
+ * 20 + 299 real points). Don't re-tighten these back down without a live
+ * re-test; don't re-attempt a header/UA change for this domain — both
+ * plausible-looking theories before this one turned out wrong.
  */
 const LISTING_URL = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
