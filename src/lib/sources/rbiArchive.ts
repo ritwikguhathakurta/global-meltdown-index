@@ -17,30 +17,63 @@
  * (not a CAPTCHA/challenge page), and passing month="0" returns the WHOLE
  * YEAR (~350-450 releases) in one request, which is what this uses — far
  * cheaper than one request per month.
+ *
+ * TIMEOUT HISTORY — read before touching this again: every fetch to this
+ * domain has timed out from the pipeline for weeks. A browser-like
+ * User-Agent was tried first (matching the documented WAF-quirk pattern in
+ * bpsIndonesia.ts/mpobMalaysia.ts) and DID NOT fix it — re-verified live in
+ * this same session: rbi.org.in responds in 1.3-2.6s when hit directly
+ * (with or without a browser UA) from a normal network, yet the exact same
+ * URL still times out from the Vercel pipeline after that UA change shipped.
+ * A header can't explain "fast from anywhere else, hangs specifically from
+ * one cloud platform" — the much more likely cause is RBI blocking Vercel's
+ * outbound IP ranges at the network level (a common pattern for Indian
+ * government sites against cloud-provider ASNs), which manifests as a
+ * connection that never completes (hence a timeout, not a fast 403) and
+ * which no request header can work around. The timeouts below were
+ * widened from 15-20s to a more patient 45-60s as a genuine test of the
+ * competing "just slow from this network path" hypothesis — check
+ * pipeline_runs after a real run for whether this is now succeeding,
+ * still timing out (supports the IP-block theory — see AGENTS/CLAUDE.md
+ * before attempting yet another header/UA change, which is very unlikely
+ * to be the actual lever here), or failing with a different, more specific
+ * error (would newly rule in/out other causes).
  */
 const LISTING_URL = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx";
-// Every fetch to this domain has timed out from the pipeline on every run for
-// two straight weeks (confirmed: rbi.org.in itself responds in under 2s when
-// hit directly from outside the pipeline), while the identical WAF-quirk
-// pattern already documented in bpsIndonesia.ts/mpobMalaysia.ts — a
-// non-browser User-Agent gets silently stalled rather than rejected outright
-// — fits exactly. Using the same browser-like UA those files already use.
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 const HEADERS = { "User-Agent": UA };
+const FETCH_TIMEOUT_MS = 45000;
+const POST_TIMEOUT_MS = 60000;
 
 function extractFormValue(html: string, name: string): string {
   const re = new RegExp(`name="${name}"[^>]*value="([^"]*)"`);
   return html.match(re)?.[1] ?? "";
 }
 
+/** Wraps a fetch failure with the elapsed time and the underlying error's
+ * own name/cause (not just its message) — a timeout, a DNS failure and a
+ * connection reset all currently collapse into the same generic message,
+ * which is exactly what made the wrong root cause (WAF/UA) look plausible
+ * for as long as it did. Real error detail lands in pipeline_runs.detail. */
+async function timedFetch(url: string, init: RequestInit, timeoutMs: number, label: string): Promise<Response> {
+  const startedAt = Date.now();
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (e) {
+    const err = e as Error & { cause?: unknown };
+    const elapsedMs = Date.now() - startedAt;
+    throw new Error(`${label}: ${err.name}: ${err.message} (cause: ${err.cause ?? "none"}, elapsed ${elapsedMs}ms of ${timeoutMs}ms budget)`);
+  }
+}
+
 export async function fetchRbiCurrentListingHtml(): Promise<string> {
-  const res = await fetch(LISTING_URL, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+  const res = await timedFetch(LISTING_URL, { headers: HEADERS }, FETCH_TIMEOUT_MS, "RBI press release listing");
   if (!res.ok) throw new Error(`RBI press release listing: HTTP ${res.status}`);
   return res.text();
 }
 
 export async function fetchRbiArchiveYearHtml(year: number): Promise<string> {
-  const initial = await fetch(LISTING_URL, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+  const initial = await timedFetch(LISTING_URL, { headers: HEADERS }, FETCH_TIMEOUT_MS, `RBI archive (${year}): initial GET`);
   if (!initial.ok) throw new Error(`RBI archive (${year}): initial GET HTTP ${initial.status}`);
   const initialHtml = await initial.text();
   const cookies = (initial.headers.getSetCookie?.() ?? []).map((c) => c.split(";")[0]).join("; ");
@@ -53,12 +86,12 @@ export async function fetchRbiArchiveYearHtml(year: number): Promise<string> {
     hdnMonth: "0",
     "UsrFontCntr$btn": "",
   });
-  const res = await fetch(LISTING_URL, {
-    method: "POST",
-    headers: { ...HEADERS, "Content-Type": "application/x-www-form-urlencoded", Cookie: cookies },
-    body: body.toString(),
-    signal: AbortSignal.timeout(20000),
-  });
+  const res = await timedFetch(
+    LISTING_URL,
+    { method: "POST", headers: { ...HEADERS, "Content-Type": "application/x-www-form-urlencoded", Cookie: cookies }, body: body.toString() },
+    POST_TIMEOUT_MS,
+    `RBI archive (${year}): POST`
+  );
   if (!res.ok) throw new Error(`RBI archive (${year}): POST HTTP ${res.status}`);
   return res.text();
 }
@@ -75,7 +108,7 @@ export function stripHtml(html: string): string {
 }
 
 export async function fetchReleaseText(prid: string): Promise<string> {
-  const res = await fetch(`${LISTING_URL}?prid=${prid}`, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+  const res = await timedFetch(`${LISTING_URL}?prid=${prid}`, { headers: HEADERS }, FETCH_TIMEOUT_MS, `RBI release ${prid}`);
   if (!res.ok) throw new Error(`RBI release ${prid}: HTTP ${res.status}`);
   return stripHtml(await res.text());
 }

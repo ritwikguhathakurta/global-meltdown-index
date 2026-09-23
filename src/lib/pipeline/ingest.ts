@@ -1797,8 +1797,13 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_gov_bond_yields", ingestGovBondYields(db, runDate)),
     withTimeout("ingest_gov_liquidity", ingestGovLiquidity(db, runDate)),
     withTimeout("ingest_central_bank_short_rates", ingestCentralBankShortRates(db, runDate)),
-    withTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate)),
-    withTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate)),
+    // Individual RBI fetches were widened from 15-20s to 45-60s to test
+    // whether the persistent timeouts are genuine slowness rather than a
+    // hard block (see rbiArchive.ts's doc comment) — the stage ceiling is
+    // raised to match so that test gets a real chance to complete rather
+    // than being abandoned by a now-too-tight 150s budget regardless.
+    withStageTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate), 220_000, db, runDate),
+    withStageTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate), 220_000, db, runDate),
     withTimeout("ingest_bis_credit_gaps", ingestBisCreditGaps(db, runDate)),
     withTimeout("ingest_china_lgfv_debt", ingestChinaLgfvDebt(db, runDate)),
     withTimeout("ingest_gov_cn_statistics", ingestGovCnStatistics(db, runDate)),
