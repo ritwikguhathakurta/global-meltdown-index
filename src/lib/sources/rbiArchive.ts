@@ -36,8 +36,13 @@
 const LISTING_URL = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 const HEADERS = { "User-Agent": UA };
-const FETCH_TIMEOUT_MS = 45000;
-const POST_TIMEOUT_MS = 60000;
+// Tightened from 45s/60s now that these run inside a dedicated 60s stage
+// budget (ingest.ts's RBI pre-phase) instead of a shared 220s one — a
+// single slow call should no longer be able to consume nearly the whole
+// stage budget by itself, leaving room for the mapWithConcurrency batches
+// of release fetches that follow the initial listing/archive call.
+const FETCH_TIMEOUT_MS = 25000;
+const POST_TIMEOUT_MS = 30000;
 
 function extractFormValue(html: string, name: string): string {
   const re = new RegExp(`name="${name}"[^>]*value="([^"]*)"`);

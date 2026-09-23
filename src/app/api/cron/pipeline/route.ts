@@ -5,14 +5,17 @@ import { runIngestionPipeline } from "@/lib/pipeline/ingest";
 import { runComputePipeline } from "@/lib/pipeline/compute";
 
 export const runtime = "nodejs";
-// Was 300s. runIngestionPipeline now runs RBI's two stages in an isolated
-// pre-phase (bounded at 100s) before the main ~75-way concurrent phase — see
-// that function's own comment for why. This adds up to ~100s of genuine
-// serial overhead on top of the same ~300s ceiling the rest of the pipeline
-// (plus the subsequent compute pass) already operated within, so the route
-// ceiling is raised by the same amount rather than shrinking any existing
-// stage's own budget to compensate.
-export const maxDuration = 400;
+// Tried raising this to 400 to give runIngestionPipeline's new RBI pre-phase
+// (see that function's own comment) headroom without touching any other
+// stage's budget — the deployment failed at the "Deploying outputs" step
+// (build itself succeeded) with no error surfaced via the CLI, consistent
+// with this account's plan capping function duration at 300s. Reverted;
+// the RBI pre-phase is bounded at a more modest 60s instead, accepted as
+// the same kind of "not every stage hits its absolute worst case at once"
+// empirical assumption the whole 300s pipeline already ran on before this
+// change — don't raise this again without confirming the plan actually
+// supports it (e.g. via the Vercel dashboard's plan/limits page).
+export const maxDuration = 300;
 
 /**
  * The daily automated pipeline (V3 §43). Scheduled via vercel.json to run

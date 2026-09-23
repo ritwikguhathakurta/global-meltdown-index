@@ -1851,14 +1851,18 @@ export async function runIngestionPipeline(db: SupabaseClient) {
   // invocation happens to be under, i.e. event-loop/network contention from
   // ~75 other stages all firing at once, not RBI or its timeout value.
   // Running these two to completion first gives them a much quieter
-  // environment. Each is bounded at 100s (not the 220s they got inline) so
-  // a genuinely bad RBI day still only costs 100s up front rather than
-  // risking the ~75 stages behind it — the route's own maxDuration was
-  // raised by exactly that amount (see route.ts) so this doesn't shrink
-  // anything else's existing budget.
+  // environment. Bounded at 60s each (not the 220s they got inline, and not
+  // the 100s first tried here — see route.ts's own comment on why 100s+a
+  // raised maxDuration got reverted) so a bad RBI day still only costs 60s
+  // up front. This does add up to 60s of real serial time on top of the
+  // route's existing (unchanged, plan-capped) 300s ceiling rather than
+  // creating headroom for it the way a maxDuration raise would have —
+  // accepted as the same "not every stage hits its worst case
+  // simultaneously" empirical assumption the whole pipeline already ran on
+  // before this change, not a formally airtight worst-case guarantee.
   const rbiResults = await Promise.all([
-    withStageTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate), 100_000, db, runDate),
-    withStageTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate), 100_000, db, runDate),
+    withStageTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate), 60_000, db, runDate),
+    withStageTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate), 60_000, db, runDate),
   ]);
 
   // Every stage below races against a shared 150s safety net (see
