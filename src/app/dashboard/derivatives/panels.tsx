@@ -371,13 +371,18 @@ export function SourcesPanel() {
           <li>BIS OTC gross market value at the &quot;all instruments&quot; cross-cut — confirmed not published by BIS at any period</li>
           <li>OCC Quarterly Report on Bank Derivatives Activities — confirmed live: published as PDF only (no HTML table or XLSX/CSV found on the report page), and its tables are exactly the kind of multi-page, multi-bank structured data that risks silent wrong-number extraction if PDF-parsed without a reliable table layout — not attempted for that reason, consistent with this project&rsquo;s documented pdf-parsing caution</li>
           <li>ML models and precision/recall/AUC-validated backtesting — no labeled ground-truth dataset exists to validate against honestly</li>
-          <li>An LLM-powered &quot;Ask Derivatives&quot; — deliberately not added; this project already discloses exactly two LLM-computed surfaces and a third needs an explicit decision, not a quiet addition</li>
         </ul>
       </Panel>
       <Panel>
         <SectionTitle>MODEL ESTIMATE indices, explained</SectionTitle>
         <p className="text-sm text-text-dim">
           MSI, CSI, FDR, DLS and CALCI carry a <QualityBadge quality="MODEL_ESTIMATE" /> badge because no free source publishes real margin calls, collateral haircuts, or forced-selling flows. Each is built from real proxies only (VIX/MOVE, SOFR percentile dispersion, positioning crowding) with its exact formula shown on hover/under each card — never presented as if it were a measured quantity. GLI, PCI and CRI’s bank/credit-spread inputs are real observations combined into a genuine index, not standing in for something unobservable.
+        </p>
+      </Panel>
+      <Panel>
+        <SectionTitle>Ask Derivatives — this project&rsquo;s third disclosed LLM-computed surface</SectionTitle>
+        <p className="text-sm text-text-dim">
+          Added on explicit request after being flagged as a policy decision rather than a technical gap — this project previously disclosed exactly two LLM-computed surfaces (Prediction tab commodity backtests, Banking tab central-bank commentary). Ask Derivatives is user-triggered only (never generated automatically), and the model is instructed to answer strictly from the real/model-estimate numbers already shown on this page, saying plainly when a question asks about data this dashboard doesn&rsquo;t have rather than guessing.
         </p>
       </Panel>
     </div>

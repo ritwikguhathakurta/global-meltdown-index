@@ -210,7 +210,9 @@ elsewhere in this codebase at face value, it's worth a quick live re-check — s
 `docs/DERIVATIVES_ENGINE.md`'s "Phase 2 additions" section for exactly what was verified and what
 was built vs. deliberately still left out (e.g. a DTCC cleared-percentage and notional-sum metric
 were built, checked against live data, and then deleted because the underlying fields don't mean
-what they first appear to — a lesson worth reading before adding a similar metric elsewhere).
+what they first appear to — a lesson worth reading before adding a similar metric elsewhere). Phase 2
+also added "Ask Derivatives" (`src/lib/prediction/askDerivatives.ts`), this project's third disclosed
+LLM-computed surface — see "The three places an LLM computes something user-facing" below.
 
 ### Commodities taxonomy
 
@@ -219,12 +221,14 @@ World Bank Pink Sheet column, unit, etc. — most of `worldBankCommodities.ts`'s
 Energy/Metals/Grains/Oilseeds/Softs/Livestock/Fertilizers off this one table. Related taxonomies:
 `chemicalsTaxonomy.ts`, `oilseedsTaxonomy.ts`, `balanceTaxonomy.ts`.
 
-### The two places an LLM computes something user-facing
+### The three places an LLM computes something user-facing
 
 Every score/number elsewhere in the app is a deterministic function of stored data
-(`src/lib/metrics/stats.ts`) — these two are the deliberate, disclosed exceptions. Don't extend
+(`src/lib/metrics/stats.ts`) — these three are the deliberate, disclosed exceptions. Don't extend
 LLM-computed content to any other dashboard page without calling that out explicitly and disclosing it
 in the UI, since it breaks an invariant the rest of the app (and its credibility framing) depends on.
+The count grew from two to three only after an explicit user decision (see `askDerivatives.ts`'s own
+doc comment) — treat this as a real gate, not a precedent for adding a fourth without asking.
 
 1. `src/lib/prediction/` (`openaiAnalysis.ts` using `gpt-4.1-mini`, `geminiAnalysis.ts`) — a commodity
    backtest/analysis for `/dashboard/prediction`, user-triggered per commodity (a button click, via
@@ -238,6 +242,11 @@ in the UI, since it breaks an invariant the rest of the app (and its credibility
    `export const maxDuration = 30`, so a slow/hung OpenAI response degrades to "the box doesn't show"
    rather than risking the page — this one runs inline in a Server Component, unlike #1's
    button-triggered flow, so it can't be allowed to hang.
+3. `src/lib/prediction/askDerivatives.ts` — "Ask Derivatives" on the Derivatives / Leverage page's own
+   "Ask Derivatives" tab (`AskDerivativesPanel.tsx`, via `/api/derivatives/ask`), user-triggered only
+   like #1. Unlike #1/#2, it never computes a new number: the model is handed a fixed snapshot of this
+   page's own already-computed REAL/MODEL_ESTIMATE values and instructed to answer strictly from them,
+   saying plainly when a question asks about data this dashboard doesn't track rather than guessing.
 
 ### Known gotchas (each caused a real production incident)
 

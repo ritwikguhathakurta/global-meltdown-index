@@ -2,6 +2,7 @@ import { getLatestEngine } from "@/lib/api/engineData";
 import { getDerivativesPageData } from "@/lib/api/derivativesData";
 import { DerivativesApp, type DerivTabId } from "./DerivativesApp";
 import { ScenarioPanel } from "./ScenarioPanel";
+import { AskDerivativesPanel } from "./AskDerivativesPanel";
 import { OverviewPanel, OtcPanel, PositioningPanel, IndiaPanel, RepoPanel, BanksPanel, CryptoPanel, VolatilityPanel, HistoricalPanel, SourcesPanel } from "./panels";
 import { UnavailableNote, Panel } from "./ui";
 
@@ -29,6 +30,7 @@ export default async function DerivativesPage() {
             crypto: <CryptoPanel data={data} />,
             volatility: <VolatilityPanel data={data} />,
             scenario: <ScenarioPanel current={{ msi: data.indices.msi, csi: data.indices.csi, pci: data.indices.pci }} />,
+            ask: <AskDerivativesPanel />,
             historical: <HistoricalPanel data={data} />,
             sources: <SourcesPanel />,
           } satisfies Record<DerivTabId, React.ReactNode>}

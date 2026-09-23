@@ -58,6 +58,20 @@ Two Phase 1 disclosures turned out to be wrong and were corrected rather than le
   technically-real but practically meaningless total. Equity swaps are not
   fetched (the daily file is ~40MB compressed, too large for a safe stage
   budget). Real, Tier 1.
+- **"Ask Derivatives"** (`src/lib/prediction/askDerivatives.ts`, API
+  `/api/derivatives/ask`, UI: the new "Ask Derivatives" tab) — this project's
+  third disclosed LLM-computed surface (see CLAUDE.md's "three places an LLM
+  computes something user-facing"), added only after this was explicitly
+  flagged as a policy decision and the user confirmed it. User-triggered
+  only, never automatic. The model never computes a new number: it is handed
+  a fixed snapshot of this page's own already-computed REAL/MODEL_ESTIMATE
+  values (composite index levels, crowded positioning, BIS OTC total, repo
+  rates, VIX/MOVE, India F&O, DTCC trade counts, crypto funding) and
+  instructed to answer strictly from them, saying plainly when a question
+  asks about something this dashboard doesn't track (options Greeks, a price
+  forecast, position-level CCP data) rather than guessing. Same dual-provider
+  (Gemini free tier, OpenAI fallback) and per-user cooldown pattern as
+  `/api/prediction/analyze`.
 
 ## Tests
 
