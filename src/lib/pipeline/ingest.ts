@@ -92,7 +92,8 @@ import { fetchEiaCountryPetroleum, fetchEiaNaturalGasStorage } from "../sources/
 import { fetchEiaChemicalFeedstockSpot } from "../sources/eiaChemicalFeedstockSpot";
 import { fetchEiaGridSnapshots } from "../sources/eiaGridMonitor";
 import { fetchIrenaRenewablesCapacity, fetchIrenaRenewablesGeneration } from "../sources/irenaStat";
-import { fetchUnComtradeEnergyFlows, fetchUnComtradeOleochemicalFlowsForCommodity, OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
+import { fetchUnComtradeEnergyFlowsForCommodity, TRADE_COMMODITIES, fetchUnComtradeOleochemicalFlowsForCommodity, OLEOCHEMICAL_TRADE_COMMODITIES } from "../sources/unComtrade";
+import { ComtradeRateLimitedError } from "../sources/unComtradeRateLimit";
 import { fetchEntsoeDayAheadPrices, fetchEntsoeLoad, fetchEntsoeGeneration, fetchEntsoeCrossBorderFlowsForBorder, EU_GRID_BORDERS } from "../sources/entsoe";
 import { fetchWorldBankCommodityPrices } from "../sources/worldBankCommodities";
 import { fetchCriticalMineralPrices } from "../sources/dbnomicsCriticalMinerals";
@@ -1246,18 +1247,49 @@ export async function ingestIrenaRenewables(db: SupabaseClient, runDate: string)
 }
 
 export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
-  try {
-    const points = await fetchUnComtradeEnergyFlows();
-    await upsertMetrics(db, points);
-    const status = points.length > 0 ? "ok" : "warning";
-    const detail = { points: points.length };
-    await logRun(db, runDate, "ingest_un_comtrade_energy_flows", status, detail);
-    return { stage: "ingest_un_comtrade_energy_flows", status, detail };
-  } catch (e) {
-    const detail = { error: (e as Error).message };
-    await logRun(db, runDate, "ingest_un_comtrade_energy_flows", "failed", detail);
-    return { stage: "ingest_un_comtrade_energy_flows", status: "failed", detail };
+  // Same resumable-cursor, incremental-upsert, stop-early-on-rate-limit
+  // design as ingestUsgsCommodityCountryTrade/ingestChemicalHsUnitValues
+  // below — this stage shares the same account-wide UN Comtrade rate limit
+  // (unComtradeRateLimit.ts) with three other concurrent stages, so a
+  // ComtradeRateLimitedError here means the shared bucket is exhausted
+  // RIGHT NOW, not that this commodity specifically is broken; stopping and
+  // deferring to the next run beats burning the rest of this stage's time
+  // budget on calls guaranteed to fail the same way.
+  const n = TRADE_COMMODITIES.length;
+  const { data: lastRun } = await db
+    .from("pipeline_runs")
+    .select("detail")
+    .eq("stage", "ingest_un_comtrade_energy_flows")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastNextIndex = (lastRun?.detail as { nextIndex?: number } | null)?.nextIndex;
+  const startIndex = typeof lastNextIndex === "number" && Number.isInteger(lastNextIndex) ? ((lastNextIndex % n) + n) % n : 0;
+
+  let totalPoints = 0;
+  const errors: string[] = [];
+  let stoppedAtIndex: number | null = null;
+  for (let i = 0; i < n; i++) {
+    const index = (startIndex + i) % n;
+    const commodity = TRADE_COMMODITIES[index];
+    try {
+      const points = await fetchUnComtradeEnergyFlowsForCommodity(commodity);
+      await upsertMetrics(db, points);
+      totalPoints += points.length;
+    } catch (e) {
+      if (e instanceof ComtradeRateLimitedError) {
+        errors.push(`stopped early: ${e.message} (${commodity.slug} onward deferred to a later run)`);
+        stoppedAtIndex = index;
+        break;
+      }
+      errors.push(`${commodity.slug}: ${(e as Error).message}`);
+    }
   }
+  const nextIndex = stoppedAtIndex ?? 0;
+  const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
+  const detail = { points: totalPoints, errors, startIndex, nextIndex };
+  await logRun(db, runDate, "ingest_un_comtrade_energy_flows", status, detail);
+  return { stage: "ingest_un_comtrade_energy_flows", status, detail };
 }
 
 export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
@@ -1268,19 +1300,49 @@ export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runD
   // whether the failure is a thrown error or the whole stage being abandoned
   // on timeout. This way, whatever finished before that point is already
   // safely in Supabase regardless of what happens to the rest.
+  //
+  // Resumable cursor + stop-early-on-rate-limit, same design (and same
+  // reason: a shared UN Comtrade rate limit split across 4 concurrent
+  // stages) as ingestUnComtradeEnergyFlows/ingestUsgsCommodityCountryTrade/
+  // ingestChemicalHsUnitValues. Before this, the loop always started at
+  // Palm Oil and kept retrying every remaining commodity even after the
+  // shared bucket was already exhausted, burning the stage's time budget
+  // on guaranteed failures instead of stopping and giving the LATER
+  // commodities (Glycerine, FAME/Biodiesel, Soap Noodles) a fair turn on a
+  // future run.
+  const n = OLEOCHEMICAL_TRADE_COMMODITIES.length;
+  const { data: lastRun } = await db
+    .from("pipeline_runs")
+    .select("detail")
+    .eq("stage", "ingest_un_comtrade_oleochemical_flows")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastNextIndex = (lastRun?.detail as { nextIndex?: number } | null)?.nextIndex;
+  const startIndex = typeof lastNextIndex === "number" && Number.isInteger(lastNextIndex) ? ((lastNextIndex % n) + n) % n : 0;
+
   let totalPoints = 0;
   const errors: string[] = [];
-  for (const commodity of OLEOCHEMICAL_TRADE_COMMODITIES) {
+  let stoppedAtIndex: number | null = null;
+  for (let i = 0; i < n; i++) {
+    const index = (startIndex + i) % n;
+    const commodity = OLEOCHEMICAL_TRADE_COMMODITIES[index];
     try {
       const points = await fetchUnComtradeOleochemicalFlowsForCommodity(commodity);
       await upsertMetrics(db, points);
       totalPoints += points.length;
     } catch (e) {
+      if (e instanceof ComtradeRateLimitedError) {
+        errors.push(`stopped early: ${e.message} (${commodity.slug} onward deferred to a later run)`);
+        stoppedAtIndex = index;
+        break;
+      }
       errors.push(`${commodity.slug}: ${(e as Error).message}`);
     }
   }
+  const nextIndex = stoppedAtIndex ?? 0;
   const status = errors.length === 0 ? "ok" : totalPoints > 0 ? "warning" : "failed";
-  const detail = { points: totalPoints, errors };
+  const detail = { points: totalPoints, errors, startIndex, nextIndex };
   await logRun(db, runDate, "ingest_un_comtrade_oleochemical_flows", status, detail);
   return { stage: "ingest_un_comtrade_oleochemical_flows", status, detail };
 }
@@ -1510,7 +1572,12 @@ export async function ingestUsgsCommodityCountryTrade(db: SupabaseClient, runDat
       // identically, so stop here rather than recording the same failure
       // once per remaining commodity. Whatever already upserted above stays
       // safe; the rest resumes right here (not from the top) on the next run.
-      if (e instanceof ComtradeQuotaExceededError) {
+      // ComtradeRateLimitedError (the shared 429-after-retries bucket, most
+      // likely exhausted by one of the other 3 concurrent UN Comtrade
+      // stages in this same run) is treated the same way as the daily 403
+      // quota below — both mean every remaining call this run is guaranteed
+      // to fail identically.
+      if (e instanceof ComtradeQuotaExceededError || e instanceof ComtradeRateLimitedError) {
         errors.push(`stopped early: ${e.message} (${commodity.slug} onward deferred to a later run)`);
         stoppedAtIndex = index;
         break;
@@ -1556,7 +1623,9 @@ export async function ingestChemicalHsUnitValues(db: SupabaseClient, runDate: st
       await upsertMetrics(db, points);
       totalPoints += points.length;
     } catch (e) {
-      if (e instanceof ChemicalPriceQuotaExceededError) {
+      // Same shared-bucket reasoning as ingestUsgsCommodityCountryTrade's
+      // identical check just above.
+      if (e instanceof ChemicalPriceQuotaExceededError || e instanceof ComtradeRateLimitedError) {
         errors.push(`stopped early: ${e.message} (hs ${group.primary} onward deferred to a later run)`);
         stoppedAtIndex = index;
         break;
@@ -1769,9 +1838,33 @@ export async function ingestCpcEnsoForecast(db: SupabaseClient, runDate: string)
 
 export async function runIngestionPipeline(db: SupabaseClient) {
   const runDate = new Date().toISOString().slice(0, 10);
-  // Every stage races against a shared 150s safety net (see withStageTimeout
-  // above) — comfortably under the route's 300s ceiling even with several
-  // stages concurrently at their own limit, since they all run in parallel.
+
+  // RBI ("ingest_rbi_liquidity"/"ingest_rbi_yield_curve") runs as its own
+  // pre-phase, isolated from the ~75-way concurrent flood below, before
+  // that flood starts. Real evidence for why, gathered live in production
+  // rather than assumed: a standalone call to the exact same fetch
+  // succeeded in 3.8s; a full pipeline run then succeeded outright (20 +
+  // 299 real points) once the per-fetch timeout was widened; the very next,
+  // otherwise-identical run failed again with the same generic timeout.
+  // Same code, different outcome, with RBI's own server independently
+  // confirmed fast — the variable is how much OTHER concurrent load this
+  // invocation happens to be under, i.e. event-loop/network contention from
+  // ~75 other stages all firing at once, not RBI or its timeout value.
+  // Running these two to completion first gives them a much quieter
+  // environment. Each is bounded at 100s (not the 220s they got inline) so
+  // a genuinely bad RBI day still only costs 100s up front rather than
+  // risking the ~75 stages behind it — the route's own maxDuration was
+  // raised by exactly that amount (see route.ts) so this doesn't shrink
+  // anything else's existing budget.
+  const rbiResults = await Promise.all([
+    withStageTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate), 100_000, db, runDate),
+    withStageTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate), 100_000, db, runDate),
+  ]);
+
+  // Every stage below races against a shared 150s safety net (see
+  // withStageTimeout above) — comfortably under the remaining budget even
+  // with several stages concurrently at their own limit, since they all run
+  // in parallel with each other (just no longer with RBI).
   const withTimeout = (stage: string, p: Promise<IngestStageResult>) => withStageTimeout(stage, p, 150_000, db, runDate);
   const results = await Promise.all([
     withTimeout("ingest_fred", ingestFred(db, runDate)),
@@ -1797,13 +1890,6 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_gov_bond_yields", ingestGovBondYields(db, runDate)),
     withTimeout("ingest_gov_liquidity", ingestGovLiquidity(db, runDate)),
     withTimeout("ingest_central_bank_short_rates", ingestCentralBankShortRates(db, runDate)),
-    // Individual RBI fetches were widened from 15-20s to 45-60s to test
-    // whether the persistent timeouts are genuine slowness rather than a
-    // hard block (see rbiArchive.ts's doc comment) — the stage ceiling is
-    // raised to match so that test gets a real chance to complete rather
-    // than being abandoned by a now-too-tight 150s budget regardless.
-    withStageTimeout("ingest_rbi_liquidity", ingestRbiLiquidity(db, runDate), 220_000, db, runDate),
-    withStageTimeout("ingest_rbi_yield_curve", ingestRbiYieldCurve(db, runDate), 220_000, db, runDate),
     withTimeout("ingest_bis_credit_gaps", ingestBisCreditGaps(db, runDate)),
     withTimeout("ingest_china_lgfv_debt", ingestChinaLgfvDebt(db, runDate)),
     withTimeout("ingest_gov_cn_statistics", ingestGovCnStatistics(db, runDate)),
@@ -1873,5 +1959,5 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_mpob_mirror", ingestMpobMirror(db, runDate)),
     withTimeout("ingest_cpc_enso_forecast", ingestCpcEnsoForecast(db, runDate)),
   ]);
-  return { runDate, results };
+  return { runDate, results: [...rbiResults, ...results] };
 }

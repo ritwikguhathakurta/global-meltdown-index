@@ -50,3 +50,23 @@ export function throttleComtradeCall(): Promise<void> {
   queue = turn.catch(() => {});
   return turn;
 }
+
+/**
+ * Thrown by any of the four consumer modules when a single call still 429s
+ * after its own retry/backoff sequence — meaning the shared rolling-window
+ * bucket documented above is exhausted RIGHT NOW, most likely by another of
+ * the four stages' calls landing earlier in the same shared queue during
+ * this same pipeline run. Distinct from each module's own daily-quota error
+ * (a 403, which resets on a fixed schedule): this is a short-term
+ * exhaustion that clears within the rolling window, so every remaining item
+ * in that stage's loop is guaranteed to fail the same way if retried
+ * immediately — the caller should stop and defer the rest to the next run
+ * (same "stop early, resume from here" contract as the daily-quota error),
+ * not keep burning its stage-timeout budget on calls that cannot succeed
+ * yet. Confirmed live: before this existed, un-classified 429-after-retries
+ * failures were treated as an ordinary per-item error and the loop kept
+ * going, which is exactly what turned three of the four stages'
+ * (oleochemical flows, USGS country trade, chemical HS unit values) 429s
+ * into full stage-timeout abandonments instead of a clean early stop.
+ */
+export class ComtradeRateLimitedError extends Error {}

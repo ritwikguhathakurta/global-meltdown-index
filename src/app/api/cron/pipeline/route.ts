@@ -5,7 +5,14 @@ import { runIngestionPipeline } from "@/lib/pipeline/ingest";
 import { runComputePipeline } from "@/lib/pipeline/compute";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// Was 300s. runIngestionPipeline now runs RBI's two stages in an isolated
+// pre-phase (bounded at 100s) before the main ~75-way concurrent phase — see
+// that function's own comment for why. This adds up to ~100s of genuine
+// serial overhead on top of the same ~300s ceiling the rest of the pipeline
+// (plus the subsequent compute pass) already operated within, so the route
+// ceiling is raised by the same amount rather than shrinking any existing
+// stage's own budget to compensate.
+export const maxDuration = 400;
 
 /**
  * The daily automated pipeline (V3 §43). Scheduled via vercel.json to run

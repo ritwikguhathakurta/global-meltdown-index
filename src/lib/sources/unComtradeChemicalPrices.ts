@@ -1,6 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { CHEMICAL_PRODUCTS, priceHsCodesFor, type ChemicalPriceHsCodes } from "../commodities/chemicalProductsDatabase";
-import { throttleComtradeCall } from "./unComtradeRateLimit";
+import { throttleComtradeCall, ComtradeRateLimitedError } from "./unComtradeRateLimit";
 
 /**
  * Average export/import unit value (declared customs value ÷ net weight)
@@ -78,7 +78,7 @@ async function comtradeQuery(cmdCode: string, period: string): Promise<ComtradeR
       throw new ChemicalPriceQuotaExceededError(`UN Comtrade quota exceeded: ${body || "HTTP 403"}`);
     }
     if (res.status === 429) {
-      if (attempt === 2) throw new Error(`rate limited after retries (cmd ${cmdCode})`);
+      if (attempt === 2) throw new ComtradeRateLimitedError(`rate limited after retries (cmd ${cmdCode})`);
       await delay(4000 * (attempt + 1));
       continue;
     }

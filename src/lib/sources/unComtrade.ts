@@ -1,6 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { EIA_COUNTRIES } from "./eiaApi";
-import { throttleComtradeCall } from "./unComtradeRateLimit";
+import { throttleComtradeCall, ComtradeRateLimitedError } from "./unComtradeRateLimit";
 
 /**
  * UN Comtrade — official bilateral trade statistics. Two tiers, both
@@ -147,7 +147,7 @@ async function comtradeQuery(params: { reporterCode: string; partnerCode: string
     await throttleComtradeCall();
     const res = await fetch(url.toString(), { next: { revalidate: 0 }, headers });
     if (res.status === 429) {
-      if (attempt === 2) throw new Error(`UN Comtrade: rate limited after retries (cmd ${params.cmdCode}, reporter ${params.reporterCode})`);
+      if (attempt === 2) throw new ComtradeRateLimitedError(`UN Comtrade: rate limited after retries (cmd ${params.cmdCode}, reporter ${params.reporterCode})`);
       await delay(4000 * (attempt + 1));
       continue;
     }
@@ -168,58 +168,65 @@ async function findLatestAvailableYear(cmdCode: string): Promise<string> {
   throw new Error(`UN Comtrade: no export data found for cmdCode ${cmdCode} in the last 4 years`);
 }
 
-export async function fetchUnComtradeEnergyFlows(): Promise<MetricPoint[]> {
+/** Fetches ONE commodity's energy trade flows. Split out (mirroring
+ * fetchUnComtradeOleochemicalFlowsForCommodity below) so the caller
+ * (ingest.ts) can upsert each commodity's points as soon as they land and
+ * stop early — rather than lose an already-fetched commodity's real data —
+ * if the shared UN Comtrade rate limit (unComtradeRateLimit.ts) is
+ * exhausted partway through, which used to silently discard the whole
+ * function's accumulated points since they were only returned once, at the
+ * very end, after both commodities. */
+export async function fetchUnComtradeEnergyFlowsForCommodity(commodity: { hsCode: string; slug: string; label: string }): Promise<MetricPoint[]> {
   const slugByCode = new Map(Object.entries(UN_COMTRADE_CODES).map(([slug, code]) => [code, slug]));
   const allCodes = EIA_COUNTRIES.map((c) => UN_COMTRADE_CODES[c.slug]).filter((c): c is string => Boolean(c));
 
+  const year = await findLatestAvailableYear(commodity.hsCode);
+  await delay(PROBE_DELAY_MS);
+  // Batch reporters in groups of 4 (both dimensions accept comma-separated
+  // codes) rather than one call per reporter — cuts ~16 calls down to ~4
+  // per commodity, which is what keeps this stage inside its 150s budget
+  // given the preview endpoint's aggressive per-request rate limiting.
+  // Each group stays comfortably under the endpoint's 500-record cap
+  // (4 reporters * 16 partners * a handful of flow-code variants).
+  const REPORTER_CHUNK_SIZE = 4;
+  // Comtrade can report more than one "X" (export) row for the same
+  // reporter/partner pair — split by customs procedure or mode of
+  // transport (motCode) AND cross-tabbed again by a secondary-partner
+  // dimension (partner2Code) — both are already-included subsets of the
+  // canonical grand total, so summing every "X" row (as an earlier
+  // version of this connector did) silently ~4x'd every trade value.
+  // motCode===0 && partner2Code===0 is Comtrade's own "all modes, no
+  // secondary partner" grand-total row — exactly one per reporter/partner
+  // pair, which is also what keeps upsertMetrics' single-batch upsert
+  // from ever touching the same (metric_key, observed_at, source_id) row
+  // twice in one call.
+  const valueByPair = new Map<string, number>();
+  for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
+    const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
+    const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
+    for (const row of rows) {
+      if (row.flowCode !== "X" || row.motCode !== 0 || row.partner2Code !== 0) continue;
+      if (row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
+      const reporterSlug = slugByCode.get(String(row.reporterCode));
+      const partnerSlug = slugByCode.get(String(row.partnerCode));
+      if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
+      const pairKey = `${reporterSlug}_to_${partnerSlug}`;
+      valueByPair.set(pairKey, row.primaryValue);
+    }
+    await delay(CHUNK_DELAY_MS);
+  }
+
   const points: MetricPoint[] = [];
-  for (const commodity of TRADE_COMMODITIES) {
-    const year = await findLatestAvailableYear(commodity.hsCode);
-    await delay(PROBE_DELAY_MS);
-    // Batch reporters in groups of 4 (both dimensions accept comma-separated
-    // codes) rather than one call per reporter — cuts ~16 calls down to ~4
-    // per commodity, which is what keeps this stage inside its 150s budget
-    // given the preview endpoint's aggressive per-request rate limiting.
-    // Each group stays comfortably under the endpoint's 500-record cap
-    // (4 reporters * 16 partners * a handful of flow-code variants).
-    const REPORTER_CHUNK_SIZE = 4;
-    // Comtrade can report more than one "X" (export) row for the same
-    // reporter/partner pair — split by customs procedure or mode of
-    // transport (motCode) AND cross-tabbed again by a secondary-partner
-    // dimension (partner2Code) — both are already-included subsets of the
-    // canonical grand total, so summing every "X" row (as an earlier
-    // version of this connector did) silently ~4x'd every trade value.
-    // motCode===0 && partner2Code===0 is Comtrade's own "all modes, no
-    // secondary partner" grand-total row — exactly one per reporter/partner
-    // pair, which is also what keeps upsertMetrics' single-batch upsert
-    // from ever touching the same (metric_key, observed_at, source_id) row
-    // twice in one call.
-    const valueByPair = new Map<string, number>();
-    for (let i = 0; i < allCodes.length; i += REPORTER_CHUNK_SIZE) {
-      const reporterChunk = allCodes.slice(i, i + REPORTER_CHUNK_SIZE);
-      const rows = await comtradeQuery({ reporterCode: reporterChunk.join(","), partnerCode: allCodes.join(","), period: year, cmdCode: commodity.hsCode });
-      for (const row of rows) {
-        if (row.flowCode !== "X" || row.motCode !== 0 || row.partner2Code !== 0) continue;
-        if (row.primaryValue === null || Number.isNaN(row.primaryValue) || row.primaryValue <= 0) continue;
-        const reporterSlug = slugByCode.get(String(row.reporterCode));
-        const partnerSlug = slugByCode.get(String(row.partnerCode));
-        if (!reporterSlug || !partnerSlug || reporterSlug === partnerSlug) continue;
-        const pairKey = `${reporterSlug}_to_${partnerSlug}`;
-        valueByPair.set(pairKey, row.primaryValue);
-      }
-      await delay(CHUNK_DELAY_MS);
-    }
-    for (const [pairKey, value] of valueByPair) {
-      points.push({
-        metric_key: `energy.trade.${commodity.slug}.${pairKey}`,
-        observed_at: `${year}-12-31`,
-        value,
-        unit: "USD",
-        source_key: "un_comtrade",
-        source_tier: 1,
-        frequency: "annual",
-      });
-    }
+  for (const [pairKey, value] of valueByPair) {
+    points.push({
+      metric_key: `energy.trade.${commodity.slug}.${pairKey}`,
+      observed_at: `${year}-12-31`,
+      value,
+      unit: "USD",
+      source_key: "un_comtrade",
+      source_tier: 1,
+      frequency: "annual",
+    });
   }
   return points;
 }

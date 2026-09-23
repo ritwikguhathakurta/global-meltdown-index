@@ -1,6 +1,6 @@
 import type { MetricPoint } from "../metrics/store";
 import { COUNTRY_BALANCE_COMMODITIES, type CountryBalanceCommodityDef } from "../commodities/countryBalanceTaxonomy";
-import { throttleComtradeCall } from "./unComtradeRateLimit";
+import { throttleComtradeCall, ComtradeRateLimitedError } from "./unComtradeRateLimit";
 
 export const USGS_TRADE_COMMODITIES: CountryBalanceCommodityDef[] = COUNTRY_BALANCE_COMMODITIES.filter(
   (c) => c.source === "usgs_mcs" && c.comtradeHsCodes
@@ -102,7 +102,7 @@ async function comtradeQuery(reporterCode: string, period: string, cmdCodes: str
       throw new ComtradeQuotaExceededError(`UN Comtrade quota exceeded: ${body || "HTTP 403"}`);
     }
     if (res.status === 429) {
-      if (attempt === 2) throw new Error(`rate limited after retries (reporter ${reporterCode}, cmd ${cmdCodes.join(",")})`);
+      if (attempt === 2) throw new ComtradeRateLimitedError(`rate limited after retries (reporter ${reporterCode}, cmd ${cmdCodes.join(",")})`);
       await delay(4000 * (attempt + 1));
       continue;
     }
