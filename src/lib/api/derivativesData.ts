@@ -43,12 +43,28 @@ const NEEDED_KEYS = [
   "credit.hy_oas",
   "credit.us_credit_gap",
   ...BANK_COMPANIES.flatMap((b) => [`bankfdic.${b.key}.leverage_ratio`, `bank.${b.key}.derivative_notional`, `bank.${b.key}.derivative_assets`, `bank.${b.key}.derivative_liabilities`]),
+  "derivatives.india_fo.nifty.futures_oi",
+  "derivatives.india_fo.nifty.futures_oi_chg",
+  "derivatives.india_fo.nifty.pcr_oi",
+  "derivatives.india_fo.banknifty.futures_oi",
+  "derivatives.india_fo.banknifty.futures_oi_chg",
+  "derivatives.india_fo.banknifty.pcr_oi",
+  "derivatives.india_fo.market_turnover_cr",
+  "derivatives.india_fo.market_futures_oi",
+  "derivatives.india_fo.market_options_oi",
+  "derivatives.dtcc_swaps.rates.new_trade_count",
+  "derivatives.dtcc_swaps.credit.new_trade_count",
+  "derivatives.dtcc_swaps.fx.new_trade_count",
+  "derivatives.dtcc_swaps.commodity.new_trade_count",
 ];
 
 export type BisOtcRow = { key: string; label: string; notionalUsd: number | null; asOf: string | null };
 export type RepoRow = { key: string; label: string; rate: number | null; dispersion: number | null; volumeBn: number | null; asOf: string | null };
 export type BankLeverageRow = { key: string; name: string; leverageRatio: number | null; derivativeNotional: number | null; derivativeAssets: number | null; derivativeLiabilities: number | null };
 export type CryptoRow = { symbol: string; fundingRate: number | null; openInterest: number | null; asOf: string | null };
+export type IndiaFoIndexRow = { symbol: string; futuresOi: number | null; futuresOiChg: number | null; pcrOi: number | null; asOf: string | null };
+export type IndiaFoMarket = { turnoverCr: number | null; futuresOi: number | null; optionsOi: number | null; asOf: string | null };
+export type DtccSwapRow = { assetClass: string; label: string; newTradeCount: number | null; asOf: string | null };
 
 export type DerivativesPageData = {
   fetchedAt: string;
@@ -62,6 +78,8 @@ export type DerivativesPageData = {
   vix: { value: number | null; asOf: string | null };
   move: { value: number | null; asOf: string | null };
   historicalCrises: typeof HISTORICAL_CRISES;
+  indiaFo: { indices: IndiaFoIndexRow[]; market: IndiaFoMarket };
+  dtccSwaps: DtccSwapRow[];
 };
 
 export async function getDerivativesPageData(): Promise<DerivativesPageData | null> {
@@ -135,6 +153,41 @@ export async function getDerivativesPageData(): Promise<DerivativesPageData | nu
       vix: { value: latestMap.get("vol.vix")?.v ?? null, asOf: latestMap.get("vol.vix")?.t ?? null },
       move: { value: latestMap.get("derivatives.move_index")?.v ?? null, asOf: latestMap.get("derivatives.move_index")?.t ?? null },
       historicalCrises: HISTORICAL_CRISES,
+      indiaFo: {
+        indices: [
+          {
+            symbol: "NIFTY",
+            futuresOi: latestMap.get("derivatives.india_fo.nifty.futures_oi")?.v ?? null,
+            futuresOiChg: latestMap.get("derivatives.india_fo.nifty.futures_oi_chg")?.v ?? null,
+            pcrOi: latestMap.get("derivatives.india_fo.nifty.pcr_oi")?.v ?? null,
+            asOf: latestMap.get("derivatives.india_fo.nifty.futures_oi")?.t ?? null,
+          },
+          {
+            symbol: "BANKNIFTY",
+            futuresOi: latestMap.get("derivatives.india_fo.banknifty.futures_oi")?.v ?? null,
+            futuresOiChg: latestMap.get("derivatives.india_fo.banknifty.futures_oi_chg")?.v ?? null,
+            pcrOi: latestMap.get("derivatives.india_fo.banknifty.pcr_oi")?.v ?? null,
+            asOf: latestMap.get("derivatives.india_fo.banknifty.futures_oi")?.t ?? null,
+          },
+        ],
+        market: {
+          turnoverCr: latestMap.get("derivatives.india_fo.market_turnover_cr")?.v ?? null,
+          futuresOi: latestMap.get("derivatives.india_fo.market_futures_oi")?.v ?? null,
+          optionsOi: latestMap.get("derivatives.india_fo.market_options_oi")?.v ?? null,
+          asOf: latestMap.get("derivatives.india_fo.market_turnover_cr")?.t ?? null,
+        },
+      },
+      dtccSwaps: [
+        { assetClass: "rates", label: "Interest Rate Swaps" },
+        { assetClass: "credit", label: "Credit Default Swaps" },
+        { assetClass: "fx", label: "FX Swaps/Forwards" },
+        { assetClass: "commodity", label: "Commodity Swaps" },
+      ].map(({ assetClass, label }) => ({
+        assetClass,
+        label,
+        newTradeCount: latestMap.get(`derivatives.dtcc_swaps.${assetClass}.new_trade_count`)?.v ?? null,
+        asOf: latestMap.get(`derivatives.dtcc_swaps.${assetClass}.new_trade_count`)?.t ?? null,
+      })),
     };
   } catch (e) {
     console.error(`getDerivativesPageData: ${(e as Error).message}`);

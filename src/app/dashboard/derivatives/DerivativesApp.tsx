@@ -2,12 +2,13 @@
 
 import { useState, type ReactNode } from "react";
 
-export type DerivTabId = "overview" | "otc" | "positioning" | "repo" | "banks" | "crypto" | "volatility" | "scenario" | "historical" | "sources";
+export type DerivTabId = "overview" | "otc" | "positioning" | "india" | "repo" | "banks" | "crypto" | "volatility" | "scenario" | "historical" | "sources";
 
 const TABS: { id: DerivTabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "otc", label: "OTC & Exchange" },
   { id: "positioning", label: "Positioning" },
+  { id: "india", label: "India F&O" },
   { id: "repo", label: "Repo & Funding" },
   { id: "banks", label: "Bank & Dealer Leverage" },
   { id: "crypto", label: "Crypto Derivatives" },

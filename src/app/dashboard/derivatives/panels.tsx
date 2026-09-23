@@ -74,6 +74,80 @@ export function OtcPanel({ data }: { data: DerivativesPageData }) {
           BIS’s OTC dataflow does not publish gross positive market value aggregated to &quot;all instruments&quot; the way notional is — confirmed live, checked across full history back to 2015. Only broken down by individual instrument, which was not summed here to avoid a derived aggregate BIS itself doesn’t publish.
         </UnavailableNote>
       </Panel>
+      <Panel>
+        <SectionTitle>DTCC Swap Transaction Activity, by Asset Class</SectionTitle>
+        <p className="mb-3 text-[11px] text-text-dim">
+          DTCC&rsquo;s public swap-transaction dissemination data (CFTC Part 43 / SEC Reg SBSR-mandated) — genuine daily new-trade counts, distinct from BIS&rsquo;s periodic notional-outstanding stock above. This is deliberately a plain trade count, not a notional total or cleared-percentage: verified live that per-row notional is subject to CFTC size caps for large trades (one real row was capped at a 10^20 placeholder) and that the per-row &quot;Cleared&quot; field reflects clearing as a separate, later lifecycle event rather than the original trade&rsquo;s own status — both would have produced a technically-real but factually misleading number, so neither is shown. Equity swaps are not fetched (file too large for a safe daily pipeline stage — see Sources &amp; Limitations). <QualityBadge quality="REAL" />
+        </p>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Asset class</Th>
+              <Th right>New trades (day)</Th>
+              <Th>As of</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.dtccSwaps.map((r) => (
+              <tr key={r.assetClass}>
+                <Td>{r.label}</Td>
+                <Td right mono>{r.newTradeCount === null ? "—" : fmtNum(r.newTradeCount, 0)}</Td>
+                <Td mono className="text-text-dim">{r.asOf ?? "—"}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Panel>
+    </div>
+  );
+}
+
+export function IndiaPanel({ data }: { data: DerivativesPageData }) {
+  const { indiaFo } = data;
+  return (
+    <div className="flex flex-col gap-6">
+      <Panel>
+        <SectionTitle>NSE India — Index Futures &amp; Options</SectionTitle>
+        <p className="mb-3 text-[11px] text-text-dim">
+          NSE&rsquo;s own daily F&amp;O bhavcopy (&quot;UDiFF&quot; format) — free, official, no login. Put-Call Ratio (PCR) is total index-options open interest, puts ÷ calls, across all listed strikes/expiries for that underlying. <QualityBadge quality="REAL" />
+        </p>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Index</Th>
+              <Th right>Futures OI (contracts)</Th>
+              <Th right>OI change (day)</Th>
+              <Th right>PCR (OI)</Th>
+              <Th>As of</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {indiaFo.indices.map((r) => (
+              <tr key={r.symbol}>
+                <Td>{r.symbol}</Td>
+                <Td right mono>{fmtNum(r.futuresOi, 0)}</Td>
+                <Td right mono>{r.futuresOiChg === null ? "—" : (r.futuresOiChg > 0 ? "+" : "") + fmtNum(r.futuresOiChg, 0)}</Td>
+                <Td right mono>{r.pcrOi === null ? "—" : r.pcrOi.toFixed(2)}</Td>
+                <Td mono className="text-text-dim">{r.asOf ?? "—"}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Panel>
+      <Panel>
+        <SectionTitle>Whole-Market F&amp;O Activity</SectionTitle>
+        <div className="flex flex-wrap gap-3">
+          <IndexCard label="Total F&O turnover" level={indiaFo.market.turnoverCr} change4w={null} quality={indiaFo.market.turnoverCr !== null ? "REAL" : "UNAVAILABLE"} methodology={`INR crore, ${indiaFo.market.asOf ?? "—"}. Sum of NSE's own reported per-instrument traded value across every F&O contract that day.`} />
+          <IndexCard label="Total futures OI" level={indiaFo.market.futuresOi} change4w={null} quality={indiaFo.market.futuresOi !== null ? "REAL" : "UNAVAILABLE"} methodology="Contracts, index + stock futures combined — a raw leverage-in-the-system proxy, not risk-weighted." />
+          <IndexCard label="Total options OI" level={indiaFo.market.optionsOi} change4w={null} quality={indiaFo.market.optionsOi !== null ? "REAL" : "UNAVAILABLE"} methodology="Contracts, index + stock options combined, both legs." />
+        </div>
+      </Panel>
+      <Panel>
+        <SectionTitle>Not tracked</SectionTitle>
+        <UnavailableNote>
+          BSE, MCX and NCDEX derivatives, and SEBI/CCIL margin or collateral data, are not fetched — BSE/MCX archive endpoints returned 403 on the same public-download pattern used for NSE above (bot-protected), and CCIL/SEBI margin data has no verified free machine-readable source. Only NSE F&amp;O (by far the largest share of Indian derivatives volume) is covered.
+        </UnavailableNote>
+      </Panel>
     </div>
   );
 }
@@ -279,20 +353,23 @@ export function SourcesPanel() {
           <li>SEC EDGAR XBRL (bank derivative notional/assets/liabilities, where tagged) — Tier 1</li>
           <li>Yahoo Finance (VIX, MOVE index) — Tier 3</li>
           <li>Binance Futures public API (crypto perpetual funding/OI) — Tier 3</li>
+          <li>NSE India F&amp;O bhavcopy (index/stock futures &amp; options OI, PCR, market turnover) — Tier 1</li>
+          <li>DTCC public swap-transaction dissemination (Rates/Credit/FX/Commodity — CFTC Part 43/SEC Reg SBSR-mandated) — Tier 1</li>
         </ul>
       </Panel>
       <Panel>
         <SectionTitle>Unavailable / not built, and why</SectionTitle>
         <ul className="list-inside list-disc text-sm text-text-dim">
-          <li>DTCC Global Trade Repository / Trade Information Warehouse — granular data requires reporting-party or paid access</li>
+          <li>DTCC Global Trade Repository / Trade Information Warehouse (reporting-party/paid, position-level) — not built; only DTCC&rsquo;s free public per-trade dissemination feed is, see above</li>
+          <li>DTCC public dissemination, Equities asset class — verified real and free, but skipped: the daily file runs ~40MB compressed (likely 300MB+ uncompressed), too large to safely parse within one pipeline stage&rsquo;s time/memory budget</li>
           <li>ISDA SwapsInfo / Margin Survey — no verified free public data endpoint found</li>
           <li>WFE, FIA volumes — subscription/member services, no free API</li>
           <li>Live options chains, Greeks, dealer gamma, gamma walls, max pain, vanna/charm — no free source exists anywhere, global or India</li>
-          <li>NSE/BSE/MCX/NCDEX/SEBI/CCIL India exchange data — no verified feasible free connector found in this phase</li>
+          <li>BSE, MCX, NCDEX derivatives and SEBI/CCIL margin/collateral data — BSE/MCX archive endpoints are bot-protected (403); NSE F&amp;O (the largest share of Indian derivatives volume) is covered instead, see the India F&amp;O tab</li>
           <li>13F/N-PORT/Form PF position-level detail; CCP-level (CME/ICE/LCH/Eurex) margin/default-fund data — no free granular source</li>
           <li>BIS exchange-traded derivatives global total — published per-currency/per-exchange only, no worldwide aggregate</li>
           <li>BIS OTC gross market value at the &quot;all instruments&quot; cross-cut — confirmed not published by BIS at any period</li>
-          <li>OCC Quarterly Report on Bank Derivatives Activities — page reachable but data-table format not yet verified as machine-readable</li>
+          <li>OCC Quarterly Report on Bank Derivatives Activities — confirmed live: published as PDF only (no HTML table or XLSX/CSV found on the report page), and its tables are exactly the kind of multi-page, multi-bank structured data that risks silent wrong-number extraction if PDF-parsed without a reliable table layout — not attempted for that reason, consistent with this project&rsquo;s documented pdf-parsing caution</li>
           <li>ML models and precision/recall/AUC-validated backtesting — no labeled ground-truth dataset exists to validate against honestly</li>
           <li>An LLM-powered &quot;Ask Derivatives&quot; — deliberately not added; this project already discloses exactly two LLM-computed surfaces and a third needs an explicit decision, not a quiet addition</li>
         </ul>

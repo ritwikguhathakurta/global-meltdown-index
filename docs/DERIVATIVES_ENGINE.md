@@ -28,7 +28,36 @@ Every reading and composite index carries a `DataQuality` tag (`src/lib/derivati
 
 ## Not built, and why (see also the page's own Sources & Limitations tab)
 
-DTCC GTR/Trade Information Warehouse and ISDA SwapsInfo/Margin Survey (no verified free access), WFE/FIA (subscription/member data), live options chains/Greeks/dealer gamma/gamma walls/max pain/vanna/charm (no free source exists anywhere, global or India — matches `derivativesLeverage.ts`'s own pre-existing disclosure), NSE/BSE/MCX/NCDEX/SEBI/CCIL India exchange data (no verified feasible free connector found), 13F/N-PORT/Form PF position-level detail, CCP-level (CME/ICE/LCH/Eurex) margin/default-fund data, and ML/precision-recall/AUC-validated backtesting (no labeled ground-truth dataset exists — the Historical Reference tab is a factual crisis table instead, explicitly not a scored backtest). An LLM-powered "Ask Derivatives" was also not added: this repo currently discloses exactly two LLM-computed surfaces (see `CLAUDE.md`) and a third is a decision for the user to make explicitly, not something to add quietly.
+DTCC GTR/Trade Information Warehouse (position-level, reporting-party/paid access) and ISDA SwapsInfo/Margin Survey (no verified free access), WFE/FIA (subscription/member data), live options chains/Greeks/dealer gamma/gamma walls/max pain/vanna/charm (no free source exists anywhere, global or India — matches `derivativesLeverage.ts`'s own pre-existing disclosure), BSE/MCX/NCDEX/SEBI/CCIL India data (BSE/MCX archive endpoints are bot-protected — confirmed live, 403 — unlike NSE's; NSE F&O itself **is** now built, see below), 13F/N-PORT/Form PF position-level detail, CCP-level (CME/ICE/LCH/Eurex) margin/default-fund data, the OCC Quarterly Report on Bank Derivatives Activities (confirmed live: PDF-only, no machine-readable table found — its multi-bank tables are exactly the kind of structured data that risks silent wrong-number extraction if PDF-parsed without a reliable layout), and ML/precision-recall/AUC-validated backtesting (no labeled ground-truth dataset exists — the Historical Reference tab is a factual crisis table instead, explicitly not a scored backtest). An LLM-powered "Ask Derivatives" was also not added: this repo currently discloses exactly two LLM-computed surfaces (see `CLAUDE.md`) and a third is a decision for the user to make explicitly, not something to add quietly.
+
+## Phase 2 additions (corrections to the above, verified live)
+
+Two Phase 1 disclosures turned out to be wrong and were corrected rather than left standing:
+
+- **`nseFoBhavcopy.ts`** — NSE India's daily F&O bhavcopy ("UDiFF" format,
+  `archives.nseindia.com/content/fo/...`) is free, official, and current — unlike
+  the bot-protected main `nseindia.com` site, or the legacy bhavcopy path
+  (`.../content/historical/DERIVATIVES/...`) which NSE stopped publishing after
+  ~2024. Feeds NIFTY/BANKNIFTY futures open interest, index-options put/call
+  open-interest ratio (a standard positioning-sentiment indicator), and
+  whole-market F&O turnover/open interest — shown on the new **India F&O** tab.
+  Real, Tier 1.
+- **`dtccSwapData.ts`** — DTCC's public swap-transaction dissemination data
+  (`kgc0418-tdw-data-0.s3.amazonaws.com`), published because CFTC Part 43/SEC
+  Reg SBSR require public dissemination of most OTC swap trades, is free and
+  current — the genuine (if narrower) real counterpart to the full DTCC GTR.
+  Only a **daily new-trade count per asset class** (rates/credit/FX/commodity)
+  is shown, shown on the OTC & Exchange tab. Two additional metrics — a
+  cleared-percentage and a USD notional total — were built, verified against
+  live data, and then deliberately deleted before shipping: the per-row
+  "Cleared" field reflects clearing as a separate, later lifecycle event (not
+  the original trade's own status — verified live that real vanilla swaps
+  show ~0% "Y" on this field despite real clearing rates being >90%), and
+  per-row notional is subject to CFTC-mandated size caps for large trades
+  (one live row was capped at a 10^20 placeholder), so summing it produces a
+  technically-real but practically meaningless total. Equity swaps are not
+  fetched (the daily file is ~40MB compressed, too large for a safe stage
+  budget). Real, Tier 1.
 
 ## Tests
 

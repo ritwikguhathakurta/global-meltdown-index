@@ -202,6 +202,16 @@ or a labeled ground-truth dataset that doesn't exist for free and are deliberate
 on the page's own Sources & Limitations tab. Run `npm run test:derivatives` after touching
 `src/lib/derivatives/`.
 
+Phase 2 added two sources that a Phase 1 pass wrongly concluded didn't exist for free —
+`nseFoBhavcopy.ts` (NSE India's daily F&O bhavcopy, real Tier 1, unlike the bot-protected main
+nseindia.com site) and `dtccSwapData.ts` (DTCC's public swap-dissemination data, real Tier 1, the
+free counterpart to the paid-only DTCC GTR). Before trusting a "no free source exists" disclosure
+elsewhere in this codebase at face value, it's worth a quick live re-check — see
+`docs/DERIVATIVES_ENGINE.md`'s "Phase 2 additions" section for exactly what was verified and what
+was built vs. deliberately still left out (e.g. a DTCC cleared-percentage and notional-sum metric
+were built, checked against live data, and then deleted because the underlying fields don't mean
+what they first appear to — a lesson worth reading before adding a similar metric elsewhere).
+
 ### Commodities taxonomy
 
 `src/lib/commodities/taxonomy.ts` (`COMMODITIES`) is the master list mapping each commodity to its

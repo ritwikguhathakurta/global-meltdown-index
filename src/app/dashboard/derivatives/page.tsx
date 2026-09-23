@@ -2,7 +2,7 @@ import { getLatestEngine } from "@/lib/api/engineData";
 import { getDerivativesPageData } from "@/lib/api/derivativesData";
 import { DerivativesApp, type DerivTabId } from "./DerivativesApp";
 import { ScenarioPanel } from "./ScenarioPanel";
-import { OverviewPanel, OtcPanel, PositioningPanel, RepoPanel, BanksPanel, CryptoPanel, VolatilityPanel, HistoricalPanel, SourcesPanel } from "./panels";
+import { OverviewPanel, OtcPanel, PositioningPanel, IndiaPanel, RepoPanel, BanksPanel, CryptoPanel, VolatilityPanel, HistoricalPanel, SourcesPanel } from "./panels";
 import { UnavailableNote, Panel } from "./ui";
 
 export default async function DerivativesPage() {
@@ -23,6 +23,7 @@ export default async function DerivativesPage() {
             overview: <OverviewPanel data={data} engineRows={engineRows} />,
             otc: <OtcPanel data={data} />,
             positioning: <PositioningPanel data={data} />,
+            india: <IndiaPanel data={data} />,
             repo: <RepoPanel data={data} />,
             banks: <BanksPanel data={data} />,
             crypto: <CryptoPanel data={data} />,
