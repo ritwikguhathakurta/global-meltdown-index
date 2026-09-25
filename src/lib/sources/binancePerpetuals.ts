@@ -17,12 +17,17 @@ const SYMBOLS: { symbol: string; metricSlug: string; label: string }[] = [
   { symbol: "ETHUSDT", metricSlug: "eth", label: "Ethereum perpetual" },
 ];
 
+const failures: string[] = [];
+
 async function fetchOne(symbol: string): Promise<{ fundingRate: number; openInterest: number } | null> {
   const [premiumRes, oiRes] = await Promise.all([
     fetch(`${BASE_URL}/premiumIndex?symbol=${symbol}`, { next: { revalidate: 0 } }),
     fetch(`${BASE_URL}/openInterest?symbol=${symbol}`, { next: { revalidate: 0 } }),
   ]);
-  if (!premiumRes.ok || !oiRes.ok) return null;
+  if (!premiumRes.ok || !oiRes.ok) {
+    failures.push(`${symbol}: HTTP ${premiumRes.status}/${oiRes.status}`);
+    return null;
+  }
   const premium = (await premiumRes.json()) as { lastFundingRate?: string };
   const oi = (await oiRes.json()) as { openInterest?: string };
   const fundingRate = premium.lastFundingRate !== undefined ? parseFloat(premium.lastFundingRate) : NaN;
@@ -34,6 +39,7 @@ async function fetchOne(symbol: string): Promise<{ fundingRate: number; openInte
 export async function fetchBinancePerpetuals(): Promise<MetricPoint[]> {
   const now = new Date().toISOString().slice(0, 10);
   const points: MetricPoint[] = [];
+  failures.length = 0;
   for (const s of SYMBOLS) {
     const data = await fetchOne(s.symbol);
     if (!data) continue;
@@ -56,6 +62,6 @@ export async function fetchBinancePerpetuals(): Promise<MetricPoint[]> {
       frequency: "daily",
     });
   }
-  if (points.length === 0) throw new Error("Binance perpetuals: no symbols returned data");
+  if (points.length === 0) throw new Error(`Binance perpetuals: no symbols returned data (${failures.join("; ") || "no HTTP error recorded"})`);
   return points;
 }
