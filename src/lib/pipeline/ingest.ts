@@ -1310,9 +1310,9 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
   let totalPoints = 0;
   const errors: string[] = [];
   let stoppedAtIndex: number | null = null;
-  // Stop starting new items 45s before this stage's 150s budget so it returns normally with a resumable
+  // Stop starting new items 45s before this stage's 190s budget so it returns normally with a resumable
   // cursor, instead of being abandoned (which logs no nextIndex and would restart at the same items every run).
-  const deadline = Date.now() + 105000;
+  const deadline = Date.now() + 145000;
   for (let i = 0; i < n; i++) {
     const index = (startIndex + i) % n;
     if (i > 0 && Date.now() > deadline) {
@@ -1680,9 +1680,9 @@ export async function ingestChemicalHsUnitValues(db: SupabaseClient, runDate: st
   let totalPoints = 0;
   const errors: string[] = [];
   let stoppedAtIndex: number | null = null;
-  // Stop starting new items 45s before this stage's 150s budget so it returns normally with a resumable
+  // Stop starting new items 45s before this stage's 190s budget so it returns normally with a resumable
   // cursor, instead of being abandoned (which logs no nextIndex and would restart at the same items every run).
-  const deadline = Date.now() + 105000;
+  const deadline = Date.now() + 145000;
   for (let i = 0; i < n; i++) {
     const index = (startIndex + i) % n;
     if (i > 0 && Date.now() > deadline) {
@@ -1949,6 +1949,16 @@ export async function runIngestionPipeline(db: SupabaseClient) {
   // with several stages concurrently at their own limit, since they all run
   // in parallel with each other (just no longer with RBI).
   const withTimeout = (stage: string, p: Promise<IngestStageResult>) => withStageTimeout(stage, p, 150_000, db, runDate);
+  // The four UN Comtrade stages share ONE account-wide rate limit (~1 call / 3s, see
+  // unComtradeRateLimit.ts) — roughly 60 calls per 190s window in total. Run all four at
+  // once and each got ~15, so none finished (energy_flows never did). Instead each day only
+  // one pair runs and gets the whole limit; the other pair runs the next day. A skipped
+  // stage is NOT logged to pipeline_runs — its resume cursor lives in its last row there.
+  const comtradeGroupToday: "A" | "B" = Math.floor(Date.now() / 86_400_000) % 2 === 0 ? "A" : "B";
+  const comtradeRotated = (group: "A" | "B", stage: string, run: () => Promise<IngestStageResult>): Promise<IngestStageResult> =>
+    group === comtradeGroupToday
+      ? withStageTimeout(stage, run(), 190_000, db, runDate)
+      : Promise.resolve({ stage, status: "ok" as const, detail: { skipped: true, reason: "UN Comtrade stages rotate daily to share one rate limit; this stage runs on alternate days" } });
   const results = await Promise.all([
     withTimeout("ingest_fred", ingestFred(db, runDate)),
     withTimeout("ingest_fx", ingestFx(db, runDate)),
@@ -2003,7 +2013,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_nyiso_grid", ingestNyisoGrid(db, runDate)),
     withTimeout("ingest_eia_grid_monitor", ingestEiaGridMonitor(db, runDate)),
     withTimeout("ingest_irena_renewables", ingestIrenaRenewables(db, runDate)),
-    withTimeout("ingest_un_comtrade_energy_flows", ingestUnComtradeEnergyFlows(db, runDate)),
+    comtradeRotated("A", "ingest_un_comtrade_energy_flows", () => ingestUnComtradeEnergyFlows(db, runDate)),
     // 7 commodities x (1 probe + 3 reporter-chunks + 2 trend calls) each with
     // its own 429-retry risk measured live at ~130-140s end-to-end even on
     // the registered-key tier — comfortably reports "ok" within 250s rather
@@ -2013,7 +2023,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // only raises THIS stage's own individual ceiling, still under the
     // route's shared 300s maxDuration, and Promise.all already waits for
     // whichever stage is slowest regardless.
-    withStageTimeout("ingest_un_comtrade_oleochemical_flows", ingestUnComtradeOleochemicalFlows(db, runDate), 190_000, db, runDate),
+    comtradeRotated("B", "ingest_un_comtrade_oleochemical_flows", () => ingestUnComtradeOleochemicalFlows(db, runDate)),
     withTimeout("ingest_entsoe_day_ahead_prices", ingestEntsoeDayAheadPrices(db, runDate)),
     withTimeout("ingest_entsoe_load", ingestEntsoeLoad(db, runDate)),
     withTimeout("ingest_entsoe_generation", ingestEntsoeGeneration(db, runDate)),
@@ -2031,8 +2041,8 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // wall-clock cost is close enough to the shared 150s budget that normal
     // network jitter would routinely trip the "abandoned" fallback even
     // though the underlying per-commodity upserts land safely regardless.
-    withStageTimeout("ingest_usgs_commodity_country_trade", ingestUsgsCommodityCountryTrade(db, runDate), 190_000, db, runDate),
-    withTimeout("ingest_chemical_hs_unit_values", ingestChemicalHsUnitValues(db, runDate)),
+    comtradeRotated("B", "ingest_usgs_commodity_country_trade", () => ingestUsgsCommodityCountryTrade(db, runDate)),
+    comtradeRotated("A", "ingest_chemical_hs_unit_values", () => ingestChemicalHsUnitValues(db, runDate)),
     withTimeout("ingest_massive_futures", ingestMassiveFutures(db, runDate)),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
     withTimeout("ingest_eia_world_energy", ingestEiaWorldEnergy(db, runDate)),
