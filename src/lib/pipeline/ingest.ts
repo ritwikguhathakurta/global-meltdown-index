@@ -1310,8 +1310,16 @@ export async function ingestUnComtradeEnergyFlows(db: SupabaseClient, runDate: s
   let totalPoints = 0;
   const errors: string[] = [];
   let stoppedAtIndex: number | null = null;
+  // Stop starting new items 45s before this stage's 150s budget so it returns normally with a resumable
+  // cursor, instead of being abandoned (which logs no nextIndex and would restart at the same items every run).
+  const deadline = Date.now() + 105000;
   for (let i = 0; i < n; i++) {
     const index = (startIndex + i) % n;
+    if (i > 0 && Date.now() > deadline) {
+      errors.push(`time budget reached; ${index} onward resumes on the next run`);
+      stoppedAtIndex = index;
+      break;
+    }
     const commodity = TRADE_COMMODITIES[index];
     try {
       const points = await fetchUnComtradeEnergyFlowsForCommodity(commodity);
@@ -1365,8 +1373,16 @@ export async function ingestUnComtradeOleochemicalFlows(db: SupabaseClient, runD
   let totalPoints = 0;
   const errors: string[] = [];
   let stoppedAtIndex: number | null = null;
+  // Stop starting new items 45s before this stage's 190s budget so it returns normally with a resumable
+  // cursor, instead of being abandoned (which logs no nextIndex and would restart at the same items every run).
+  const deadline = Date.now() + 145000;
   for (let i = 0; i < n; i++) {
     const index = (startIndex + i) % n;
+    if (i > 0 && Date.now() > deadline) {
+      errors.push(`time budget reached; ${index} onward resumes on the next run`);
+      stoppedAtIndex = index;
+      break;
+    }
     const commodity = OLEOCHEMICAL_TRADE_COMMODITIES[index];
     try {
       const points = await fetchUnComtradeOleochemicalFlowsForCommodity(commodity);
@@ -1598,8 +1614,16 @@ export async function ingestUsgsCommodityCountryTrade(db: SupabaseClient, runDat
   let totalPoints = 0;
   const errors: string[] = [];
   let stoppedAtIndex: number | null = null;
+  // Stop starting new items 45s before this stage's 190s budget so it returns normally with a resumable
+  // cursor, instead of being abandoned (which logs no nextIndex and would restart at the same items every run).
+  const deadline = Date.now() + 145000;
   for (let i = 0; i < n; i++) {
     const index = (startIndex + i) % n;
+    if (i > 0 && Date.now() > deadline) {
+      errors.push(`time budget reached; ${index} onward resumes on the next run`);
+      stoppedAtIndex = index;
+      break;
+    }
     const commodity = USGS_TRADE_COMMODITIES[index];
     try {
       const { points, errors: commodityErrors } = await fetchUsgsCommodityCountryTradeForCommodity(commodity);
@@ -1656,8 +1680,16 @@ export async function ingestChemicalHsUnitValues(db: SupabaseClient, runDate: st
   let totalPoints = 0;
   const errors: string[] = [];
   let stoppedAtIndex: number | null = null;
+  // Stop starting new items 45s before this stage's 150s budget so it returns normally with a resumable
+  // cursor, instead of being abandoned (which logs no nextIndex and would restart at the same items every run).
+  const deadline = Date.now() + 105000;
   for (let i = 0; i < n; i++) {
     const index = (startIndex + i) % n;
+    if (i > 0 && Date.now() > deadline) {
+      errors.push(`time budget reached; ${index} onward resumes on the next run`);
+      stoppedAtIndex = index;
+      break;
+    }
     const group = codes[index];
     try {
       const points = await fetchChemicalHsUnitValue(group);
