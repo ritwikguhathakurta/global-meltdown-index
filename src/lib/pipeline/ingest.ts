@@ -10,6 +10,7 @@ import { fetchBinancePerpetuals } from "../sources/binancePerpetuals";
 import { fetchNseFoBhavcopy } from "../sources/nseFoBhavcopy";
 import { fetchDtccSwapData } from "../sources/dtccSwapData";
 import { fetchHkexDerivatives } from "../sources/hkexDerivatives";
+import { fetchTaifexDerivatives } from "../sources/taifexDerivatives";
 import { fetchB3Derivatives } from "../sources/b3Derivatives";
 import { CENTRAL_BANK_FEEDS, fetchCentralBankFeed } from "../sources/centralBankRss";
 import { fetchGscpiSeries } from "../sources/gscpi";
@@ -410,6 +411,20 @@ export async function ingestDtccSwapData(db: SupabaseClient, runDate: string): P
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_dtcc_swap_data", "failed", detail);
     return { stage: "ingest_dtcc_swap_data", status: "failed", detail };
+  }
+}
+
+export async function ingestTaifexDerivatives(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchTaifexDerivatives();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_taifex_derivatives", "ok", detail);
+    return { stage: "ingest_taifex_derivatives", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_taifex_derivatives", "failed", detail);
+    return { stage: "ingest_taifex_derivatives", status: "failed", detail };
   }
 }
 
@@ -1901,6 +1916,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // 180s budget, see dtccSwapData.ts) — longer stage ceiling than the default 150s.
     withStageTimeout("ingest_dtcc_swap_data", ingestDtccSwapData(db, runDate), 220_000, db, runDate),
     withTimeout("ingest_hkex_derivatives", ingestHkexDerivatives(db, runDate)),
+    withTimeout("ingest_taifex_derivatives", ingestTaifexDerivatives(db, runDate)),
     withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
     withTimeout("ingest_gscpi", ingestGscpi(db, runDate)),
