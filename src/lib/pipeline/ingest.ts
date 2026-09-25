@@ -12,6 +12,7 @@ import { fetchDtccSwapData } from "../sources/dtccSwapData";
 import { fetchHkexDerivatives } from "../sources/hkexDerivatives";
 import { fetchTaifexDerivatives } from "../sources/taifexDerivatives";
 import { fetchCffexDerivatives } from "../sources/cffexDerivatives";
+import { fetchDeribitOptions } from "../sources/deribitOptions";
 import { fetchIceFuturesEuropeCot } from "../sources/iceFuturesEuropeCot";
 import { fetchB3Derivatives } from "../sources/b3Derivatives";
 import { CENTRAL_BANK_FEEDS, fetchCentralBankFeed } from "../sources/centralBankRss";
@@ -427,6 +428,20 @@ export async function ingestIceFuturesEuropeCot(db: SupabaseClient, runDate: str
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_ice_futures_europe_cot", "failed", detail);
     return { stage: "ingest_ice_futures_europe_cot", status: "failed", detail };
+  }
+}
+
+export async function ingestDeribitOptions(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchDeribitOptions();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_deribit_options", "ok", detail);
+    return { stage: "ingest_deribit_options", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_deribit_options", "failed", detail);
+    return { stage: "ingest_deribit_options", status: "failed", detail };
   }
 }
 
@@ -1990,6 +2005,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_hkex_derivatives", ingestHkexDerivatives(db, runDate)),
     withTimeout("ingest_taifex_derivatives", ingestTaifexDerivatives(db, runDate)),
     withTimeout("ingest_cffex_derivatives", ingestCffexDerivatives(db, runDate)),
+    withTimeout("ingest_deribit_options", ingestDeribitOptions(db, runDate)),
     withTimeout("ingest_ice_futures_europe_cot", ingestIceFuturesEuropeCot(db, runDate)),
     withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
