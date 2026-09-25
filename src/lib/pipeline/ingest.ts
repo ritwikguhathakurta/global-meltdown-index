@@ -16,6 +16,7 @@ import { fetchDeribitOptions } from "../sources/deribitOptions";
 import { fetchSseOptions } from "../sources/sseOptions";
 import { fetchFbilBenchmarks } from "../sources/fbilBenchmarks";
 import { fetchDhanMcx } from "../sources/dhanMcx";
+import { fetchMxOptions } from "../sources/mxOptions";
 import { getDhanAccessToken } from "../sources/dhanToken";
 import { fetchSzseOptions } from "../sources/szseOptions";
 import { fetchIceFuturesEuropeCot } from "../sources/iceFuturesEuropeCot";
@@ -433,6 +434,20 @@ export async function ingestIceFuturesEuropeCot(db: SupabaseClient, runDate: str
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_ice_futures_europe_cot", "failed", detail);
     return { stage: "ingest_ice_futures_europe_cot", status: "failed", detail };
+  }
+}
+
+export async function ingestMxOptions(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchMxOptions();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_mx_options", "ok", detail);
+    return { stage: "ingest_mx_options", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_mx_options", "failed", detail);
+    return { stage: "ingest_mx_options", status: "failed", detail };
   }
 }
 
@@ -2079,6 +2094,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_szse_options", ingestSzseOptions(db, runDate)),
     withTimeout("ingest_fbil_benchmarks", ingestFbilBenchmarks(db, runDate)),
     withTimeout("ingest_dhan_mcx", ingestDhanMcx(db, runDate)),
+    withTimeout("ingest_mx_options", ingestMxOptions(db, runDate)),
     withTimeout("ingest_ice_futures_europe_cot", ingestIceFuturesEuropeCot(db, runDate)),
     withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
