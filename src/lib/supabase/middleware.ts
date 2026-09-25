@@ -26,7 +26,14 @@ export async function updateSession(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
-  const isProtected = pathname.startsWith("/admin") || pathname.startsWith("/dashboard");
+  const isPublic =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/api/") ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml";
+  const isProtected = !isPublic;
 
   try {
     const {
@@ -53,7 +60,7 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
-    if (pathname.startsWith("/dashboard") && !user) {
+    if (isProtected && !user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("next", pathname);
