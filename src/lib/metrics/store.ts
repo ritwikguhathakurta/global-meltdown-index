@@ -29,7 +29,7 @@ export async function upsertMetrics(db: SupabaseClient, points: MetricPoint[]) {
   // successfully check this source and find this was the newest data it had", not
   // "when was this row first inserted" (that's the separate ingested_at column).
   const lastVerifiedAt = new Date().toISOString();
-  const rows = [];
+  const rows: Record<string, unknown>[] = [];
   for (const p of points) {
     const sourceId = await resolveSourceId(db, p.source_key);
     rows.push({
@@ -44,11 +44,40 @@ export async function upsertMetrics(db: SupabaseClient, points: MetricPoint[]) {
       last_verified_at: lastVerifiedAt,
     });
   }
-  const { error, count } = await db
-    .from("metric_series")
-    .upsert(rows, { onConflict: "metric_key,observed_at,source_id", count: "exact" });
+  const run = () =>
+    db.from("metric_series").upsert(rows, { onConflict: "metric_key,observed_at,source_id", count: "exact" });
+  const { error, count } = await withWriteSlot(async () => {
+    const first = await run();
+    // A dropped connection under the pipeline's ~75-way write fan-out surfaces as
+    // "TypeError: fetch failed" (a network error, not a data error) — retry once.
+    if (first.error && /fetch failed/i.test(first.error.message)) {
+      await new Promise((r) => setTimeout(r, 500));
+      return run();
+    }
+    return first;
+  });
   if (error) throw new Error(`upsertMetrics(${points[0]?.metric_key}): ${error.message}`);
   return { inserted: count ?? rows.length };
+}
+
+// The daily pipeline runs ~75 stages at once; unbounded, their simultaneous
+// Supabase writes intermittently dropped connections ("fetch failed"). This caps
+// in-flight writes per serverless instance.
+const MAX_CONCURRENT_WRITES = 8;
+let activeWrites = 0;
+const writeWaiters: Array<() => void> = [];
+
+async function withWriteSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeWrites >= MAX_CONCURRENT_WRITES) {
+    await new Promise<void>((resolve) => writeWaiters.push(resolve));
+  }
+  activeWrites++;
+  try {
+    return await fn();
+  } finally {
+    activeWrites--;
+    writeWaiters.shift()?.();
+  }
 }
 
 /** PostgREST caps any unpaginated response at 1000 rows (this project's
