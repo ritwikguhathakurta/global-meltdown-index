@@ -1,4 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
+import { fetchRetry } from "./fetchRetry";
 
 /**
  * ICE Futures Europe "Commitments of Traders" — free, public CSV, one file per year, published
@@ -42,7 +43,7 @@ function splitCsvLine(line: string): string[] {
 }
 
 async function fetchYear(year: number): Promise<string[]> {
-  const res = await fetch(`${BASE}/COTHist${year}.csv`, { headers: HEADERS, next: { revalidate: 0 } });
+  const res = await fetchRetry(`${BASE}/COTHist${year}.csv`, { headers: HEADERS, next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`ICE COT ${year}: HTTP ${res.status}`);
   return (await res.text()).replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim().length > 0);
 }

@@ -1,4 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
+import { fetchRetry } from "./fetchRetry";
 
 /**
  * Shanghai Stock Exchange (SSE) ETF options daily statistics — the JSON data API that the
@@ -41,7 +42,7 @@ async function fetchLatestDay(maxLookbackDays = 8): Promise<Row[] | null> {
     const d = new Date(now);
     d.setUTCDate(d.getUTCDate() - i);
     const ymd = d.toISOString().slice(0, 10).replace(/-/g, "");
-    const res = await fetch(`${URL_BASE}&tradeDate=${ymd}`, { headers: HEADERS, next: { revalidate: 0 } });
+    const res = await fetchRetry(`${URL_BASE}&tradeDate=${ymd}`, { headers: HEADERS, next: { revalidate: 0 } });
     if (!res.ok) continue;
     const rows = ((await res.json()) as { result?: Row[] }).result ?? [];
     if (rows.length > 0) return rows;

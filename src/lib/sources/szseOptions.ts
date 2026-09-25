@@ -1,4 +1,5 @@
 import type { MetricPoint } from "../metrics/store";
+import { fetchRetry } from "./fetchRetry";
 
 /**
  * Shenzhen Stock Exchange (SZSE) ETF options daily overview — the exchange's own public report
@@ -28,7 +29,7 @@ async function fetchLatestDay(maxLookbackDays = 8): Promise<{ rows: Row[]; date:
     const d = new Date(now);
     d.setUTCDate(d.getUTCDate() - i);
     const date = d.toISOString().slice(0, 10);
-    const res = await fetch(`${URL_BASE}&txtQueryDate=${date}`, { headers: HEADERS, next: { revalidate: 0 } });
+    const res = await fetchRetry(`${URL_BASE}&txtQueryDate=${date}`, { headers: HEADERS, next: { revalidate: 0 } });
     if (!res.ok) continue;
     const rows = ((await res.json()) as { data?: Row[] }[])[0]?.data ?? [];
     if (rows.length > 0) return { rows, date };
