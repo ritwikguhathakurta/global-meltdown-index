@@ -14,6 +14,7 @@ import { fetchTaifexDerivatives } from "../sources/taifexDerivatives";
 import { fetchCffexDerivatives } from "../sources/cffexDerivatives";
 import { fetchDeribitOptions } from "../sources/deribitOptions";
 import { fetchSseOptions } from "../sources/sseOptions";
+import { fetchFbilBenchmarks } from "../sources/fbilBenchmarks";
 import { fetchSzseOptions } from "../sources/szseOptions";
 import { fetchIceFuturesEuropeCot } from "../sources/iceFuturesEuropeCot";
 import { fetchB3Derivatives } from "../sources/b3Derivatives";
@@ -430,6 +431,20 @@ export async function ingestIceFuturesEuropeCot(db: SupabaseClient, runDate: str
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_ice_futures_europe_cot", "failed", detail);
     return { stage: "ingest_ice_futures_europe_cot", status: "failed", detail };
+  }
+}
+
+export async function ingestFbilBenchmarks(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchFbilBenchmarks();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_fbil_benchmarks", "ok", detail);
+    return { stage: "ingest_fbil_benchmarks", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_fbil_benchmarks", "failed", detail);
+    return { stage: "ingest_fbil_benchmarks", status: "failed", detail };
   }
 }
 
@@ -2038,6 +2053,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_deribit_options", ingestDeribitOptions(db, runDate)),
     withTimeout("ingest_sse_options", ingestSseOptions(db, runDate)),
     withTimeout("ingest_szse_options", ingestSzseOptions(db, runDate)),
+    withTimeout("ingest_fbil_benchmarks", ingestFbilBenchmarks(db, runDate)),
     withTimeout("ingest_ice_futures_europe_cot", ingestIceFuturesEuropeCot(db, runDate)),
     withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
