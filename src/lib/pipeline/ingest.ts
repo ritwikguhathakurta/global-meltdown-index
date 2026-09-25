@@ -16,6 +16,7 @@ import { fetchDeribitOptions } from "../sources/deribitOptions";
 import { fetchSseOptions } from "../sources/sseOptions";
 import { fetchFbilBenchmarks } from "../sources/fbilBenchmarks";
 import { fetchDhanMcx } from "../sources/dhanMcx";
+import { getDhanAccessToken } from "../sources/dhanToken";
 import { fetchSzseOptions } from "../sources/szseOptions";
 import { fetchIceFuturesEuropeCot } from "../sources/iceFuturesEuropeCot";
 import { fetchB3Derivatives } from "../sources/b3Derivatives";
@@ -444,11 +445,12 @@ export async function ingestDhanMcx(db: SupabaseClient, runDate: string): Promis
     return { stage: "ingest_dhan_mcx", status: "warning", detail };
   }
   try {
-    const points = await fetchDhanMcx(clientId, accessToken);
+    const { token, note } = await getDhanAccessToken(db, clientId, accessToken);
+    const points = await fetchDhanMcx(clientId, token);
     await upsertMetrics(db, points);
-    const detail = { points: points.length };
-    await logRun(db, runDate, "ingest_dhan_mcx", "ok", detail);
-    return { stage: "ingest_dhan_mcx", status: "ok", detail };
+    const detail = { points: points.length, token: note };
+    await logRun(db, runDate, "ingest_dhan_mcx", note === "renewed" ? "ok" : "warning", detail);
+    return { stage: "ingest_dhan_mcx", status: note === "renewed" ? "ok" : "warning", detail };
   } catch (e) {
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_dhan_mcx", "failed", detail);
