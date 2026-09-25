@@ -1914,7 +1914,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_nse_fo_bhavcopy", ingestNseFoBhavcopy(db, runDate)),
     // Downloads and streams 4 separate multi-MB DTCC files sequentially (own internal
     // 180s budget, see dtccSwapData.ts) — longer stage ceiling than the default 150s.
-    withStageTimeout("ingest_dtcc_swap_data", ingestDtccSwapData(db, runDate), 220_000, db, runDate),
+    withStageTimeout("ingest_dtcc_swap_data", ingestDtccSwapData(db, runDate), 190_000, db, runDate),
     withTimeout("ingest_hkex_derivatives", ingestHkexDerivatives(db, runDate)),
     withTimeout("ingest_taifex_derivatives", ingestTaifexDerivatives(db, runDate)),
     withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
@@ -1965,7 +1965,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // only raises THIS stage's own individual ceiling, still under the
     // route's shared 300s maxDuration, and Promise.all already waits for
     // whichever stage is slowest regardless.
-    withStageTimeout("ingest_un_comtrade_oleochemical_flows", ingestUnComtradeOleochemicalFlows(db, runDate), 250_000, db, runDate),
+    withStageTimeout("ingest_un_comtrade_oleochemical_flows", ingestUnComtradeOleochemicalFlows(db, runDate), 190_000, db, runDate),
     withTimeout("ingest_entsoe_day_ahead_prices", ingestEntsoeDayAheadPrices(db, runDate)),
     withTimeout("ingest_entsoe_load", ingestEntsoeLoad(db, runDate)),
     withTimeout("ingest_entsoe_generation", ingestEntsoeGeneration(db, runDate)),
@@ -1983,7 +1983,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     // wall-clock cost is close enough to the shared 150s budget that normal
     // network jitter would routinely trip the "abandoned" fallback even
     // though the underlying per-commodity upserts land safely regardless.
-    withStageTimeout("ingest_usgs_commodity_country_trade", ingestUsgsCommodityCountryTrade(db, runDate), 250_000, db, runDate),
+    withStageTimeout("ingest_usgs_commodity_country_trade", ingestUsgsCommodityCountryTrade(db, runDate), 190_000, db, runDate),
     withTimeout("ingest_chemical_hs_unit_values", ingestChemicalHsUnitValues(db, runDate)),
     withTimeout("ingest_massive_futures", ingestMassiveFutures(db, runDate)),
     withTimeout("ingest_faostat_production", ingestFaostatProduction(db, runDate)),
