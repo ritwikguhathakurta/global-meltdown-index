@@ -13,7 +13,7 @@ This was built against a 151-section institutional spec (`Derivative_Engine.pdf`
 
 Every reading and composite index carries a `DataQuality` tag (`src/lib/derivatives/types.ts`):
 
-- **REAL** — a genuine observation (BIS OTC notional, CFTC COT positions, NY Fed repo rates, bank leverage ratios, VIX/MOVE, Binance funding rate/OI).
+- **REAL** — a genuine observation (BIS OTC notional, CFTC COT positions, NY Fed repo rates, bank leverage ratios, VIX/MOVE, OKX funding rate/OI).
 - **MODEL_ESTIMATE** — a heuristic built from real proxies standing in for something no free source publishes (margin calls, collateral haircuts, forced-selling flows). MSI, CSI, FDR, DLS and CALCI are MODEL_ESTIMATE by construction; every card carrying this badge states its exact formula in `methodology`. GLI, PCI and CRI combine real observations into a genuine index and are REAL (CRI is MODEL_ESTIMATE only insofar as the *combination* of real bank-leverage and credit-spread data into one "counterparty risk" number is this page's own heuristic, not a published index).
 - **UNAVAILABLE** — no data, shown as such, never silently dropped.
 
@@ -22,7 +22,7 @@ Every reading and composite index carries a `DataQuality` tag (`src/lib/derivati
 - **`bisOtcDerivatives.ts`** — BIS SDMX API, `WS_OTC_DERIV2`: OTC derivatives notional outstanding by risk category (total, FX, rates, equity, commodity, credit), semiannual, worldwide, net-net basis. BIS's own headline cross-cut — confirmed against real, current data (~$845tn total for 2025-S2, matching BIS's own published aggregate). Gross market value at the same "all instruments" cross-cut and the exchange-traded dataflow (`WS_XTD_DERIV`, no published worldwide total) were checked and are **not** built — see the page's Sources tab for why.
 - **`cftcCot.ts` extended** — Disaggregated COT (crude oil, natural gas, gold; producer/merchant, swap dealer, managed-money categories) and Traders-in-Financial-Futures (2/5/10/30Y Treasury futures; dealer, asset manager, leveraged-funds categories). Every market name was verified against the *current* report date, not assumed — several contracts have been renamed since this repo's original Legacy-COT list was written (e.g. the main NYMEX WTI contract is now "WTI FINANCIAL CRUDE OIL", not "CRUDE OIL, LIGHT SWEET", which stopped updating in Nov 2021).
 - **`nyFedRepoRates.ts`** — NY Fed Markets Data API: SOFR/TGCR/BGCR with percentile bands and volume, free, no key.
-- **`binancePerpetuals.ts`** — Binance Futures public API: BTC/ETH perpetual funding rate and open interest. Tier 3 (a single commercial exchange), labeled as such everywhere it's shown.
+- **`okxPerpetuals.ts`** — OKX public API (replaced Binance, which returns HTTP 451 to US servers): BTC/ETH perpetual funding rate and open interest. Tier 3 (a single commercial exchange), labeled as such everywhere it's shown.
 - **MOVE index** added to `yahooIndex.ts`'s existing pattern (same mechanism as VIX).
 - **`bankSecFilings.ts` extended** — `DerivativeNotionalAmount`/`DerivativeAssets`/`DerivativeLiabilities` XBRL concepts, where each bank actually tags them (not every bank does — confirmed live: Wells Fargo doesn't tag the notional concept the same way JPMorgan/Goldman/PNC do; shown as UNAVAILABLE for that bank, not estimated).
 

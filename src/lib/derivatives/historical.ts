@@ -55,7 +55,7 @@ export const HISTORICAL_CRISES: HistoricalCrisisEntry[] = [
     year: "2022",
     name: "Crypto deleveraging (Terra/Luna, FTX)",
     mechanism: "Over-levered crypto lending and exchange-native leverage unwound in cascading liquidations as collateral values (often the platforms' own tokens) collapsed.",
-    relevantIndices: ["Binance perpetual funding rate/open interest (Tier 3, this exact market now tracked)"],
+    relevantIndices: ["OKX perpetual funding rate/open interest (Tier 3, this exact market now tracked)"],
   },
   {
     year: "2023",

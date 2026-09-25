@@ -269,7 +269,7 @@ export function CryptoPanel({ data }: { data: DerivativesPageData }) {
       <Panel>
         <SectionTitle>Crypto Perpetual Futures</SectionTitle>
         <p className="mb-3 text-[11px] text-text-dim">
-          Binance Futures public API — a single commercial exchange, not a regulator or cross-exchange aggregate. <QualityBadge quality="UNAVAILABLE" /> is shown elsewhere for a reason; this data is real but Tier 3.
+          OKX public API — a single commercial exchange, not a regulator or cross-exchange aggregate. <QualityBadge quality="UNAVAILABLE" /> is shown elsewhere for a reason; this data is real but Tier 3.
         </p>
         <Table>
           <thead>
@@ -352,7 +352,7 @@ export function SourcesPanel() {
           <li>FDIC BankFind (bank leverage ratios) — Tier 1</li>
           <li>SEC EDGAR XBRL (bank derivative notional/assets/liabilities, where tagged) — Tier 1</li>
           <li>Yahoo Finance (VIX, MOVE index) — Tier 3</li>
-          <li>Binance Futures public API (crypto perpetual funding/OI) — Tier 3</li>
+          <li>OKX public API (crypto perpetual funding/OI) — Tier 3</li>
           <li>NSE India F&amp;O bhavcopy (index/stock futures &amp; options OI, PCR, market turnover) — Tier 1</li>
           <li>DTCC public swap-transaction dissemination (Rates/Credit/FX/Commodity — CFTC Part 43/SEC Reg SBSR-mandated) — Tier 1</li>
           <li>HKEX (Hong Kong) Daily Trading Activity &amp; Open Positions Summary (HSI/HHI/MHI futures Gross OI, whole-market options put/call OI ratio) — Tier 1</li>

@@ -70,7 +70,7 @@ ${repoLines}
 - NSE India F&O: NIFTY futures OI ${facts.indiaFo.nifty.futuresOi === null ? "not available" : facts.indiaFo.nifty.futuresOi.toLocaleString()} contracts, put/call OI ratio ${fmt(facts.indiaFo.nifty.pcrOi, 2)}; BANKNIFTY futures OI ${facts.indiaFo.bankNifty.futuresOi === null ? "not available" : facts.indiaFo.bankNifty.futuresOi.toLocaleString()} contracts, put/call OI ratio ${fmt(facts.indiaFo.bankNifty.pcrOi, 2)}; whole-market F&O turnover ${facts.indiaFo.marketTurnoverCr === null ? "not available" : `INR ${(facts.indiaFo.marketTurnoverCr / 1e7).toFixed(2)} lakh crore`}
 - DTCC swap transactions disseminated (new trades that day, by asset class):
 ${dtccLines}
-- Crypto perpetual funding (Binance, Tier 3, single exchange):
+- Crypto perpetual funding (OKX, Tier 3, single exchange):
 ${cryptoLines}
 
 USER QUESTION: ${question}

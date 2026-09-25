@@ -6,7 +6,7 @@ import { YAHOO_INDEX_SERIES, fetchYahooIndexSeries } from "../sources/yahooIndex
 import { COT_MARKETS, fetchCotSeries, COT_DISAGGREGATED_MARKETS, fetchDisaggregatedCotSeries, COT_TFF_MARKETS, fetchTffCotSeries } from "../sources/cftcCot";
 import { fetchBisOtcDerivativesNotional } from "../sources/bisOtcDerivatives";
 import { fetchNyFedRepoRates } from "../sources/nyFedRepoRates";
-import { fetchBinancePerpetuals } from "../sources/binancePerpetuals";
+import { fetchOkxPerpetuals } from "../sources/okxPerpetuals";
 import { fetchNseFoBhavcopy } from "../sources/nseFoBhavcopy";
 import { fetchDtccSwapData } from "../sources/dtccSwapData";
 import { fetchHkexDerivatives } from "../sources/hkexDerivatives";
@@ -373,17 +373,17 @@ export async function ingestNyFedRepo(db: SupabaseClient, runDate: string): Prom
   }
 }
 
-export async function ingestBinancePerpetuals(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+export async function ingestOkxPerpetuals(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
   try {
-    const points = await fetchBinancePerpetuals();
+    const points = await fetchOkxPerpetuals();
     await upsertMetrics(db, points);
     const detail = { points: points.length };
-    await logRun(db, runDate, "ingest_binance_perpetuals", "ok", detail);
-    return { stage: "ingest_binance_perpetuals", status: "ok", detail };
+    await logRun(db, runDate, "ingest_okx_perpetuals", "ok", detail);
+    return { stage: "ingest_okx_perpetuals", status: "ok", detail };
   } catch (e) {
     const detail = { error: (e as Error).message };
-    await logRun(db, runDate, "ingest_binance_perpetuals", "failed", detail);
-    return { stage: "ingest_binance_perpetuals", status: "failed", detail };
+    await logRun(db, runDate, "ingest_okx_perpetuals", "failed", detail);
+    return { stage: "ingest_okx_perpetuals", status: "failed", detail };
   }
 }
 
@@ -1957,7 +1957,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_cftc_extended", ingestCftcExtended(db, runDate)),
     withTimeout("ingest_bis_otc_derivatives", ingestBisOtcDerivatives(db, runDate)),
     withTimeout("ingest_nyfed_repo", ingestNyFedRepo(db, runDate)),
-    withTimeout("ingest_binance_perpetuals", ingestBinancePerpetuals(db, runDate)),
+    withTimeout("ingest_okx_perpetuals", ingestOkxPerpetuals(db, runDate)),
     withTimeout("ingest_nse_fo_bhavcopy", ingestNseFoBhavcopy(db, runDate)),
     // Downloads and streams 4 separate multi-MB DTCC files sequentially (own internal
     // 180s budget, see dtccSwapData.ts) — longer stage ceiling than the default 150s.
