@@ -15,6 +15,7 @@ import { fetchCffexDerivatives } from "../sources/cffexDerivatives";
 import { fetchDeribitOptions } from "../sources/deribitOptions";
 import { fetchSseOptions } from "../sources/sseOptions";
 import { fetchFbilBenchmarks } from "../sources/fbilBenchmarks";
+import { fetchDhanMcx } from "../sources/dhanMcx";
 import { fetchSzseOptions } from "../sources/szseOptions";
 import { fetchIceFuturesEuropeCot } from "../sources/iceFuturesEuropeCot";
 import { fetchB3Derivatives } from "../sources/b3Derivatives";
@@ -431,6 +432,27 @@ export async function ingestIceFuturesEuropeCot(db: SupabaseClient, runDate: str
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_ice_futures_europe_cot", "failed", detail);
     return { stage: "ingest_ice_futures_europe_cot", status: "failed", detail };
+  }
+}
+
+export async function ingestDhanMcx(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const clientId = process.env.DHAN_CLIENT_ID;
+  const accessToken = process.env.DHAN_ACCESS_TOKEN;
+  if (!clientId || !accessToken) {
+    const detail = { reason: "DHAN_CLIENT_ID / DHAN_ACCESS_TOKEN not set" };
+    await logRun(db, runDate, "ingest_dhan_mcx", "warning", detail);
+    return { stage: "ingest_dhan_mcx", status: "warning", detail };
+  }
+  try {
+    const points = await fetchDhanMcx(clientId, accessToken);
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_dhan_mcx", "ok", detail);
+    return { stage: "ingest_dhan_mcx", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_dhan_mcx", "failed", detail);
+    return { stage: "ingest_dhan_mcx", status: "failed", detail };
   }
 }
 
@@ -2054,6 +2076,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_sse_options", ingestSseOptions(db, runDate)),
     withTimeout("ingest_szse_options", ingestSzseOptions(db, runDate)),
     withTimeout("ingest_fbil_benchmarks", ingestFbilBenchmarks(db, runDate)),
+    withTimeout("ingest_dhan_mcx", ingestDhanMcx(db, runDate)),
     withTimeout("ingest_ice_futures_europe_cot", ingestIceFuturesEuropeCot(db, runDate)),
     withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
