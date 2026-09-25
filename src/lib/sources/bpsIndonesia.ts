@@ -61,9 +61,13 @@ type BpsDataResponse = {
 };
 
 async function bpsFetch(apiKey: string, params: string): Promise<BpsDataResponse> {
-  const res = await fetch(`${BPS_BASE}/${params}/key/${apiKey}/`, {
-    headers: { "User-Agent": UA },
-    next: { revalidate: 0 },
+  const url = `${BPS_BASE}/${params}/key/${apiKey}/`;
+  const init = { headers: { "User-Agent": UA }, next: { revalidate: 0 } };
+  // BPS intermittently drops the connection ("fetch failed", roughly every other run in
+  // production) — a network error, not a bad response — so retry once before giving up.
+  const res = await fetch(url, init).catch(async () => {
+    await new Promise((r) => setTimeout(r, 1500));
+    return fetch(url, init);
   });
   if (!res.ok) throw new Error(`BPS Indonesia: HTTP ${res.status}`);
   return (await res.json()) as BpsDataResponse;
