@@ -4,10 +4,6 @@
     {
       "path": "/api/cron/pipeline",
       "schedule": "30 21 * * *"
-    },
-    {
-      "path": "/api/cron/renew-dhan-token",
-      "schedule": "0 */6 * * *"
     }
   ]
 }

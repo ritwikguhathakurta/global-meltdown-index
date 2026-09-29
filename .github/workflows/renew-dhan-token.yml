@@ -1,0 +1,26 @@
+name: Renew Dhan MCX token
+
+# Vercel Hobby projects can only run a cron once per day, and even that one run can drift
+# +/-59 minutes (see src/app/api/cron/renew-dhan-token/route.ts) — too imprecise to keep a
+# 24h-lived Dhan token alive from inside Vercel alone. This workflow hits the renewal route
+# from outside Vercel's cron system on a tighter, GitHub-controlled schedule instead.
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call renewal endpoint
+        run: |
+          code=$(curl -s -o /tmp/body.txt -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://globalmeltdownindex.net/api/cron/renew-dhan-token")
+          cat /tmp/body.txt
+          echo
+          if [ "$code" -ge 300 ]; then
+            echo "renewal endpoint returned HTTP $code"
+            exit 1
+          fi
