@@ -17,6 +17,7 @@ import { fetchSseOptions } from "../sources/sseOptions";
 import { fetchFbilBenchmarks } from "../sources/fbilBenchmarks";
 import { fetchDhanMcx } from "../sources/dhanMcx";
 import { fetchMxOptions } from "../sources/mxOptions";
+import { fetchJpxOpenInterest } from "../sources/jpxOpenInterest";
 import { getDhanAccessToken } from "../sources/dhanToken";
 import { fetchSzseOptions } from "../sources/szseOptions";
 import { fetchIceFuturesEuropeCot } from "../sources/iceFuturesEuropeCot";
@@ -434,6 +435,20 @@ export async function ingestIceFuturesEuropeCot(db: SupabaseClient, runDate: str
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_ice_futures_europe_cot", "failed", detail);
     return { stage: "ingest_ice_futures_europe_cot", status: "failed", detail };
+  }
+}
+
+export async function ingestJpxOpenInterest(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchJpxOpenInterest();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_jpx_open_interest", "ok", detail);
+    return { stage: "ingest_jpx_open_interest", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_jpx_open_interest", "failed", detail);
+    return { stage: "ingest_jpx_open_interest", status: "failed", detail };
   }
 }
 
@@ -2095,6 +2110,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_fbil_benchmarks", ingestFbilBenchmarks(db, runDate)),
     withTimeout("ingest_dhan_mcx", ingestDhanMcx(db, runDate)),
     withTimeout("ingest_mx_options", ingestMxOptions(db, runDate)),
+    withTimeout("ingest_jpx_open_interest", ingestJpxOpenInterest(db, runDate)),
     withTimeout("ingest_ice_futures_europe_cot", ingestIceFuturesEuropeCot(db, runDate)),
     withTimeout("ingest_b3_derivatives", ingestB3Derivatives(db, runDate)),
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),

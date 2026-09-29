@@ -88,11 +88,16 @@ below was checked live (not assumed) before deciding to build or skip it:
   Gross OI for HSI/HHI/MHI index futures, plus a whole-market equity/index options put/call OI ratio
 - 🇧🇷 Brazil — B3 COTAHIST daily file (`b3Derivatives.ts`): real equity-options put/call **volume**
   ratio (this file has no open-interest field) and cash-market turnover
+- 🇯🇵 Japan — JPX's own daily "Derivatives Open Interest" workbook (`jpxOpenInterest.ts`), linked
+  free from its public trading-volume page: real Current Day Open Interest for Nikkei
+  225/TOPIX futures (plus mini/micro variants) and Nikkei 225/TOPIX options put/call OI. This
+  corrects a Phase-1/2 disclosure below that was checked against JPX's separate options-history
+  CSV, not this workbook — found during later screenshot-extraction planning (2026-09-29) and
+  built as a real connector once a live check showed it was a genuine free JSON/XLSX feed, the
+  same "wrongly concluded didn't exist" pattern nseFoBhavcopy.ts/dtccSwapData.ts already caught
+  once for NSE/DTCC — worth a re-check before trusting any "not free" line below at face value.
 
 **Checked and found gated/paid, not free** (confirmed live, not assumed):
-- 🇯🇵 Japan — JPX's comprehensive open-interest data requires a paid data-services contract; only a
-  short-window (last ~2 months) options-only free CSV exists, not enough for this engine's z-score
-  window
 - 🇩🇪 Germany / pan-Europe — Eurex's open-interest File Service requires an MD+S login; not free
 - 🇿🇦 South Africa — JSE's derivatives historical data is a paid CME DataMine product, not free
 
