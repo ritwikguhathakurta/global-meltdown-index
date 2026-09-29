@@ -25,6 +25,11 @@ import { fetchB3Derivatives } from "../sources/b3Derivatives";
 import { CENTRAL_BANK_FEEDS, fetchCentralBankFeed } from "../sources/centralBankRss";
 import { fetchGscpiSeries } from "../sources/gscpi";
 import { fetchGprSeries } from "../sources/gpr";
+import { fetchGdeltEscalation } from "../sources/gdeltEvents";
+import { fetchSipriMilex } from "../sources/sipriMilex";
+import { fetchWorldBankMilitary } from "../sources/worldBankMilitary";
+import { fetchOfacSanctions } from "../sources/ofacSanctions";
+import { fetchUcdpConflict } from "../sources/ucdpConflict";
 import { fetchCryptoSnapshot } from "../sources/coingecko";
 import { CLOUD_STATUS_FEEDS, fetchCloudStatusCount, fetchCloudStatusBackfill, MIN_BACKFILL_OBSERVATIONS } from "../sources/cloudStatus";
 import { AI_COMPANIES, fetchSecEdgarCompanyMetrics } from "../sources/secEdgar";
@@ -649,6 +654,83 @@ export async function ingestGpr(db: SupabaseClient, runDate: string): Promise<In
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_gpr", "failed", detail);
     return { stage: "ingest_gpr", status: "failed", detail };
+  }
+}
+
+export async function ingestGdeltEscalation(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchGdeltEscalation();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_gdelt_escalation", "ok", detail);
+    return { stage: "ingest_gdelt_escalation", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_gdelt_escalation", "failed", detail);
+    return { stage: "ingest_gdelt_escalation", status: "failed", detail };
+  }
+}
+
+export async function ingestSipriMilex(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchSipriMilex();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_sipri_milex", "ok", detail);
+    return { stage: "ingest_sipri_milex", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_sipri_milex", "failed", detail);
+    return { stage: "ingest_sipri_milex", status: "failed", detail };
+  }
+}
+
+export async function ingestWorldBankMilitary(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchWorldBankMilitary();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_world_bank_military", "ok", detail);
+    return { stage: "ingest_world_bank_military", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_world_bank_military", "failed", detail);
+    return { stage: "ingest_world_bank_military", status: "failed", detail };
+  }
+}
+
+export async function ingestOfacSanctions(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchOfacSanctions();
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_ofac_sanctions", "ok", detail);
+    return { stage: "ingest_ofac_sanctions", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_ofac_sanctions", "failed", detail);
+    return { stage: "ingest_ofac_sanctions", status: "failed", detail };
+  }
+}
+
+export async function ingestUcdpConflict(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  const token = process.env.UCDP_ACCESS_TOKEN;
+  if (!token) {
+    const detail = { reason: "UCDP_ACCESS_TOKEN not set" };
+    await logRun(db, runDate, "ingest_ucdp_conflict", "warning", detail);
+    return { stage: "ingest_ucdp_conflict", status: "warning", detail };
+  }
+  try {
+    const sinceIso = new Date(Date.now() - 400 * 86_400_000).toISOString().slice(0, 10);
+    const points = await fetchUcdpConflict(token, sinceIso);
+    await upsertMetrics(db, points);
+    const detail = { points: points.length };
+    await logRun(db, runDate, "ingest_ucdp_conflict", "ok", detail);
+    return { stage: "ingest_ucdp_conflict", status: "ok", detail };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_ucdp_conflict", "failed", detail);
+    return { stage: "ingest_ucdp_conflict", status: "failed", detail };
   }
 }
 
@@ -2116,6 +2198,11 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_central_bank_feeds", ingestCentralBankFeeds(db, runDate)),
     withTimeout("ingest_gscpi", ingestGscpi(db, runDate)),
     withTimeout("ingest_gpr", ingestGpr(db, runDate)),
+    withTimeout("ingest_gdelt_escalation", ingestGdeltEscalation(db, runDate)),
+    withTimeout("ingest_sipri_milex", ingestSipriMilex(db, runDate)),
+    withTimeout("ingest_world_bank_military", ingestWorldBankMilitary(db, runDate)),
+    withTimeout("ingest_ofac_sanctions", ingestOfacSanctions(db, runDate)),
+    withTimeout("ingest_ucdp_conflict", ingestUcdpConflict(db, runDate)),
     withTimeout("ingest_crypto", ingestCrypto(db, runDate)),
     withTimeout("ingest_cloud_status", ingestCloudStatus(db, runDate)),
     withTimeout("ingest_sec_edgar", ingestSecEdgar(db, runDate)),

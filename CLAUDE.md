@@ -222,6 +222,42 @@ or bot-protected (Singapore's SGX, Saudi Tadawul) rather than free — see
 `docs/DERIVATIVES_ENGINE.md`'s "Global leading-indicator coverage" section for the full per-region
 list before re-attempting one of the already-checked dead ends.
 
+### Geopolitical Intelligence engine (`src/lib/geopolitical/`, page `/dashboard/geopolitical`)
+
+Built against a 162-section institutional spec; everything lives under the one existing
+"Geopolitical" nav entry/route, same "no new nav item, no second GFMI-registry engine" rule as
+Derivatives. Two independent things share the page: the pre-existing GFMI-registered
+`geopolitical` engine (`src/lib/engines/geopolitical.ts`, weight 0.6, the Caldara-Iacoviello
+Geopolitical Risk Index) and the new page-level analytical layer (`src/lib/geopolitical/`,
+pure/no-server-imports like `src/lib/derivatives/` — Military Buildup, Sanctions Intensity,
+Escalation Reading, Maritime Chokepoint Stress, and GEWI — **not** registered in `gfmi.ts`). Full
+detail, including exactly what's REAL vs `MODEL_ESTIMATE` vs not built and why, is in
+`docs/GEOPOLITICAL_ENGINE.md` — read it before touching any index formula. Most of the spec's most
+demanding asks (AIS/satellite vessel tracking, cyber-attribution feeds, ML-validated
+precision/recall/AUC backtesting, a full country/actor/event relational graph schema) need paid
+data, labeled ground truth, or a fundamentally different architecture than this project uses
+anywhere else, and are deliberately not built — disclosed on the page's own Sources & Limitations
+tab. Run `npm run test:geopolitical` after touching `src/lib/geopolitical/`.
+
+Reuses rather than duplicates: `imfPortwatch.ts`'s existing 28-chokepoint AIS-derived transit data
+(already feeding the Energy engine's `energy.chokepoint.*` keys) powers the Maritime tab directly,
+with no new ingestion. New free/official connectors added: `gdeltEvents.ts` (GDELT's bulk
+Events/GKG export files — CAMEO event codes, Goldstein scale — distinct from `gdeltNews.ts`'s
+headline-only DOC 2.0 API already used for World News), `sipriMilex.ts` (SIPRI Military
+Expenditure Database, direct XLSX, backfills the full 1949-present history in one run since the
+whole sheet is already parsed), `worldBankMilitary.ts` (same full-history-backfill choice), and
+`ofacSanctions.ts` (US Treasury OFAC SDN list, real entity counts by sanctions program). UCDP
+conflict data (`ucdpConflict.ts`) is gated on `UCDP_ACCESS_TOKEN` exactly like `dhanMcx.ts` is
+gated on Dhan credentials — not verified end-to-end until that token is supplied. OpenSanctions'
+broader multi-country sanctions CSV was checked live and found to require a **paid commercial
+license** for a product like this one (its own site separates "non-commercial use" from "data
+licensing / reseller-OEM" for commercial products) — not used, the same category as the paid
+derivatives feeds already declined elsewhere. ACLED was similarly deferred: its terms point to a
+full EULA that wasn't read end-to-end during this pass — don't assume it's clear to use without
+reading that EULA first. Also added "Ask Geopolitics" (`src/lib/prediction/askGeopolitics.ts`),
+this project's fourth disclosed LLM-computed surface — see "The four places an LLM computes
+something user-facing" below.
+
 ### Commodities taxonomy
 
 `src/lib/commodities/taxonomy.ts` (`COMMODITIES`) is the master list mapping each commodity to its
@@ -229,14 +265,15 @@ World Bank Pink Sheet column, unit, etc. — most of `worldBankCommodities.ts`'s
 Energy/Metals/Grains/Oilseeds/Softs/Livestock/Fertilizers off this one table. Related taxonomies:
 `chemicalsTaxonomy.ts`, `oilseedsTaxonomy.ts`, `balanceTaxonomy.ts`.
 
-### The three places an LLM computes something user-facing
+### The four places an LLM computes something user-facing
 
 Every score/number elsewhere in the app is a deterministic function of stored data
-(`src/lib/metrics/stats.ts`) — these three are the deliberate, disclosed exceptions. Don't extend
+(`src/lib/metrics/stats.ts`) — these four are the deliberate, disclosed exceptions. Don't extend
 LLM-computed content to any other dashboard page without calling that out explicitly and disclosing it
 in the UI, since it breaks an invariant the rest of the app (and its credibility framing) depends on.
-The count grew from two to three only after an explicit user decision (see `askDerivatives.ts`'s own
-doc comment) — treat this as a real gate, not a precedent for adding a fourth without asking.
+The count grew from two to three to four only after explicit user decisions each time (see
+`askDerivatives.ts`'s and `askGeopolitics.ts`'s own doc comments) — treat this as a real gate, not a
+precedent for adding a fifth without asking.
 
 1. `src/lib/prediction/` (`openaiAnalysis.ts` using `gpt-4.1-mini`, `geminiAnalysis.ts`) — a commodity
    backtest/analysis for `/dashboard/prediction`, user-triggered per commodity (a button click, via
@@ -255,6 +292,11 @@ doc comment) — treat this as a real gate, not a precedent for adding a fourth 
    like #1. Unlike #1/#2, it never computes a new number: the model is handed a fixed snapshot of this
    page's own already-computed REAL/MODEL_ESTIMATE values and instructed to answer strictly from them,
    saying plainly when a question asks about data this dashboard doesn't track rather than guessing.
+4. `src/lib/prediction/askGeopolitics.ts` — "Ask Geopolitics" on the Geopolitical page's own tab
+   (`AskGeopoliticsPanel.tsx`, via `/api/geopolitical/ask`), the same pattern as #3 exactly: a fixed
+   snapshot of the page's own real/labeled composite indices, no new fetching, told to say plainly
+   when a question asks for something this dashboard doesn't track (live intelligence, classified
+   capabilities, AIS vessel tracking, election outcomes) rather than guessing.
 
 ### Known gotchas (each caused a real production incident)
 
