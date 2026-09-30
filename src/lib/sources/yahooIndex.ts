@@ -136,6 +136,36 @@ export const YAHOO_INDEX_SERIES: YahooIndexDef[] = [
   { metricKey: "commodity.aluminum.daily_futures_price", symbol: "ALI=F", unit: "USD/mt" },
   { metricKey: "commodity.zinc.daily_futures_price", symbol: "ZNC=F", unit: "USD/mt" },
   { metricKey: "commodity.iron_ore.daily_futures_price", symbol: "TIO=F", unit: "USD/mt" },
+  // Soft Commodities & Livestock/Dairy Multi-Timeframe Price Heatmap —
+  // filling the "no free daily futures feed has been verified" gap those two
+  // pages' own disclosures named (ICE Cocoa/Coffee/Sugar/Cotton, CME Live
+  // Cattle/Feeder Cattle/Lean Hogs). Verified live 2026-09-30: all four ICE
+  // softs and Live Cattle return ~500 real daily bars over 2 years with a
+  // fresh (2026-09-29) close, not a stale/dead symbol. CC=F prices ICE US
+  // Cocoa in USD/metric ton (matches the `cocoa` slug directly); KC=F, SB=F
+  // map onto `coffee_arabica`/`sugar_world` directly (KC=F is the Arabica
+  // "C" contract — Robusta has no Yahoo-covered futures, so
+  // `coffee_robusta`'s cell correctly stays N/A); CT=F (ICE Cotton No. 2,
+  // cents/lb) is used for the `cotton` slug even though that Pink Sheet
+  // series is priced as the Cotlook A Index — a physical spot index, not a
+  // futures price — same "closest real tradeable proxy for a related but
+  // not identical index" substitution already used for CPO=F/palm oil
+  // above, disclosed as such on the page. LE=F (Live Cattle, cents/lb) maps
+  // to `beef` — Feeder Cattle (GF=F) and Lean Hogs (HE=F) were checked live
+  // and are real too, but have no corresponding taxonomy slug (there's no
+  // Pink Sheet "Feeder Cattle" row, and Pork has a PSD balance but no price
+  // series at all — see livestock-dairy/page.tsx's own disclosure) for a
+  // Short-Term cell to attach to, so they're deliberately not added here
+  // rather than wiring in an unused series. Tea, Rubber, Bananas, and
+  // Oranges have no genuine futures-price equivalent on Yahoo (Orange Juice
+  // concentrate futures exist as OJ=F but price a materially different
+  // processed product from fresh oranges, so it wasn't used) — those cells
+  // correctly stay N/A too.
+  { metricKey: "commodity.cocoa.daily_futures_price", symbol: "CC=F", unit: "USD/mt" },
+  { metricKey: "commodity.coffee_arabica.daily_futures_price", symbol: "KC=F", unit: "cents/lb" },
+  { metricKey: "commodity.sugar_world.daily_futures_price", symbol: "SB=F", unit: "cents/lb" },
+  { metricKey: "commodity.cotton.daily_futures_price", symbol: "CT=F", unit: "cents/lb" },
+  { metricKey: "commodity.beef.daily_futures_price", symbol: "LE=F", unit: "cents/lb" },
   // Lithium and Rare Earths have no futures contract at all — these are
   // equity/ETF proxies (a liquid battery-metals ETF and a rare-earth/
   // strategic-metals miner ETF), not a direct commodity price, disclosed as

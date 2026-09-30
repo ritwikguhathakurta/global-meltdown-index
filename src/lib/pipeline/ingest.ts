@@ -97,6 +97,7 @@ import { fetchBisCorporateFxDebt } from "../sources/bisCorporateFxDebt";
 import { fetchImfFiscalGapFillers } from "../sources/imfFiscalGaps";
 import { fetchQedsExternalDebtGapFillers } from "../sources/qedsExternalDebt";
 import { fetchG7FiscalData } from "../sources/g7Fiscal";
+import { fetchImfWeoDebtFreshness } from "../sources/imfWeoDebtFreshness";
 import { fetchUsTreasuryLiveData } from "../sources/usTreasuryDebt";
 import { fetchUsTreasuryCash } from "../sources/usTreasuryCash";
 import { fetchChinaOfficialReserveAssets } from "../sources/chinaFxReserves";
@@ -1091,6 +1092,19 @@ export async function ingestG7FiscalData(db: SupabaseClient, runDate: string): P
     const detail = { error: (e as Error).message };
     await logRun(db, runDate, "ingest_g7_fiscal_data", "failed", detail);
     return { stage: "ingest_g7_fiscal_data", status: "failed", detail };
+  }
+}
+
+export async function ingestImfWeoDebtFreshness(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  try {
+    const points = await fetchImfWeoDebtFreshness();
+    await upsertMetrics(db, points);
+    await logRun(db, runDate, "ingest_imf_weo_debt_freshness", "ok", { points: points.length });
+    return { stage: "ingest_imf_weo_debt_freshness", status: "ok", detail: { points: points.length } };
+  } catch (e) {
+    const detail = { error: (e as Error).message };
+    await logRun(db, runDate, "ingest_imf_weo_debt_freshness", "failed", detail);
+    return { stage: "ingest_imf_weo_debt_freshness", status: "failed", detail };
   }
 }
 
@@ -2220,6 +2234,7 @@ export async function runIngestionPipeline(db: SupabaseClient) {
     withTimeout("ingest_em_debt_fiscal_gaps", ingestEmDebtFiscalGaps(db, runDate)),
     withTimeout("ingest_em_debt_qeds_gaps", ingestEmDebtQedsGaps(db, runDate)),
     withTimeout("ingest_g7_fiscal_data", ingestG7FiscalData(db, runDate)),
+    withTimeout("ingest_imf_weo_debt_freshness", ingestImfWeoDebtFreshness(db, runDate)),
     withTimeout("ingest_us_treasury_live", ingestUsTreasuryLiveData(db, runDate)),
     withTimeout("ingest_us_treasury_cash", ingestUsTreasuryCash(db, runDate)),
     withTimeout("ingest_china_fx_reserves", ingestChinaFxReserves(db, runDate)),

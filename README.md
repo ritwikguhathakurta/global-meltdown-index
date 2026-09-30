@@ -248,9 +248,16 @@ Most engines were originally US-only; they were widened deliberately, not by def
   daily rate (TEC 10) is Euronext-licensed with an explicit no-redistribution clause — the same
   category of restriction already declined for CCIL — so it isn't used. Government debt/GDP ratios
   for every non-US economy here are annual official statistics that genuinely lag 1-2+ years
-  (verified each already holds FRED's freshest available observation; IMF's own WEO database, the
-  only plausible fresher source, is Akamai-blocked) — see the methodology page's "why a few
-  indicators still show STALE" section for the full detail.
+  (verified each already holds FRED's freshest available observation). A prior pass concluded IMF's
+  own WEO database — the only plausible fresher source — was Akamai-blocked; re-checked live and
+  found that conclusion stale: WEO's SDMX API (`api.imf.org`, already relied on elsewhere for other
+  indicators — see `imfFiscalGaps.ts`/`g7Fiscal.ts`) serves Germany/Italy/Japan/UK/China/Canada's
+  debt/GDP with no block at all, and now feeds a genuinely fresher `sovereign.*_debt_to_gdp_imf_weo`
+  reading for each (`imfWeoDebtFreshness.ts`). It's kept as a separate series rather than appended to
+  the primary FRED-sourced one — the two disagree by 1-2+ points of GDP on the same year (different
+  debt-coverage conventions), and splicing IMF's newer years onto FRED's series would read as a real
+  jump that never happened — see the methodology page's "why a few indicators still show STALE"
+  section for the full detail.
 - **Credit**: US HY/IG/EM plus Euro-area high-yield and an Asia-Pacific EM corporate spread
   (includes, but isn't exclusive to, China). Also now a G7+China per-country table
   (`src/lib/engines/creditRegime.ts`) on the Credit tab: a dedicated China AAA
