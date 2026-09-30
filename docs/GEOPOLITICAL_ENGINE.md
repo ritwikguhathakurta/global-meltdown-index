@@ -83,10 +83,6 @@ Every number carries a `DataQuality` tag (`src/lib/geopolitical/types.ts`):
   Gated on `UCDP_ACCESS_TOKEN` exactly like `dhanMcx.ts` is gated on Dhan credentials — the
   connector code is written from UCDP's documented `Result`-array pagination shape, but **not
   verified end-to-end** until a real token is supplied and the pipeline runs with it configured.
-- **ACLED** — political-violence/protest data. Its API requires a registered key+email, and its
-  Terms and Conditions page points to a full End User License Agreement, Content Usage Terms, and
-  Attribution Policy that were not read end-to-end during this pass. Not built. Don't assume a
-  free-tier key implies unrestricted use for a commercial product without reading that EULA first.
 - **OpenSanctions** — a free, live-confirmed consolidated CSV bundling OFAC+EU+UN+UK+other
   countries' sanctions lists in one file
   (`data.opensanctions.org/datasets/latest/sanctions/targets.simple.csv`, 73MB, real). **Checked
@@ -105,6 +101,13 @@ Every number carries a `DataQuality` tag (`src/lib/geopolitical/types.ts`):
 
 ## Not built, and why
 
+- **ACLED** (political-violence/protest data) — its EULA was checked live and read end-to-end
+  (2026-09-30): §3.3 states "Scraping and crawling the Site is prohibited," and §1.2 states
+  "Commercial entities may not access or use the Content and/or Platforms without first obtaining
+  a corporate license from Licensor" — the license granted is for non-commercial use only. Even
+  ACLED's nominally "free" tier (the Data Export Tool, a myACLED account) requires registration —
+  there's no unauthenticated access at all. Same category as OpenSanctions below: a real, live,
+  technically reachable dataset declined on its own stated license terms, not a technical gap.
 - **AIS/satellite vessel-level tracking** (Kpler, Vortexa, Windward, MarineTraffic, Spire) — all
   paid commercial products. IMF PortWatch's own AIS-derived chokepoint-level aggregates (reused
   above) is the free substitute this project already has.
