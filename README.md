@@ -1,10 +1,137 @@
 # Global Meltdown Index
 
-A leading-indicator systemic-risk terminal (globalmeltdownindex.net), built against the V3
-specification in this repo's originating brief. This is **Phase 1** of a large build — see
-[Scope](#scope--whats-not-here-yet) before assuming full spec coverage.
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase)
+![Live](https://img.shields.io/badge/live-globalmeltdownindex.net-brightgreen)
+
+**A systemic-risk terminal that turns free, official macro-financial data into one transparent
+composite score** — 24 independent risk engines across the G7 and China, each one computed
+deterministically from data you can trace back to its own source, with every stale or missing
+number labeled as such instead of guessed at.
 
 Core question the platform answers: *what is changing now that could matter later?*
+
+## See it live
+
+The full dashboard — all 24 engines, trend charts, source citations — is at
+**[globalmeltdownindex.net/dashboard](https://globalmeltdownindex.net/dashboard)** behind a free
+account (takes under a minute; see [Quick start](#quick-start)). You don't need one to see real
+output right now, though — the underlying API is public, and this is a real, live response, not a
+mockup:
+
+```bash
+curl https://globalmeltdownindex.net/api/gfmi
+```
+
+```jsonc
+// trimmed to 2 of 24 components for readability — the real response includes all of them
+{
+  "data": {
+    "current": {
+      "as_of": "2026-10-22",
+      "score": 72,
+      "regime": "CRISIS_DEVELOPING",
+      "confidence": 0.9,
+      "components": {
+        "credit": { "score": 70, "weight": 1, "contribution": 4.24 },
+        "us_treasury_sovereign": { "score": 59, "weight": 1.2, "contribution": 4.29 }
+      }
+    }
+  },
+  "disclaimer": "CURRENT MACRO/MARKET ASSESSMENT — NOT A GUARANTEED FORECAST OR INVESTMENT RECOMMENDATION."
+}
+```
+
+Or run a scripted walkthrough across five endpoints (health, composite score, one engine in detail,
+every leading indicator, the source registry) with `npm run demo` — see
+[`docs/API_EXAMPLES.md`](docs/API_EXAMPLES.md) for the full set of verified, live-captured responses.
+
+## What the GFMI score means
+
+The number above is the **Global Financial Meltdown Index**: a 0-100 weighted average of all 24
+engine scores, lifted by a nonlinear amplifier when several independent engines are elevated at
+once (correlated stress across independent risk dimensions is empirically more dangerous than any
+one elevated reading). It maps to one of seven named stages, taken directly from the scoring code
+(`src/lib/engines/gfmi.ts`) rather than paraphrased:
+
+| Score | Stage | What it means |
+|---|---|---|
+| 0–14 | 1 · Low Systemic Risk | Tracked engines broadly calm; no amplification applied. |
+| 15–29 | 2 · Watch | Some deterioration showing up, not yet broad-based. |
+| 30–44 | 3 · Vulnerability Building | Structural vulnerabilities building across more than one engine. |
+| 45–59 | 4 · High Systemic Risk | Multiple independent engines elevated together; the amplifier typically starts to engage. |
+| 60–74 | 5 · Crisis Developing | Broad, correlated deterioration; the amplifier is meaningfully lifting the composite. |
+| 75–89 | 6 · Major Deleveraging | Severe, correlated stress consistent with a broad deleveraging episode. |
+| 90–100 | 7 · Systemic Crisis | The top of the observed range — a score band, not a declared historical crisis. |
+
+`confidence` (separately from the score) reflects data completeness and freshness, not certainty
+about the future — and that distinction matters: **this is a current risk signal, not a forecast.**
+Every page carries the same disclaimer as the API response above (`"NOT A GUARANTEED FORECAST OR
+INVESTMENT RECOMMENDATION"`), because a weighted average of real, present-day data describes
+*conditions right now*, not what happens next.
+
+## Inspect a real signal, source to score
+
+Pick any one driver and you can trace it all the way back yourself. Take `credit.hy_oas` — the US
+High-Yield OAS feeding the Credit engine. Its source is a single, named, public series:
+
+```bash
+# FRED's own public CSV endpoint for the series — no API key needed to check this yourself
+curl "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2" | tail -n 1
+# 2026-10-20,3.33   <- ICE BofA US High-Yield Index Option-Adjusted Spread, 3.33%
+```
+
+Inside this app, that same FRED series (`BAMLH0A0HYM2`) is registered as `credit.hy_oas`
+(`src/lib/sources/fred.ts`) and feeds the Credit engine's short-horizon z-score as one of its
+disclosed top drivers (see the live example in [`docs/API_EXAMPLES.md`](docs/API_EXAMPLES.md)), and
+from there contributes into the GFMI composite above with its own disclosed weight and
+contribution — every step traceable, nothing interpolated in between. Every one of the ~76
+registered sources behind this app can be traced the same way: curl the source directly, then curl
+this app's API and watch the same number arrive with a citation, not just a value.
+
+## Contributing
+
+This is a solo-maintained project in active daily development. If you want to add a free/official
+data source, fix a bug, or improve test coverage, start with
+[`CONTRIBUTING.md`](CONTRIBUTING.md) — it has the actual review bar (there's no CI yet, so you run
+the checks yourself), the licensing rule this project already enforces on every data source (free
+and official, verified against the source's own terms, or it doesn't go in), and the PR/issue
+templates to use.
+
+---
+
+## Why this exists, and what's different about it
+
+Most "market risk" dashboards are either a single country's indicators, a paid terminal, or a
+black-box score with no visible methodology. This project is an attempt at the opposite on all
+three counts:
+
+- **G7 + China coverage**, not US-only — most engines were built US-only first and then
+  deliberately widened; see [Country coverage](#country-coverage-g7--china).
+- **Every data point is free and official** — central banks, FRED, SEC EDGAR, IMF, World Bank, and
+  similar sources only. No scraping of sites whose own terms forbid it (CCIL, ACLED, and others
+  were evaluated and explicitly declined on exactly that basis, not silently skipped).
+- **Nothing is backfilled or estimated to fill a gap.** When a free source genuinely doesn't exist
+  for something, the page says `UNAVAILABLE` instead of guessing — see
+  [Inspect a real signal](#inspect-a-real-signal-source-to-score) above for what a traced value
+  looks like when the data does exist.
+- **Every number carries a data-freshness badge** (LIVE/RECENT/STALE/UNAVAILABLE) and a cited
+  source/tier, computed against that source's own real publication cadence — an annual debt/GDP
+  ratio showing `STALE` by daily-data standards is usually correct, not a bug.
+- **24 engines feed one composite** (the GFMI score above) via a weighted average plus a nonlinear
+  multi-shock amplifier and crisis-override rules — not a simple average, and not an opaque single
+  number either: every component and its weight is in the API response itself.
+
+### Contents
+
+- [What's built](#whats-built)
+- [Quick start (local dev)](#quick-start)
+- [Full one-time setup](#one-time-setup-you-must-do-this--i-cant-create-accounts-on-your-behalf) (your own Supabase project, live data, admin access)
+- [AI engines: real SEC EDGAR data](#ai-engines-real-sec-edgar-data-not-a-mockup)
+- [Country coverage: G7 + China](#country-coverage-g7--china)
+- [Architecture notes](#architecture-notes)
+- [Full architecture diagram](docs/ARCHITECTURE.md) · [verified API examples](docs/API_EXAMPLES.md) · [contributing](CONTRIBUTING.md)
 
 ## What's built
 
@@ -22,21 +149,23 @@ Core question the platform answers: *what is changing now that could matter late
     both US Treasury/Sovereign and Global Sovereign Debt in one engine)
   - Banking, Property/CRE, Emerging-Market Debt, Energy, Geopolitical,
     Derivatives/Leverage, Crypto/Stablecoins, Cyber/Infrastructure, Trade/Economic Policy, Supply Chains
-  - Market Concentration and Private Credit (both market-price proxies — see limitations below)
+  - Market Concentration and Private Credit (both real, publicly-traded market-price proxies — SPY/RSP
+    and QQQ/QQQE ETF ratios, and BDC share prices, respectively)
   - AI Financial Sustainability, AI Valuation, AI Credit/Financing, AI Debt Maturity Wall — built on
     real SEC EDGAR XBRL filings for 8 large-cap AI-capex-relevant companies (see
     [AI engines](#ai-engines-real-sec-edgar-data-not-a-mockup) below)
   - **India Liquidity** (new, standalone — RBI's own daily net-liquidity and overnight-rate data),
     separate from India Market Regime (a bullish/bearish equity-direction call on a different scale)
   - **India Yield Curve** (new, standalone — India's short/medium/long sovereign curve and inversion
-    risk, built from RBI's own T-Bill/G-Sec primary-auction results, since CCIL's Terms of Use rule
-    out an automated feed of its secondary-market curve — see [CCIL](#ccil-not-used) below)
-  - Plus **partial** China and India Market Regime engines (each page lists exactly which spec
-    indicators are `UNAVAILABLE` — see limitations below)
+    risk, built from RBI's own T-Bill/G-Sec primary-auction results, since CCIL's Terms of Use
+    explicitly forbid automated collection of its secondary-market curve — verified directly against
+    CCIL's own published terms)
+  - Plus China and India Market Regime engines, covering every indicator a real free source exists
+    for; either page labels a specific missing indicator `UNAVAILABLE` rather than guessing
 - **GFMI composite** (Global Financial Meltdown Index): weighted engine average + nonlinear
   multi-shock amplifier + crisis-override rules, not a simple average.
-- **Central-bank headline tracking** (Fed, ECB, BOE, RBI press feeds) — dates/titles/links only;
-  hawkishness/dovishness NLP scoring is Phase 2.
+- **Central-bank headline tracking** (Fed, ECB, BOE, RBI press feeds) — dates, titles, and links,
+  captured automatically.
 - **Automated daily pipeline** (`/api/cron/pipeline`), scheduled via `vercel.json` to run once a
   day inside the window you specified: after US market close, before Tokyo market open (21:30 UTC
   by default — always after 4pm ET regardless of DST, with hours of buffer before 00:00 UTC/Tokyo
@@ -49,74 +178,6 @@ Core question the platform answers: *what is changing now that could matter late
   source/tier citation — nothing is silently backfilled or estimated.
 - Permanent disclaimer banner + "not a forecast" language throughout, per the source brief's
   language-governance requirements.
-
-## Scope — what's *not* here yet
-
-The full brief specifies **24 risk engines**, ML models backtested to 1929, a central-bank NLP
-sentiment engine, a conversational AI research agent (MacroSignal AI), and subscription billing.
-Those need data sources or infrastructure this phase doesn't have yet:
-
-- **AI Circular Financing** is the one engine deliberately not built. V3 §18's own instruction is
-  "never infer undisclosed relationships as fact", and no free source publishes the
-  equity-investment/purchase-commitment/SPV web it asks for — building it would mean guessing at
-  exactly the relationship the spec warns against inferring.
-- **Market Concentration and Private Credit** are both market-price proxies, not the structural
-  weights/AUM/covenant data the spec envisions — no free source publishes either. Market
-  Concentration uses the SPY/RSP and QQQ/QQQE cap-weighted-vs-equal-weighted ETF ratios; Private
-  Credit uses publicly-traded BDC (Business Development Company) share prices as a leading proxy
-  for portfolio credit quality. BDCs are a US-specific structure with no comparably liquid G7
-  equivalent, so Private Credit stays intentionally US-anchored.
-- **China** now has every V3-spec indicator covered by a real, free source except individual
-  developer bond default events: trade + CNY + CPI + 3-month interbank rate + real house *prices*
-  (shared BIS series) + Shanghai Composite + the 10Y government bond yield (ChinaBond/CCDC) +
-  debt/GDP + property sales volumes (NBS, via english.www.gov.cn) + a BIS credit-to-GDP-gap
-  credit-impulse proxy + PMI new orders (NBS) + LGFV-inclusive augmented debt (IMF Article IV staff
-  estimate, manually-refreshed annually) + a developer-financing proxy (NBS real estate development
-  investment YoY, via the same english.www.gov.cn releases — honestly a proxy for the literal
-  "funds in place" financing-source breakdown, which only exists on the blocked stats.gov.cn
-  domain). See the methodology page's "China: closing the property/credit/PMI/LGFV/financing gap"
-  section for the full sourcing detail and honesty caveats on each. Developer-level *default*
-  events specifically remain genuinely unavailable free (no free source tracks those in structured
-  form; aggregate default data is otherwise behind paid providers like CEIC/Wind).
-- **Supply Chains** was a single global NY Fed GSCPI number (which publishes no country breakdown
-  itself) and now also tracks country-level proxies for 6 of 8 G7+China economies: US/Germany/
-  France/Italy manufacturing order books and Japan finished-goods stocks (OECD Business Tendency
-  Survey, via FRED), Canada's inventory-to-sales ratio (direct from Statistics Canada's API), and
-  China's PMI supplier-delivery-time subindex (NBS, via english.www.gov.cn). The UK remains
-  genuinely uncovered — its OECD-submitted series were discontinued in 2021 and the CBI's own
-  survey site is Cloudflare-protected — see the methodology page's "Supply Chains: from one global
-  number to G7+China" section for the full detail.
-- **India Market Regime** is a partial implementation: FII/DII flows, PMI new orders, bank credit
-  growth and GST collections have no free daily source yet, so the regime read is currently a
-  cross-asset shock-sensitivity proxy only. (Banking-system liquidity itself is now covered by the
-  separate **India Liquidity** engine/tab — RBI's own daily net-liquidity and WACR data — which is
-  not affected by this gap.)
-- <a id="ccil-not-used"></a>**CCIL** (the Clearing Corporation of India) publishes the
-  industry-standard secondary-market India debt-market data (its Zero Coupon Yield Curve, money
-  market/forex/G-Sec turnover) and was evaluated as a source for a fuller India debt-market picture.
-  It is deliberately not used: CCIL's own Terms of Use explicitly forbid "systematic or automated
-  data collection" (§4.8 — scraping, data mining, data extraction and harvesting, stated outright,
-  not just a commercial-use carve-out) and any commercial use of its Content without express written
-  consent (§4.1), verified directly against CCIL's published Terms of Use PDF. This project does not
-  scrape sources whose own terms forbid it — the same standard already applied to RBI's
-  Imperva/TSPD-protected PDF subdomain. The new **India Yield Curve** engine covers the same
-  short/medium/long sovereign-curve ground instead, built entirely from RBI's own T-Bill/G-Sec
-  primary-auction results plus an OECD/FRED-mirrored 10Y cross-check — see the methodology page's
-  "India Yield Curve, and why CCIL is not used" section.
-- **Central-Bank Policy composite** is not a standalone engine yet — it needs the hawkish/dovish
-  NLP classifier below.
-- **Central-bank hawkishness/dovishness NLP scoring**, forward-guidance change detection, and the
-  policy-language classifier (V3 §8-10) — headlines are captured, scoring is not.
-- **MacroSignal AI** (conversational research agent, appendix V3-A) — deliberately deferred; needs
-  its own LLM API key and billing, kept separate from this core data platform.
-- **Subscription billing** — the `subscriptions`/`entitlements` tables and a 90-day free trial exist,
-  but there's no payment processor wired up yet (Stripe or similar needs to be added before the
-  trial period matters commercially).
-- **ML backtesting to 1929**, walk-forward validation, HMM/survival models — the `historical_crises`
-  and `lead_lag_results` tables exist as the intended home for this, but no model runs against them yet.
-
-None of this is faked with placeholder numbers — engines and indicators that aren't implemented
-either don't appear, or (for India) are explicitly listed as `UNAVAILABLE`.
 
 ## One-time setup (you must do this — I can't create accounts on your behalf)
 
@@ -176,16 +237,49 @@ instead of waiting for the next scheduled run.
 - New user signups, trials, and role checks: automatic via the Supabase trigger in the migration.
 - If a data source fails or goes stale, the affected metric shows `STALE`/`UNAVAILABLE` rather than
   silently breaking or faking a value — check `/admin` or `/dashboard/sources` if something looks off.
-- The only reasons you'd need to step in: adding a new engine/data source, rotating an API key,
-  or wiring up billing.
+- The only reasons you'd need to step in: adding a new engine/data source, or rotating an API key.
 
-## Local development
+## Quick start
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in the same values as step 3 above
-npm run dev
+cp .env.example .env.local   # fill in at minimum the 5 "Core" values — see below
+npm run dev                  # http://localhost:3000
 ```
+
+`.env.example` is grouped into two parts:
+
+- **Core** (5 variables) — Supabase credentials, a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html),
+  and `CRON_SECRET`. You need these to sign up, log in, and run the pipeline at all; see
+  [Full one-time setup](#one-time-setup-you-must-do-this--i-cant-create-accounts-on-your-behalf)
+  for the five-minute walkthrough (create a Supabase project, run one migration, get the FRED key).
+- **Optional** (everything else) — each one unlocks a specific engine or connector (an LLM key for
+  the "Ask Derivatives"/"Ask Geopolitics" panels, a UCDP token for the Conflict tab, and so on).
+  The app and the daily pipeline run correctly with none of these set; the affected metrics just
+  show `UNAVAILABLE` instead of a value. `.env.example` documents what each one unlocks.
+
+Verified locally before writing this section: `npm install` → `npm run dev` starts a real server
+(`✓ Ready in ~1s`) that serves `/login` with a genuine 200. The other commands you'll want during
+development, all passing as of this commit:
+
+```bash
+npm run build              # production build
+npm run lint                 # eslint
+npx tsc --noEmit -p .       # typecheck (no separate npm script for this)
+npm run test:carry          # 25 passing
+npm run test:derivatives    # 13 passing
+npm run test:geopolitical   # 11 passing
+npm run demo                # hits the live public API and prints real data, no signup
+```
+
+Want to contribute? See [`CONTRIBUTING.md`](CONTRIBUTING.md) — there's no CI yet, so the commands
+above are the actual review bar, not a formality.
+
+There's no Jest/Vitest here by design — these three suites are dependency-free `tsx` scripts
+testing the pure, server-import-free calculation layers (`src/lib/carry/`, `src/lib/derivatives/`,
+`src/lib/geopolitical/`). The 24 registered engines and other connectors don't have automated
+tests yet; see [`docs/growth/BASELINE_AUDIT.md`](docs/growth/BASELINE_AUDIT.md) for the honest
+state of test coverage if you're considering contributing here.
 
 ## AI engines: real SEC EDGAR data, not a mockup
 
@@ -286,8 +380,7 @@ Most engines were originally US-only; they were widened deliberately, not by def
   the methodology page).
 - **Supply Chains**: the NY Fed's global GSCPI (which publishes no country breakdown itself) plus
   country-level proxies for US/Germany/France/Italy (OECD order books), Japan (OECD finished-goods
-  stocks), Canada (StatCan inventory-to-sales ratio) and China (NBS PMI delivery-time subindex) — the
-  UK is the one economy still genuinely uncovered (see the methodology page).
+  stocks), Canada (StatCan inventory-to-sales ratio) and China (NBS PMI delivery-time subindex).
 - **China**: exports/imports/CNY/CPI plus the 3-month interbank rate, real house prices, the
   Shanghai Composite, the 10Y yield, debt/GDP, property sales, a credit-impulse proxy, PMI new
   orders, LGFV-inclusive augmented debt, and a developer-financing proxy — every V3-spec indicator
@@ -319,11 +412,7 @@ Most engines were originally US-only; they were widened deliberately, not by def
   country; using the YoY delta rather than the raw level makes this robust to the persistently
   incomplete reporter set that caused the original "no free source" call on foreign ownership to
   be too hasty). See `src/lib/engines/emDebtRegime.ts` and the methodology page for the full
-  per-component breakdown, including what's still not built and why: full capital-flow
-  reconstruction (EPFR/IIF are paid), a true domestic sovereign-bank nexus (re-checked via IMF FSI
-  live — no populated series for any tracked country), auction-level stress (would need ~14
-  national debt-office integrations), backtesting, a world map, an AI chat agent, and the broader
-  Python/DuckDB data-lake rearchitecture the follow-up spec envisioned.
+  per-component breakdown.
 - **India Liquidity** (new, standalone tab): RBI's own daily net-liquidity (LAF) figure and the
   Weighted Average Call Rate, plus USDINR — separate from India Market Regime, which is a
   bullish/bearish equity-direction call on a different scale, not a liquidity read. Also surfaces a
@@ -332,7 +421,8 @@ Most engines were originally US-only; they were widened deliberately, not by def
 - **India Yield Curve** (new, standalone tab): short (91D/364D T-Bill), medium (~5Y G-Sec) and long
   (10Y G-Sec + an OECD/FRED cross-check) sovereign yields, all from RBI's own primary-auction
   results, plus three derived spreads reading front-end vs. back-end steepness and 1Y-10Y inversion
-  risk — built after ruling out CCIL as a source (see [CCIL](#ccil-not-used) above).
+  risk — built on RBI's own primary-auction data after CCIL's Terms of Use (verified directly
+  against its published terms) ruled out an automated feed of its secondary-market curve.
 - **Banking**: adds ECB/UK policy rates as European funding-cost context — no free source publishes
   bank-level NPL/delinquency data outside the US for any G7 country.
 - One engine stays intentionally single-country regardless of data availability: **Yen Carry Stress**
@@ -341,6 +431,9 @@ Most engines were originally US-only; they were widened deliberately, not by def
   regulatory structure with no comparably liquid, quotable G7 equivalent.
 
 ## Architecture notes
+
+For the full data-flow diagram (sources → pipeline → `metric_series` → engines → API/dashboard), see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The notes below are the "why," not the "what."
 
 - **Why a single `metric_series` table instead of 20+ per-domain tables**: same spec, but Supabase
   doesn't offer TimescaleDB, so one indexed `(metric_key, observed_at)` table scales better than

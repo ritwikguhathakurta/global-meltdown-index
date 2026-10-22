@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:carry": "tsx src/lib/carry/tests/golden.test.ts && tsx src/lib/carry/tests/engine.test.ts",
     "test:derivatives": "tsx src/lib/derivatives/tests/engine.test.ts",
-    "test:geopolitical": "tsx src/lib/geopolitical/tests/engine.test.ts"
+    "test:geopolitical": "tsx src/lib/geopolitical/tests/engine.test.ts",
+    "demo": "tsx scripts/demo.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

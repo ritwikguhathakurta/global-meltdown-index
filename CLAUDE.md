@@ -12,7 +12,9 @@ Property, EM Debt, Energy, Geopolitical, AI Financial engines, etc.) feed a comp
 plus a large, separately-scoped **commodities intelligence** section (oilseeds, chemicals, grains,
 metals, econometrics reports). See `README.md` for the full feature list, country-coverage detail,
 and per-engine data-source rationale — it is extensive and mostly append-only; read it before assuming
-a data gap or limitation isn't already documented there.
+a data gap or limitation isn't already documented there. `README.md` itself deliberately stays focused
+on what's built; anything deliberately not built yet (an unimplemented engine, a missing country, a
+deferred feature) is tracked in `docs/SCOPE.md` instead, kept out of the newcomer-facing README.
 
 Every number is real, sourced from a free/official API and computed deterministically — nothing is
 faked, estimated, or backfilled. When a free source doesn't exist for something, the UI shows
