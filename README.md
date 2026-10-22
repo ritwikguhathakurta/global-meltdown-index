@@ -4,6 +4,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase)
 ![Live](https://img.shields.io/badge/live-globalmeltdownindex.net-brightgreen)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 **A systemic-risk terminal that turns free, official macro-financial data into one transparent
 composite score** — 24 independent risk engines across the G7 and China, each one computed
@@ -131,6 +132,7 @@ three counts:
 - [AI engines: real SEC EDGAR data](#ai-engines-real-sec-edgar-data-not-a-mockup)
 - [Country coverage: G7 + China](#country-coverage-g7--china)
 - [Architecture notes](#architecture-notes)
+- [License](#license)
 - [Full architecture diagram](docs/ARCHITECTURE.md) · [verified API examples](docs/API_EXAMPLES.md) · [contributing](CONTRIBUTING.md)
 
 ## What's built
@@ -481,3 +483,10 @@ For the full data-flow diagram (sources → pipeline → `metric_series` → eng
   a "0" window it has no evidence for.
 - Full engine/indicator list, GFMI formula, and data-quality rules: see `/dashboard/methodology` on
   the running site, or `src/lib/engines/`.
+
+## License
+
+[Apache License 2.0](LICENSE). Note that this covers the code, not the underlying data — every
+source this project reads from (FRED, central banks, SEC EDGAR, World Bank, IMF, and the rest) has
+its own terms, which is exactly why some real, technically-reachable sources were declined outright
+(see [`docs/SCOPE.md`](docs/SCOPE.md)) rather than used anyway.
