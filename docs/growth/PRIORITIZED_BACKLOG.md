@@ -27,7 +27,7 @@ unilaterally.
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | Fix `.env.example` — document all 20 real env vars (only 5 are currently listed), grouped by required-for-core vs. optional-per-feature | 4 | 3 | 2 | 4 | 1 | 1 | **6.5** | No |
 | 2 | Surface the already-live, unauthenticated `/api/gfmi` and `/api/health` endpoints as a one-line `curl` demo — no signup needed, already verified working | 4 | 4 | 2 | 3 | 1 | 1 | **6.5** | No |
-| 3 | LICENSE file | 5 | 4 | 2 | 5 | 1 | 2 | **5.3** | **Yes — pick a license** |
+| 3 | ~~LICENSE file~~ — **done 2026-10-22**, Apache License 2.0 chosen by the owner, see `/LICENSE` | 5 | 4 | 2 | 5 | 1 | 2 | **5.3** | No |
 | 4 | README hero rewrite: tagline, what/why in the first screen, real badges, the verified `curl` demo, link to the live site | 5 | 5 | 3 | 4 | 2 | 1 | **5.7** | No |
 | 5 | GitHub metadata: accurate description, Topics, homepage pointed at `globalmeltdownindex.net` instead of the Vercel URL | 4 | 3 | 1 | 2 | 1 | 1 | **5.0** | **Yes — GitHub settings change** |
 | 6 | First tagged Release (`v0.1.0`) with real release notes | 2 | 2 | 1 | 3 | 1 | 1 | **4.0** | No |
@@ -37,9 +37,9 @@ unilaterally.
 | 10 | SECURITY.md (sensible for a project that handles signups and financial data) | 1 | 1 | 1 | 3 | 1 | 1 | **3.0** | No |
 | 11 | Architecture overview doc aimed at human newcomers (`CLAUDE.md`/`AGENTS.md` are written for an AI agent, not a first-time contributor) | 2 | 3 | 2 | 3 | 2 | 1 | **3.3** | No |
 | 12 | Enable GitHub Discussions, seeded with a "Show and tell" / "Methodology questions" category | 1 | 1 | 2 | 1 | 1 | 1 | **2.5** | **Yes — GitHub settings change** |
-| 13 | Capture a Day-0 metrics baseline (GitHub Traffic/Insights snapshot, current star/fork/visitor counts) into the CSV template `METRICS.md` will define | 1 | 1 | 1 | 2 | 1 | 1 | **2.5** | No — but **time-sensitive**: do this before anything else changes, regardless of its score, or there is no "before" to compare against later |
+| 13 | ~~Capture a Day-0 metrics baseline~~ — **done 2026-10-22**, see `docs/growth/METRICS.md` | 1 | 1 | 1 | 2 | 1 | 1 | **2.5** | No |
 | 14 | Custom social-preview (OG) image | 3 | 2 | 1 | 1 | 2 | 1 | **2.3** | No |
-| 15 | Content/launch asset pack (blog post, demo video script, social drafts, Show HN draft) | 5 | 3 | 1 | 2 | 4 | 3 | **1.6** | **Yes — nothing in here gets published without separate approval** |
+| 15 | Content/launch asset pack — **drafted 2026-10-22**, see `CONTENT_CALENDAR.md`, `LAUNCH_DRAFTS.md`, `COMMUNITY_RESEARCH.md`, `OUTREACH_TRACKER.md` | 5 | 3 | 1 | 2 | 4 | 3 | **1.6** | **Yes — nothing drafted has been published or sent; every post/outreach action still needs separate approval at the time** |
 
 ## Reading the order
 
