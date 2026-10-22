@@ -36,7 +36,12 @@ export async function GET(req: NextRequest) {
   const db = createAdminClient();
   try {
     const { note } = await getDhanAccessToken(db, clientId, accessToken);
-    return NextResponse.json({ ok: note === "renewed", note });
+    const ok = note === "renewed";
+    // The GitHub Actions workflow checks HTTP status via `curl -sf`, not the JSON body — a
+    // renewal failure must be a non-2xx or the workflow silently reports "success" forever (found
+    // live 2026-10-22: the token had already fully expired, so RenewToken itself returned 401,
+    // but every 6-hourly workflow run still showed green because this route returned 200 either way).
+    return NextResponse.json({ ok, note }, { status: ok ? 200 : 502 });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }

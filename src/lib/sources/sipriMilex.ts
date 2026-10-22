@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import type { MetricPoint } from "../metrics/store";
+import { fetchRetry } from "./fetchRetry";
 
 /**
  * SIPRI Military Expenditure Database — free, official, direct .xlsx download,
@@ -52,7 +53,7 @@ export const SIPRI_COUNTRIES: { name: string; slug: string }[] = [
 ];
 
 async function findWorkbookUrl(): Promise<string> {
-  const res = await fetch(LANDING_PAGE, { headers: { "User-Agent": "Mozilla/5.0 (compatible; GlobalMeltdownIndex/1.0)" }, next: { revalidate: 0 } });
+  const res = await fetchRetry(LANDING_PAGE, { headers: { "User-Agent": "Mozilla/5.0 (compatible; GlobalMeltdownIndex/1.0)" }, next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`SIPRI Milex landing page: HTTP ${res.status}`);
   const html = await res.text();
   const m = /href="(\/\/[^"]*SIPRI-Milex-data[^"]*\.xlsx)"/.exec(html);
@@ -64,7 +65,7 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 
 export async function fetchSipriMilex(): Promise<MetricPoint[]> {
   const url = await findWorkbookUrl();
-  const res = await fetch(url, { next: { revalidate: 0 } });
+  const res = await fetchRetry(url, { next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`SIPRI Milex workbook: HTTP ${res.status}`);
   const wb = XLSX.read(await res.arrayBuffer(), { type: "array" });
   const sheet = wb.Sheets[SHEET_NAME];
