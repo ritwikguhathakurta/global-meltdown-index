@@ -1,5 +1,9 @@
 # Outreach tracker — Global Meltdown Index
 
+See also [`docs/growth/DISTRIBUTION_PLAYBOOK.md`](DISTRIBUTION_PLAYBOOK.md) for the full system this
+tracker is part of, and [`docs/growth/launch/outreach_tracker_template.csv`](launch/outreach_tracker_template.csv)
+for a spreadsheet-friendly version of the same log.
+
 A log for every real-world outreach action (a community post, a DM, an email to a newsletter
 curator) once one actually happens. **Nothing in this file has happened yet** — every row below is
 a planned candidate, not a completed action, and none of them get executed without your explicit

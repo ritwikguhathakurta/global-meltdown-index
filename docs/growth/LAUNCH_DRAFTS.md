@@ -1,5 +1,10 @@
 # Launch drafts — Global Meltdown Index
 
+See also [`docs/growth/launch/`](launch/) — the same drafts split into the one-file-per-asset
+structure the growth master plan's Phase 8 specifically asks for (plus the FAQ, blog outlines,
+video script, email template, and CSV tracker that only exist there). This file stays as the
+narrative/overview version.
+
 Draft copy for every channel in `docs/growth/CONTENT_CALENDAR.md`'s launch days. **None of this has
 been posted anywhere.** Edit freely before anything goes out — these are a starting point, not
 final copy, and several carry an explicit blocker noted inline.

@@ -25,21 +25,21 @@ unilaterally.
 
 | # | Item | Reach | Conv. | Retn. | Trust | Effort | Risk | Priority | Decision Needed? |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Fix `.env.example` — document all 20 real env vars (only 5 are currently listed), grouped by required-for-core vs. optional-per-feature | 4 | 3 | 2 | 4 | 1 | 1 | **6.5** | No |
-| 2 | Surface the already-live, unauthenticated `/api/gfmi` and `/api/health` endpoints as a one-line `curl` demo — no signup needed, already verified working | 4 | 4 | 2 | 3 | 1 | 1 | **6.5** | No |
+| 1 | ~~Fix `.env.example`~~ — **done**, all 20 real env vars documented, grouped Core/Optional | 4 | 3 | 2 | 4 | 1 | 1 | **6.5** | No |
+| 2 | ~~Surface the public API as a one-line `curl` demo~~ — **done**, plus `npm run demo` and `docs/API_EXAMPLES.md` | 4 | 4 | 2 | 3 | 1 | 1 | **6.5** | No |
 | 3 | ~~LICENSE file~~ — **done 2026-10-22**, Apache License 2.0 chosen by the owner, see `/LICENSE` | 5 | 4 | 2 | 5 | 1 | 2 | **5.3** | No |
-| 4 | README hero rewrite: tagline, what/why in the first screen, real badges, the verified `curl` demo, link to the live site | 5 | 5 | 3 | 4 | 2 | 1 | **5.7** | No |
-| 5 | GitHub metadata: accurate description, Topics, homepage pointed at `globalmeltdownindex.net` instead of the Vercel URL | 4 | 3 | 1 | 2 | 1 | 1 | **5.0** | **Yes — GitHub settings change** |
-| 6 | First tagged Release (`v0.1.0`) with real release notes | 2 | 2 | 1 | 3 | 1 | 1 | **4.0** | No |
-| 7 | CI workflow: run `lint` + `tsc --noEmit` + the three test suites + `build` on every PR | 2 | 2 | 2 | 5 | 2 | 1 | **3.7** | No |
-| 8 | CONTRIBUTING.md + issue templates + PR template + a handful of real good-first-issues | 2 | 2 | 3 | 4 | 2 | 1 | **3.7** | No |
-| 9 | Real screenshot(s) or a short demo GIF of the dashboard | 3 | 4 | 1 | 3 | 2 | 1 | **3.7** | No |
-| 10 | SECURITY.md (sensible for a project that handles signups and financial data) | 1 | 1 | 1 | 3 | 1 | 1 | **3.0** | No |
-| 11 | Architecture overview doc aimed at human newcomers (`CLAUDE.md`/`AGENTS.md` are written for an AI agent, not a first-time contributor) | 2 | 3 | 2 | 3 | 2 | 1 | **3.3** | No |
+| 4 | ~~README hero rewrite~~ — **done**, restructured into a see-it-live → GFMI-meaning → real-signal → contribute flow, full spec moved later in the doc | 5 | 5 | 3 | 4 | 2 | 1 | **5.7** | No |
+| 5 | GitHub metadata: accurate description, Topics, homepage pointed at `globalmeltdownindex.net` instead of the Vercel URL | 4 | 3 | 1 | 2 | 1 | 1 | **5.0** | **Yes — GitHub settings change.** Recommendation drafted in `docs/growth/GITHUB_METADATA_PLAN.md`; not applied |
+| 6 | First tagged Release (`v0.1.0`) with real release notes | 2 | 2 | 1 | 3 | 1 | 1 | **4.0** | **Yes — a visible, public GitHub action**, not applied |
+| 7 | CI workflow: run `lint` + `tsc --noEmit` + the three test suites + `build` on every PR | 2 | 2 | 2 | 5 | 2 | 1 | **3.7** | No — still not built |
+| 8 | ~~CONTRIBUTING.md + issue templates + PR template~~ — **done**; good-first-issue candidates drafted in `docs/growth/CONTRIBUTOR_PLAN.md` but not filed as real GitHub issues yet | 2 | 2 | 3 | 4 | 2 | 1 | **3.7** | No |
+| 9 | Real screenshot(s) or a short demo GIF of the dashboard | 3 | 4 | 1 | 3 | 2 | 1 | **3.7** | No — needs a real signed-in session; see `docs/growth/DEMO_PLAN.md` item C |
+| 10 | ~~SECURITY.md~~ — **done**, see `/SECURITY.md` | 1 | 1 | 1 | 3 | 1 | 1 | **3.0** | No |
+| 11 | ~~Architecture overview doc for human newcomers~~ — **done**, see `docs/ARCHITECTURE.md` | 2 | 3 | 2 | 3 | 2 | 1 | **3.3** | No |
 | 12 | Enable GitHub Discussions, seeded with a "Show and tell" / "Methodology questions" category | 1 | 1 | 2 | 1 | 1 | 1 | **2.5** | **Yes — GitHub settings change** |
 | 13 | ~~Capture a Day-0 metrics baseline~~ — **done 2026-10-22**, see `docs/growth/METRICS.md` | 1 | 1 | 1 | 2 | 1 | 1 | **2.5** | No |
-| 14 | Custom social-preview (OG) image | 3 | 2 | 1 | 1 | 2 | 1 | **2.3** | No |
-| 15 | Content/launch asset pack — **drafted 2026-10-22**, see `CONTENT_CALENDAR.md`, `LAUNCH_DRAFTS.md`, `COMMUNITY_RESEARCH.md`, `OUTREACH_TRACKER.md` | 5 | 3 | 1 | 2 | 4 | 3 | **1.6** | **Yes — nothing drafted has been published or sent; every post/outreach action still needs separate approval at the time** |
+| 14 | Custom social-preview (OG) image | 3 | 2 | 1 | 1 | 2 | 1 | **2.3** | No — depends on #9's screenshot work existing first |
+| 15 | ~~Content/launch asset pack~~ — **drafted 2026-10-22**, see `CONTENT_CALENDAR.md`, `LAUNCH_DRAFTS.md`, `docs/growth/launch/`, `COMMUNITY_RESEARCH.md`, `OUTREACH_TRACKER.md`, `DISTRIBUTION_PLAYBOOK.md` | 5 | 3 | 1 | 2 | 4 | 3 | **1.6** | **Yes — nothing drafted has been published or sent; every post/outreach action still needs separate approval at the time** |
 
 ## Reading the order
 
@@ -67,11 +67,16 @@ then resume the ranked order.
   not scored here since Phase 13 explicitly asks to prefer improving what exists over building new
   subsystems for this first pass.
 
-## Immediate next step (awaiting your go-ahead)
+## Status as of 2026-10-22
 
-This session's scope was audit-and-plan only — no application code was changed, matching the
-request. The next reviewable unit of work, if you approve it, is items **#13 → #1 → #2 → #4** on
-this branch: capture the baseline, fix the env-var documentation gap, surface the public API demo,
-and rewrite the README's opening. Each would land as its own small commit on
-`growth/github-discovery-and-onboarding` for you to review via `git diff` before anything merges —
-nothing on this branch has been pushed or merged yet.
+Items #1, #2, #3, #4, #8, #10, #11, #13, and #15 are done (committed to `master`, which this growth
+work has since merged into). What's left, in order:
+
+- **#5 and #6** (GitHub metadata, first release) — both flagged **Decision Needed**; plans are
+  ready (`GITHUB_METADATA_PLAN.md`) but not applied.
+- **#12** (Discussions) — **Decision Needed**, not applied.
+- **#7** (CI workflow), **#9** (real screenshots), **#14** (OG image, depends on #9) — not started;
+  none are blocked on a decision, just not yet built.
+- **#15's actual execution** (posting/publishing any of the drafted launch content) — explicitly
+  **not** done; every draft is pending your separate, per-post approval, per this campaign's own
+  operating rules.

@@ -1,0 +1,10 @@
+Target,Type,Confidence in rules,Planned content,Status,Date contacted,Outcome,Notes
+Hacker News (Show HN),Community post,Confirmed (official guidelines),launch_show_hn.md,Not yet posted - pending approval,,,See docs/growth/COMMUNITY_RESEARCH.md
+r/SideProject,Community post,Secondhand only,launch_reddit.md,Not yet posted - pending approval,,,Lowest-risk first stop per research
+IndieHackers,Community post,Secondhand only,launch_indiehackers.md,Not yet posted - pending approval,,,
+r/opensource,Community post,Secondhand only,launch_reddit.md,Not yet posted - pending approval,,,Unblocked 2026-10-22 - repo now has a real Apache-2.0 LICENSE
+Dev.to (blog post 1),Content post,Secondhand only,technical_blog_outline.md post 1,Not written yet,,,Best home for narrative content
+Product Hunt,Community post,Secondhand only,launch_producthunt.md,Not yet posted - pending approval,,,Needs an aged maker account; check before posting
+r/programming,Community post,Secondhand - likely zero-tolerance for self-promo,,Not recommended,,,Research doc recommends not posting the project link here at all
+r/algotrading / r/quant,Community post,Unconfirmed - high risk,,Not recommended without explicit sign-off,,,Closest to financial-advice territory
+Individual newsletter curators / bloggers,Individual outreach,N/A,launch_email.md (template only),No targets identified yet,,,Needs a specific real person and a non-spam reason first
