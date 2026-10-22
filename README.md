@@ -43,6 +43,10 @@ curl https://globalmeltdownindex.net/api/gfmi
 }
 ```
 
+Or run a scripted walkthrough across five endpoints (health, composite score, one engine in detail,
+every leading indicator, the source registry) with `npm run demo` — see
+[`docs/API_EXAMPLES.md`](docs/API_EXAMPLES.md) for the full set of verified, live-captured responses.
+
 Live site: **[globalmeltdownindex.net](https://globalmeltdownindex.net)** · Full dashboard (free
 account required): [`/dashboard`](https://globalmeltdownindex.net/dashboard) · the full list of
 other public endpoints (`/api/yen`, `/api/liquidity`, `/api/credit`, `/api/treasury`, and more) is
@@ -78,6 +82,7 @@ three counts:
 - [AI engines: real SEC EDGAR data](#ai-engines-real-sec-edgar-data-not-a-mockup)
 - [Country coverage: G7 + China](#country-coverage-g7--china)
 - [Architecture notes](#architecture-notes)
+- [Full architecture diagram](docs/ARCHITECTURE.md) · [verified API examples](docs/API_EXAMPLES.md) · [contributing](CONTRIBUTING.md)
 
 ## What's built
 
@@ -282,7 +287,11 @@ npx tsc --noEmit -p .       # typecheck (no separate npm script for this)
 npm run test:carry          # 25 passing
 npm run test:derivatives    # 13 passing
 npm run test:geopolitical   # 11 passing
+npm run demo                # hits the live public API and prints real data, no signup
 ```
+
+Want to contribute? See [`CONTRIBUTING.md`](CONTRIBUTING.md) — there's no CI yet, so the commands
+above are the actual review bar, not a formality.
 
 There's no Jest/Vitest here by design — these three suites are dependency-free `tsx` scripts
 testing the pure, server-import-free calculation layers (`src/lib/carry/`, `src/lib/derivatives/`,
@@ -444,6 +453,9 @@ Most engines were originally US-only; they were widened deliberately, not by def
   regulatory structure with no comparably liquid, quotable G7 equivalent.
 
 ## Architecture notes
+
+For the full data-flow diagram (sources → pipeline → `metric_series` → engines → API/dashboard), see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The notes below are the "why," not the "what."
 
 - **Why a single `metric_series` table instead of 20+ per-domain tables**: same spec, but Supabase
   doesn't offer TimescaleDB, so one indexed `(metric_key, observed_at)` table scales better than
