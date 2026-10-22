@@ -18,6 +18,14 @@ Every number is real, sourced from a free/official API and computed deterministi
 faked, estimated, or backfilled. When a free source doesn't exist for something, the UI shows
 `UNAVAILABLE`/`STALE` rather than substituting a guess. Preserve this discipline in any new code.
 
+This extends to *how* data is obtained, not just whether it's real: a technically-reachable endpoint
+isn't the same as a licensed one. Check a source's own terms (robots.txt, ToS, EULA) before building
+against it, and never evade bot-detection (fingerprint spoofing, stealth browsers) to get past a
+site's deliberate block — CCIL, SGX, Tadawul, and ACLED were all checked live and declined for
+exactly this reason (explicit anti-scraping or non-commercial-only clauses), not because a workaround
+was technically hard. When a free Tier-1/2/3 source genuinely doesn't exist, that's a real
+`UNAVAILABLE`, not a problem to route around with a scraper.
+
 ## Commands
 
 ```bash
@@ -76,8 +84,8 @@ Never assume a file under `src/lib/engines/` feeds the GFMI score — check `reg
 
 ### The daily pipeline (`/api/cron/pipeline`, `vercel.json` → 21:30 UTC)
 
-`runIngestionPipeline` (`src/lib/pipeline/ingest.ts`, ~1700 lines) fans out to every connector in
-`src/lib/sources/` (68 files, one per external API/feed) and `upsertMetrics`s the results; then
+`runIngestionPipeline` (`src/lib/pipeline/ingest.ts`) fans out to every connector in
+`src/lib/sources/` (96 files, one per external API/feed) and `upsertMetrics`s the results; then
 `runComputePipeline` runs the registry engines and writes `risk_engine_scores` + the GFMI rows. The
 whole thing is one Vercel serverless function with a **hard 300s ceiling** — if any single stage runs
 long, Vercel kills the *entire* function, silently dropping every other concurrently-running stage's
@@ -146,11 +154,39 @@ through `src/lib/api/engineRoute.ts` (`engineRouteHandler(engineKey)`) + `respon
 Next.js 16 renamed `middleware.ts` → `proxy.ts` (`src/proxy.ts`, same behavior) — **do not** re-add a
 `middleware.ts`, and don't assume training-data Next.js docs apply as-is; check
 `node_modules/next/dist/docs/` when a Next.js API looks unfamiliar (see `AGENTS.md`). Route protection
-logic lives in `src/lib/supabase/middleware.ts`'s `updateSession`: `/admin/*` requires `role = 'admin'`
-in `profiles` (checked via `createAdminClient()`, the service-role client — the user-scoped client
-can't read `profiles` itself because its own admin RLS policy recursively queries `profiles`, causing
-Postgres error 42P17); `/dashboard/*` requires any signed-in user. Both fail closed (redirect to
-`/login`) if Supabase is unreachable.
+logic lives in `src/lib/supabase/middleware.ts`'s `updateSession`. Every route requires a signed-in
+user **except** an explicit public allowlist (`/login`, `/signup`, `/auth/*`, `/api/*`, `/robots.txt`,
+`/sitemap.xml`) — per an explicit decision that no page is visible pre-signup, not just `/dashboard/*`.
+`/admin/*` additionally requires `role = 'admin'` in `profiles` (checked via `createAdminClient()`, the
+service-role client — the user-scoped client can't read `profiles` itself because its own admin RLS
+policy recursively queries `profiles`, causing Postgres error 42P17). Both the global gate and the
+admin check fail closed (redirect to `/login`) if Supabase is unreachable.
+
+### Extra cron triggers beyond the one Vercel allows (GitHub Actions)
+
+Vercel's Hobby plan hard-caps `vercel.json` at **one cron entry per project**, already spent on
+`/api/cron/pipeline` (21:30 UTC) — confirmed by Vercel rejecting a second entry at deploy, not by
+their docs alone. Anything needing its own schedule (more frequent, offset, or independent of the
+daily pipeline) is instead triggered by a GitHub Actions scheduled workflow
+(`.github/workflows/*.yml`, each hitting its own `/api/cron/<name>` route with the same
+`CRON_SECRET` the main pipeline uses, set as a repo secret via `gh secret set`) rather than a second
+Vercel cron. Three exist: `renew-dhan-token.yml` (every 6h — see below), `chemicals-spot-cron.yml`
+(twice a day, matching that source's real publication cadence), and `massive-futures-nudge.yml`
+(every 3h, to catch a rate-limit clearing same-day). Before adding a same-project Vercel cron for
+anything, know it will be rejected — add a GitHub Actions workflow instead.
+
+### Dhan MCX relay (`src/lib/sources/dhanMcx.ts`, `dhanToken.ts`)
+
+MCX (India commodity futures) has no free real-time API and its own site is bot-protected — the
+free workaround is a real-time quote relay through Dhan, a SEBI-registered broker, gated on
+`DHAN_CLIENT_ID`/`DHAN_ACCESS_TOKEN`. Dhan's access tokens last exactly 24h, and `GET
+/v2/RenewToken` **retires the old token** when it issues a new one — so testing a token consumes
+it, and the new one must be persisted immediately or it's lost. Persisted in the single-row
+`dhan_token` table (migration `0054`, service-role only, since a serverless function can't rewrite
+its own Vercel env var) via `getDhanAccessToken(db, clientId, envToken)`, which picks whichever of
+the stored token or `DHAN_ACCESS_TOKEN` is newer (by JWT `iat`) each run. The `renew-dhan-token.yml`
+GitHub Actions workflow above exists specifically because the token's 24h life is shorter than the
+daily pipeline's own once-a-day-with-±59min-drift schedule could reliably beat.
 
 ### Live vs. batch-computed prices
 
@@ -252,9 +288,12 @@ gated on Dhan credentials — not verified end-to-end until that token is suppli
 broader multi-country sanctions CSV was checked live and found to require a **paid commercial
 license** for a product like this one (its own site separates "non-commercial use" from "data
 licensing / reseller-OEM" for commercial products) — not used, the same category as the paid
-derivatives feeds already declined elsewhere. ACLED was similarly deferred: its terms point to a
-full EULA that wasn't read end-to-end during this pass — don't assume it's clear to use without
-reading that EULA first. Also added "Ask Geopolitics" (`src/lib/prediction/askGeopolitics.ts`),
+derivatives feeds already declined elsewhere. ACLED was fully resolved as not-used after reading its
+EULA end-to-end: §3.3 bans scraping/crawling outright and §1.2 requires a paid corporate license for
+any commercial use (the license granted is non-commercial-individual only, and even that tier
+requires registration — there's no unauthenticated access at all). This holds regardless of who's
+logged in or which part of the data is nominally "free" — see `docs/GEOPOLITICAL_ENGINE.md`. Also
+added "Ask Geopolitics" (`src/lib/prediction/askGeopolitics.ts`),
 this project's fourth disclosed LLM-computed surface — see "The four places an LLM computes
 something user-facing" below.
 
