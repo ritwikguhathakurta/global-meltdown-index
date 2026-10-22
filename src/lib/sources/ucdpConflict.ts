@@ -3,17 +3,20 @@ import type { MetricPoint } from "../metrics/store";
 /**
  * UCDP (Uppsala Conflict Data Program) Georeferenced Event Dataset — free,
  * official (Uppsala University / PRIO), real armed-conflict battle-death
- * events since 1989, but its API requires a self-service access token
- * (confirmed live: `https://ucdpapi.pcr.uu.se/api/gedevents/24.1` returns
- * HTTP 401 "API token required. Add header: x-ucdp-access-token: <your-token>"
- * without one — registration is free but wasn't completed during planning).
+ * events since 1989. Verified live end-to-end 2026-10-22 with a real
+ * self-service token: 6,638 events in the trailing ~400 days across UCDP's
+ * five standard regions (Asia, Middle East, Europe, Africa, Americas), dates
+ * current to within a few weeks. Uses dataset version 26.1 (UCDP's own
+ * current example as of the token's issue date — v24.1, used in an earlier
+ * pass, still resolves but is a stale/smaller snapshot: 349,733 total events
+ * vs 26.1's 417,968).
  *
  * Gated on UCDP_ACCESS_TOKEN exactly like dhanMcx.ts is gated on Dhan
  * credentials: without the token this throws a clear, distinguishable error
  * (not a silent skip) so ingest.ts can report "not configured" rather than a
  * confusing generic failure.
  */
-const BASE_URL = "https://ucdpapi.pcr.uu.se/api/gedevents/24.1";
+const BASE_URL = "https://ucdpapi.pcr.uu.se/api/gedevents/26.1";
 const PAGE_SIZE = 1000;
 
 type UcdpEvent = {

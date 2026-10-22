@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
       { ...data.indices.sanctionsIntensity, label: "Sanctions Intensity" },
       { ...data.indices.escalation, label: "Escalation Reading" },
       { ...data.indices.chokepointStress, label: "Maritime Chokepoint Stress" },
+      { ...data.indices.conflictIntensity, label: "Conflict Intensity" },
     ],
     militaryTop: data.militaryRows
       .filter((r) => r.spendPctGdp !== null)
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       .map((r) => ({ country: r.countryLabel, spendUsdYoyPct: r.spendUsdYoyPct, spendPctGdp: r.spendPctGdp })),
     sanctionsCounts: data.indices.sanctionsIntensity.inputs.map((i) => ({ program: i.label, count: i.value })),
     chokepoints: data.chokepointRows.map((c) => ({ label: c.label, transitsPerDay: c.transitsPerDay, transitsZ: c.transitsZ })),
+    conflictRegions: data.conflictRows.map((c) => ({ region: c.regionLabel, fatalities: c.fatalities, changePct: c.fatalitiesChangePct })),
     historicalEventCount: data.historicalEvents.length,
   };
 

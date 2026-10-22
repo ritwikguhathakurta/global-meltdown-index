@@ -3,6 +3,7 @@ import { buildCountryMilitaryRows, computeMilitaryBuildup } from "../military";
 import { computeSanctionsIntensity } from "../sanctions";
 import { computeEscalation } from "../escalation";
 import { buildChokepointRows, computeChokepointStress } from "../chokepoints";
+import { buildConflictRegionRows, computeConflictIntensity } from "../conflict";
 import { computeGewi } from "../gewi";
 import { HISTORICAL_GEO_EVENTS } from "../historical";
 import type { Point } from "../../metrics/stats";
@@ -73,6 +74,21 @@ test("computeChokepointStress: a transit drop registers as stress (level > 50)",
   const idx = computeChokepointStress(rows);
   assert.equal(idx.quality, "REAL");
   assert.ok(idx.level !== null && idx.level > 50, `expected stress level > 50 on a transit drop, got ${idx.level}`);
+});
+
+test("computeConflictIntensity: UNAVAILABLE with no data at all", () => {
+  const rows = buildConflictRegionRows({ regions: [{ slug: "africa", label: "Africa" }], fatalitiesBySlug: {}, eventCountBySlug: {} });
+  const idx = computeConflictIntensity(rows);
+  assert.equal(idx.quality, "UNAVAILABLE");
+  assert.equal(idx.level, null);
+});
+
+test("computeConflictIntensity: a rise in battle-death fatalities pushes level above 50", () => {
+  const fatalities = series([50, 150], "2023-01-01", 120);
+  const rows = buildConflictRegionRows({ regions: [{ slug: "africa", label: "Africa" }], fatalitiesBySlug: { africa: fatalities }, eventCountBySlug: {} });
+  const idx = computeConflictIntensity(rows);
+  assert.equal(idx.quality, "REAL");
+  assert.ok(idx.level !== null && idx.level > 50, `expected level > 50 on a fatalities rise, got ${idx.level}`);
 });
 
 test("computeGewi: UNAVAILABLE when every component is UNAVAILABLE", () => {

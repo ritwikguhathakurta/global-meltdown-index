@@ -1,7 +1,7 @@
 import { getLatestEngine } from "@/lib/api/engineData";
 import { getGeopoliticalPageData } from "@/lib/api/geopoliticalData";
 import { GeopoliticalApp, type GeoTabId } from "./GeopoliticalApp";
-import { OverviewPanel, MilitaryPanel, SanctionsPanel, MaritimePanel, HistoricalPanel, SourcesPanel } from "./panels";
+import { OverviewPanel, MilitaryPanel, SanctionsPanel, MaritimePanel, ConflictPanel, HistoricalPanel, SourcesPanel } from "./panels";
 import { AskGeopoliticsPanel } from "./AskGeopoliticsPanel";
 import { UnavailableNote, Panel } from "../derivatives/ui";
 
@@ -26,6 +26,7 @@ export default async function GeopoliticalPage() {
             military: <MilitaryPanel data={data} />,
             sanctions: <SanctionsPanel data={data} />,
             maritime: <MaritimePanel data={data} />,
+            conflict: <ConflictPanel data={data} />,
             ask: <AskGeopoliticsPanel />,
             historical: <HistoricalPanel data={data} />,
             sources: <SourcesPanel />,

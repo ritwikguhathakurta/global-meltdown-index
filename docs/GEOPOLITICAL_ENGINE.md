@@ -17,9 +17,9 @@ is that gap analysis, kept up to date rather than a one-time planning artifact.
    since 1900, Threats/Acts sub-indices). Untouched by this build; its GFMI weight and composite
    contribution are unchanged.
 2. **The page-level analytical layer** — `src/lib/geopolitical/` (Military Buildup, Sanctions
-   Intensity, Escalation Reading, Maritime Chokepoint Stress, GEWI). **Not registered in
-   `gfmi.ts`'s composite at all** — it exists purely to power this dashboard's own tabs, the exact
-   same architectural role `src/lib/derivatives/` plays relative to
+   Intensity, Escalation Reading, Maritime Chokepoint Stress, Conflict Intensity, GEWI). **Not
+   registered in `gfmi.ts`'s composite at all** — it exists purely to power this dashboard's own
+   tabs, the exact same architectural role `src/lib/derivatives/` plays relative to
    `src/lib/engines/derivativesLeverage.ts` (see `docs/DERIVATIVES_ENGINE.md`).
 
 These are never double-counted, and widening this page-level layer does not change today's GFMI
@@ -74,15 +74,33 @@ Every number carries a `DataQuality` tag (`src/lib/geopolitical/types.ts`):
 - **IMF PortWatch, reused** — `energy.chokepoint.*.transits_total` (28 chokepoints, AIS-derived,
   already ingested by `ingestEnergyChokepoints` for the Energy engine) is read directly by
   `geopoliticalData.ts` for the Maritime tab. No new ingestion.
+- **`ucdpConflict.ts`** — UCDP (Uppsala Conflict Data Program) Georeferenced Event Dataset, official
+  (Uppsala University/PRIO), free self-service token. Verified end-to-end live 2026-10-22 with a
+  real token: 6,638 real battle-death events in the trailing ~400 days across UCDP's five standard
+  regions (Africa, Americas, Asia, Europe, Middle East), dates current to within a few weeks. Uses
+  dataset version 26.1 (an earlier pass's hardcoded 24.1 still resolves but is a stale/smaller
+  snapshot — 349,733 vs 26.1's 417,968 total events). Aggregated to real monthly
+  fatalities/event-count totals per region, powering a new **Conflict Intensity** composite
+  (`src/lib/geopolitical/conflict.ts`) and its own **Conflict** tab — kept separate from Escalation
+  (GDELT-derived automated text-coding) since this is actual recorded battle-death event data, a
+  materially more concrete signal. `zScore()` needs 20+ observations and the pipeline's own
+  pagination cap (20 pages x 1,000 events) can't reach deep enough history to get there for a
+  monthly series (10 years of events is 216,000+ — far past what one run can page through), so this
+  uses the same fixed-scale approach `military.ts` already established for SIPRI/World Bank's
+  similarly short annual history, documented in the file itself.
 
-## Needs a decision or registration (flagged, not silently skipped or silently built)
+## Not used — checked and declined on license terms
 
-- **`ucdpConflict.ts`** — UCDP (Uppsala Conflict Data Program) Georeferenced Event Dataset. A real,
-  free API confirmed to exist (`ucdpapi.pcr.uu.se/api/gedevents/24.1`), but it requires a
-  self-service access token (confirmed live: returns HTTP 401 "API token required" without one).
-  Gated on `UCDP_ACCESS_TOKEN` exactly like `dhanMcx.ts` is gated on Dhan credentials — the
-  connector code is written from UCDP's documented `Result`-array pagination shape, but **not
-  verified end-to-end** until a real token is supplied and the pipeline runs with it configured.
+- **ACLED** (political-violence/protest data) — its EULA was checked live and read end-to-end
+  (2026-09-30): §3.3 states "Scraping and crawling the Site is prohibited," and §1.2 states
+  "Commercial entities may not access or use the Content and/or Platforms without first obtaining
+  a corporate license from Licensor" — the license granted is for non-commercial use only. Even
+  ACLED's nominally "free" tier (the Data Export Tool, a myACLED account) requires registration —
+  there's no unauthenticated access at all. Confirmed again directly by ACLED's own support team in
+  response to a direct request: individual accounts get "publicly available aggregated data and
+  tools" only, not the disaggregated/event-level data this page would need, and "more detailed
+  data" requires purchasing a license. Same category as OpenSanctions below: a real, live,
+  technically reachable dataset declined on its own stated license terms, not a technical gap.
 - **OpenSanctions** — a free, live-confirmed consolidated CSV bundling OFAC+EU+UN+UK+other
   countries' sanctions lists in one file
   (`data.opensanctions.org/datasets/latest/sanctions/targets.simple.csv`, 73MB, real). **Checked
@@ -101,13 +119,6 @@ Every number carries a `DataQuality` tag (`src/lib/geopolitical/types.ts`):
 
 ## Not built, and why
 
-- **ACLED** (political-violence/protest data) — its EULA was checked live and read end-to-end
-  (2026-09-30): §3.3 states "Scraping and crawling the Site is prohibited," and §1.2 states
-  "Commercial entities may not access or use the Content and/or Platforms without first obtaining
-  a corporate license from Licensor" — the license granted is for non-commercial use only. Even
-  ACLED's nominally "free" tier (the Data Export Tool, a myACLED account) requires registration —
-  there's no unauthenticated access at all. Same category as OpenSanctions below: a real, live,
-  technically reachable dataset declined on its own stated license terms, not a technical gap.
 - **AIS/satellite vessel-level tracking** (Kpler, Vortexa, Windward, MarineTraffic, Spire) — all
   paid commercial products. IMF PortWatch's own AIS-derived chokepoint-level aggregates (reused
   above) is the free substitute this project already has.
@@ -141,6 +152,6 @@ Every number carries a `DataQuality` tag (`src/lib/geopolitical/types.ts`):
 `npm run test:geopolitical` (`src/lib/geopolitical/tests/engine.test.ts`) — plain `tsx`, no test
 framework, hand-built `Point[]` fixtures, no DB/network. Covers: UNAVAILABLE fallback when inputs
 are empty, monotonicity (rising military spend → higher buildup level; a Goldstein decline → higher
-escalation level; a chokepoint transit drop → higher stress level), GEWI's UNAVAILABLE-when-all-
-unavailable and MODEL_ESTIMATE-averaging behavior, and structural completeness of the historical
-reference table.
+escalation level; a chokepoint transit drop → higher stress level; a rise in UCDP battle-death
+fatalities → higher conflict-intensity level), GEWI's UNAVAILABLE-when-all-unavailable and
+MODEL_ESTIMATE-averaging behavior, and structural completeness of the historical reference table.

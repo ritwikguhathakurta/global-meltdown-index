@@ -2,7 +2,8 @@ import type { CompositeIndex, Reading } from "./types";
 
 /**
  * GEWI — Geopolitical Early Warning composite (spec §88). Combines the Military Buildup,
- * Sanctions Intensity, Escalation and Maritime Chokepoint Stress composites (each real). Every
+ * Sanctions Intensity, Escalation, Maritime Chokepoint Stress, and Conflict Intensity composites
+ * (each real). Every
  * INPUT is real; the COMBINATION into one "early warning" number is this page's own heuristic —
  * no free source publishes an actual validated early-warning index, and this repo has no
  * labeled ground truth to validate one against (see docs/GEOPOLITICAL_ENGINE.md's "not built"
@@ -32,7 +33,7 @@ export function computeGewi(components: CompositeIndex[]): CompositeIndex {
     level: avgLevel,
     change4w: null,
     quality: "MODEL_ESTIMATE",
-    methodology: `Simple average of ${available.length} available component composites (Military Buildup, Sanctions Intensity, Escalation, Maritime Chokepoint Stress — each built from real data). The combination itself is a heuristic, not a validated predictive model: no labeled ground truth exists to backtest against, so no precision/recall/lead-time claim is made for this number.`,
+    methodology: `Simple average of ${available.length} available component composites (Military Buildup, Sanctions Intensity, Escalation, Maritime Chokepoint Stress, Conflict Intensity — each built from real data). The combination itself is a heuristic, not a validated predictive model: no labeled ground truth exists to backtest against, so no precision/recall/lead-time claim is made for this number.`,
     inputs: readings,
   };
 }

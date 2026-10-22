@@ -282,9 +282,11 @@ Events/GKG export files — CAMEO event codes, Goldstein scale — distinct from
 headline-only DOC 2.0 API already used for World News), `sipriMilex.ts` (SIPRI Military
 Expenditure Database, direct XLSX, backfills the full 1949-present history in one run since the
 whole sheet is already parsed), `worldBankMilitary.ts` (same full-history-backfill choice), and
-`ofacSanctions.ts` (US Treasury OFAC SDN list, real entity counts by sanctions program). UCDP
-conflict data (`ucdpConflict.ts`) is gated on `UCDP_ACCESS_TOKEN` exactly like `dhanMcx.ts` is
-gated on Dhan credentials — not verified end-to-end until that token is supplied. OpenSanctions'
+`ofacSanctions.ts` (US Treasury OFAC SDN list, real entity counts by sanctions program), and
+`ucdpConflict.ts` (UCDP Georeferenced Event Dataset, real recorded battle-death events since 1989,
+gated on `UCDP_ACCESS_TOKEN` exactly like `dhanMcx.ts` is gated on Dhan credentials — verified
+end-to-end live 2026-10-22, feeding its own Conflict Intensity composite and tab, kept separate
+from Escalation since it's actual event data rather than GDELT's automated text-coding). OpenSanctions'
 broader multi-country sanctions CSV was checked live and found to require a **paid commercial
 license** for a product like this one (its own site separates "non-commercial use" from "data
 licensing / reseller-OEM" for commercial products) — not used, the same category as the paid

@@ -7,12 +7,21 @@ import { computeSanctionsIntensity } from "@/lib/geopolitical/sanctions";
 import { computeEscalation } from "@/lib/geopolitical/escalation";
 import { buildChokepointRows, computeChokepointStress } from "@/lib/geopolitical/chokepoints";
 import { computeGewi } from "@/lib/geopolitical/gewi";
+import { buildConflictRegionRows, computeConflictIntensity } from "@/lib/geopolitical/conflict";
 import { HISTORICAL_GEO_EVENTS } from "@/lib/geopolitical/historical";
 import { SIPRI_COUNTRIES } from "@/lib/sources/sipriMilex";
 import { CHOKEPOINT_SLUGS } from "@/lib/sources/imfPortwatch";
-import type { CompositeIndex, CountryMilitaryRow, ChokepointRow } from "@/lib/geopolitical/types";
+import type { CompositeIndex, CountryMilitaryRow, ChokepointRow, ConflictRegionRow } from "@/lib/geopolitical/types";
 
 const OFAC_PROGRAMS = ["russia", "iran", "north_korea", "cuba", "venezuela", "syria", "belarus", "ukraine_related", "terrorism", "weapons_proliferation"];
+// UCDP GED's own five standard regions (confirmed live 2026-10-22 against real event data).
+const UCDP_REGIONS = [
+  { slug: "africa", label: "Africa" },
+  { slug: "americas", label: "Americas" },
+  { slug: "asia", label: "Asia" },
+  { slug: "europe", label: "Europe" },
+  { slug: "middle_east", label: "Middle East" },
+];
 const CHOKEPOINTS = [
   { slug: "suez_canal", label: "Suez Canal" },
   { slug: "panama_canal", label: "Panama Canal" },
@@ -26,9 +35,10 @@ const CHOKEPOINTS = [
 
 export type GeopoliticalPageData = {
   fetchedAt: string;
-  indices: { gewi: CompositeIndex; militaryBuildup: CompositeIndex; sanctionsIntensity: CompositeIndex; escalation: CompositeIndex; chokepointStress: CompositeIndex };
+  indices: { gewi: CompositeIndex; militaryBuildup: CompositeIndex; sanctionsIntensity: CompositeIndex; escalation: CompositeIndex; chokepointStress: CompositeIndex; conflictIntensity: CompositeIndex };
   militaryRows: CountryMilitaryRow[];
   chokepointRows: ChokepointRow[];
+  conflictRows: ConflictRegionRow[];
   historicalEvents: typeof HISTORICAL_GEO_EVENTS;
 };
 
@@ -39,7 +49,7 @@ export async function getGeopoliticalPageData(): Promise<GeopoliticalPageData | 
     const sinceLong = new Date(Date.now() - 80 * 365 * 86_400_000).toISOString(); // SIPRI history back to 1949
     const since2y = new Date(Date.now() - 780 * 86_400_000).toISOString();
 
-    const [pctGdpSeriesList, usdSeriesList, sdnSeriesList, chokepointSeriesList, goldsteinSeries, conflictShareSeries, gprThreatsSeries] = await Promise.all([
+    const [pctGdpSeriesList, usdSeriesList, sdnSeriesList, chokepointSeriesList, goldsteinSeries, conflictShareSeries, gprThreatsSeries, ucdpFatalitiesList, ucdpEventCountList] = await Promise.all([
       Promise.all(SIPRI_COUNTRIES.map((c) => fetchSeries(db, `geopolitical.military_spend_pct_gdp.${c.slug}`, sinceLong).catch(() => [] as Point[]))),
       Promise.all(SIPRI_COUNTRIES.map((c) => fetchSeries(db, `geopolitical.military_spend_usd.${c.slug}`, sinceLong).catch(() => [] as Point[]))),
       Promise.all(OFAC_PROGRAMS.map((p) => fetchSeries(db, `geopolitical.ofac_sdn_count.${p}`, since2y).catch(() => [] as Point[]))),
@@ -47,6 +57,8 @@ export async function getGeopoliticalPageData(): Promise<GeopoliticalPageData | 
       fetchSeries(db, "geopolitical.gdelt.avg_goldstein", since2y).catch(() => [] as Point[]),
       fetchSeries(db, "geopolitical.gdelt.conflict_event_share", since2y).catch(() => [] as Point[]),
       fetchSeries(db, "geopolitical.gpr_threats", since2y).catch(() => [] as Point[]),
+      Promise.all(UCDP_REGIONS.map((r) => fetchSeries(db, `geopolitical.ucdp.${r.slug}.fatalities`, since2y).catch(() => [] as Point[]))),
+      Promise.all(UCDP_REGIONS.map((r) => fetchSeries(db, `geopolitical.ucdp.${r.slug}.event_count`, since2y).catch(() => [] as Point[]))),
     ]);
 
     const spendPctGdpByCountry: Record<string, Point[]> = {};
@@ -69,7 +81,16 @@ export async function getGeopoliticalPageData(): Promise<GeopoliticalPageData | 
     const chokepointRows = buildChokepointRows({ chokepoints: CHOKEPOINTS, transitsBySlug });
     const chokepointStress = computeChokepointStress(chokepointRows);
 
-    const gewi = computeGewi([militaryBuildup, sanctionsIntensity, escalation, chokepointStress]);
+    const fatalitiesBySlug: Record<string, Point[]> = {};
+    const eventCountBySlug: Record<string, Point[]> = {};
+    UCDP_REGIONS.forEach((r, i) => {
+      fatalitiesBySlug[r.slug] = ucdpFatalitiesList[i];
+      eventCountBySlug[r.slug] = ucdpEventCountList[i];
+    });
+    const conflictRows = buildConflictRegionRows({ regions: UCDP_REGIONS, fatalitiesBySlug, eventCountBySlug });
+    const conflictIntensity = computeConflictIntensity(conflictRows);
+
+    const gewi = computeGewi([militaryBuildup, sanctionsIntensity, escalation, chokepointStress, conflictIntensity]);
 
     // CHOKEPOINT_SLUGS is imported only to keep a compile-time link to imfPortwatch.ts's slug
     // registry (so a future rename there is caught here) — not otherwise used.
@@ -77,9 +98,10 @@ export async function getGeopoliticalPageData(): Promise<GeopoliticalPageData | 
 
     return {
       fetchedAt: new Date().toISOString(),
-      indices: { gewi, militaryBuildup, sanctionsIntensity, escalation, chokepointStress },
+      indices: { gewi, militaryBuildup, sanctionsIntensity, escalation, chokepointStress, conflictIntensity },
       militaryRows,
       chokepointRows,
+      conflictRows,
       historicalEvents: HISTORICAL_GEO_EVENTS,
     };
   } catch (e) {

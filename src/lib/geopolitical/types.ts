@@ -51,3 +51,12 @@ export type ChokepointRow = {
   transitsZ: number | null;
   asOf: string | null;
 };
+
+export type ConflictRegionRow = {
+  regionSlug: string;
+  regionLabel: string;
+  fatalities: number | null;
+  fatalitiesChangePct: number | null;
+  eventCount: number | null;
+  asOf: string | null;
+};

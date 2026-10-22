@@ -21,6 +21,7 @@ export type AskGeopoliticsFacts = {
   militaryTop: { country: string; spendUsdYoyPct: number | null; spendPctGdp: number | null }[];
   sanctionsCounts: { program: string; count: number | null }[];
   chokepoints: { label: string; transitsPerDay: number | null; transitsZ: number | null }[];
+  conflictRegions: { region: string; fatalities: number | null; changePct: number | null }[];
   historicalEventCount: number;
 };
 
@@ -37,8 +38,9 @@ export function buildAskGeopoliticsPrompt(facts: AskGeopoliticsFacts, question: 
   const militaryLines = facts.militaryTop.map((m) => `  - ${m.country}: military spend ${fmt(m.spendPctGdp, 2)}% of GDP, YoY change ${fmt(m.spendUsdYoyPct, 1)}%`).join("\n");
   const sanctionsLines = facts.sanctionsCounts.map((s) => `  - ${s.program}: ${s.count === null ? "not available" : s.count} entities currently listed (OFAC SDN)`).join("\n");
   const chokepointLines = facts.chokepoints.map((c) => `  - ${c.label}: ${c.transitsPerDay === null ? "not available" : `${c.transitsPerDay.toFixed(0)} vessel transits/day`}, z-score ${fmt(c.transitsZ, 2)}`).join("\n");
+  const conflictLines = facts.conflictRegions.map((c) => `  - ${c.region}: ${c.fatalities === null ? "not available" : `${c.fatalities.toFixed(0)} battle-death fatalities (monthly, UCDP)`}, 90-day change ${fmt(c.changePct, 1)}%`).join("\n");
 
-  return `You are "Ask Geopolitics", an analyst assistant embedded in a real-data systemic-risk dashboard's Geopolitical page. Answer the user's question using ONLY the real data given below — never state a number, date, or fact that is not given here. This dashboard does NOT have: live intelligence assessments, classified military capabilities, AIS/satellite vessel tracking, cyber-attribution data, election predictions, or news-event-level detail beyond the automated GDELT signal already folded into the Escalation Reading. If the question asks about any of that, say plainly that this dashboard does not have that data rather than guessing or estimating one.
+  return `You are "Ask Geopolitics", an analyst assistant embedded in a real-data systemic-risk dashboard's Geopolitical page. Answer the user's question using ONLY the real data given below — never state a number, date, or fact that is not given here. This dashboard does NOT have: live intelligence assessments, classified military capabilities, AIS/satellite vessel tracking, cyber-attribution data, election predictions, or named-event detail beyond the aggregated signals given here (automated GDELT text-coding folded into Escalation, and UCDP's real recorded battle-death counts folded into Conflict Intensity — region-level totals only, not individual incident reports). If the question asks about any of that, say plainly that this dashboard does not have that data rather than guessing or estimating one.
 
 REAL/MODEL DATA SNAPSHOT (as currently shown on the page):
 - Page-level composite indices (quality REAL = genuine observation combined into an index; MODEL_ESTIMATE = a heuristic proxy combining real inputs, not itself a measured or validated predictive quantity — say so if your answer leans on one):
@@ -49,6 +51,8 @@ ${militaryLines}
 ${sanctionsLines}
 - Maritime chokepoint traffic (IMF PortWatch, AIS-derived):
 ${chokepointLines}
+- Battle-death fatalities by region (UCDP Georeferenced Event Dataset, real recorded events, monthly):
+${conflictLines}
 - Historical reference table: ${facts.historicalEventCount} documented past episodes available (factual, not a scored backtest — no precision/recall claim exists for any early-warning signal on this page).
 
 USER QUESTION: ${question}

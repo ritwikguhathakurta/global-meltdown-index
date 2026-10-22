@@ -2,13 +2,14 @@
 
 import { useState, type ReactNode } from "react";
 
-export type GeoTabId = "overview" | "military" | "sanctions" | "maritime" | "ask" | "historical" | "sources";
+export type GeoTabId = "overview" | "military" | "sanctions" | "maritime" | "conflict" | "ask" | "historical" | "sources";
 
 const TABS: { id: GeoTabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "military", label: "Military" },
   { id: "sanctions", label: "Sanctions" },
   { id: "maritime", label: "Maritime & Chokepoints" },
+  { id: "conflict", label: "Conflict" },
   { id: "ask", label: "Ask Geopolitics" },
   { id: "historical", label: "Historical Reference" },
   { id: "sources", label: "Sources & Limitations" },

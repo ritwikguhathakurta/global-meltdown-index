@@ -4,7 +4,7 @@ import type { GeopoliticalPageData } from "@/lib/api/geopoliticalData";
 import { Panel, SectionTitle, IndexCard, Table, Th, Td, fmtNum, fmtPct, fmtUsd, UnavailableNote } from "../derivatives/ui";
 
 export function OverviewPanel({ data, engineRows }: { data: GeopoliticalPageData; engineRows: EngineRow[] }) {
-  const { gewi, militaryBuildup, sanctionsIntensity, escalation, chokepointStress } = data.indices;
+  const { gewi, militaryBuildup, sanctionsIntensity, escalation, chokepointStress, conflictIntensity } = data.indices;
   return (
     <div className="flex flex-col gap-6">
       <Panel>
@@ -22,6 +22,7 @@ export function OverviewPanel({ data, engineRows }: { data: GeopoliticalPageData
           <IndexCard label="Sanctions Intensity" level={sanctionsIntensity.level} change4w={sanctionsIntensity.change4w} quality={sanctionsIntensity.quality} methodology={sanctionsIntensity.methodology} />
           <IndexCard label="Escalation Reading" level={escalation.level} change4w={escalation.change4w} quality={escalation.quality} methodology={escalation.methodology} />
           <IndexCard label="Maritime Chokepoint Stress" level={chokepointStress.level} change4w={chokepointStress.change4w} quality={chokepointStress.quality} methodology={chokepointStress.methodology} />
+          <IndexCard label="Conflict Intensity" level={conflictIntensity.level} change4w={conflictIntensity.change4w} quality={conflictIntensity.quality} methodology={conflictIntensity.methodology} />
         </div>
       </Panel>
     </div>
@@ -142,6 +143,50 @@ export function MaritimePanel({ data }: { data: GeopoliticalPageData }) {
   );
 }
 
+export function ConflictPanel({ data }: { data: GeopoliticalPageData }) {
+  const rows = [...data.conflictRows].sort((a, b) => (b.fatalities ?? -1) - (a.fatalities ?? -1));
+  return (
+    <div className="flex flex-col gap-6">
+      <Panel>
+        <SectionTitle>Conflict Intensity Index</SectionTitle>
+        <IndexCard label="Conflict Intensity" level={data.indices.conflictIntensity.level} change4w={data.indices.conflictIntensity.change4w} quality={data.indices.conflictIntensity.quality} methodology={data.indices.conflictIntensity.methodology} />
+      </Panel>
+      <Panel>
+        <SectionTitle>Battle-Death Fatalities by Region</SectionTitle>
+        <p className="mb-3 text-[11px] text-text-dim">
+          UCDP (Uppsala Conflict Data Program) Georeferenced Event Dataset, official, free, Tier 1 — real recorded battle-death events aggregated to a monthly total per UCDP&rsquo;s own five standard regions. Distinct from the Escalation reading above, which is automated text-coding of news coverage (GDELT); this is actual recorded event data.
+        </p>
+        {rows.length === 0 ? (
+          <UnavailableNote>No UCDP data available yet.</UnavailableNote>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <Th>Region</Th>
+                <Th right>Fatalities (monthly)</Th>
+                <Th right>Events (monthly)</Th>
+                <Th right>90-Day Change</Th>
+                <Th right>As of</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.regionSlug}>
+                  <Td>{r.regionLabel}</Td>
+                  <Td right mono>{fmtNum(r.fatalities, 0)}</Td>
+                  <Td right mono>{fmtNum(r.eventCount, 0)}</Td>
+                  <Td right mono>{r.fatalitiesChangePct === null ? "—" : `${r.fatalitiesChangePct >= 0 ? "+" : ""}${r.fatalitiesChangePct.toFixed(1)}%`}</Td>
+                  <Td right mono>{r.asOf ?? "—"}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
 export function HistoricalPanel({ data }: { data: GeopoliticalPageData }) {
   return (
     <Panel>
@@ -176,6 +221,7 @@ export function SourcesPanel() {
           <li>US Treasury OFAC Specially Designated Nationals list — Tier 1</li>
           <li>IMF PortWatch — 28 maritime chokepoints, AIS-derived daily transits, Tier 2 (reused from the Energy engine)</li>
           <li>GDELT Events Database — automated event-coding of global news, real but explicitly noisy/automated, Tier 2</li>
+          <li>UCDP Georeferenced Event Dataset — real recorded battle-death events since 1989, official (Uppsala University/PRIO), Tier 1</li>
         </ul>
       </Panel>
       <Panel>
@@ -191,11 +237,15 @@ export function SourcesPanel() {
         </ul>
       </Panel>
       <Panel>
+        <SectionTitle>Not Used — Checked and Declined on License Terms</SectionTitle>
+        <ul className="list-disc space-y-1 pl-5 text-xs text-text-dim">
+          <li>ACLED political-violence data — EULA read end-to-end: bans scraping/crawling outright, and requires a paid corporate license for any commercial use (the license it grants individuals is non-commercial only, and even that tier requires registration)</li>
+          <li>OpenSanctions consolidated multi-country sanctions list — checked live and found to require a paid commercial license for a product like this one (its own site separates &ldquo;non-commercial use&rdquo; from &ldquo;data licensing / reseller-OEM&rdquo; for commercial products); not used</li>
+        </ul>
+      </Panel>
+      <Panel>
         <SectionTitle>Needs a Decision or Registration (flagged, not silently skipped)</SectionTitle>
         <ul className="list-disc space-y-1 pl-5 text-xs text-text-dim">
-          <li>UCDP conflict/battle-death data — real free API, needs a self-service access token</li>
-          <li>ACLED political-violence data — needs a registered key; full EULA terms not yet confirmed to permit this kind of use</li>
-          <li>OpenSanctions consolidated multi-country sanctions list — checked live and found to require a paid commercial license for a product like this one (its own site separates &ldquo;non-commercial use&rdquo; from &ldquo;data licensing / reseller-OEM&rdquo; for commercial products); not used</li>
           <li>WTO Timeseries API (tariffs) — confirmed to require a subscription key; free self-registration not confirmed this pass</li>
           <li>UN General Assembly voting data — no live free API found; the well-known academic dataset is a static historical file, not a live feed</li>
         </ul>
