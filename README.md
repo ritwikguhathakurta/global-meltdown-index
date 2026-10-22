@@ -1,10 +1,83 @@
 # Global Meltdown Index
 
-A leading-indicator systemic-risk terminal (globalmeltdownindex.net), built against the V3
-specification in this repo's originating brief. This is **Phase 1** of a large build — see
-[Scope](#scope--whats-not-here-yet) before assuming full spec coverage.
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E?logo=supabase)
+![Live](https://img.shields.io/badge/live-globalmeltdownindex.net-brightgreen)
+
+**A systemic-risk terminal that turns free, official macro-financial data into one transparent
+composite score** — 24 independent risk engines across the G7 and China, each one computed
+deterministically from data you can trace back to its own source, with every stale or missing
+number labeled as such instead of guessed at.
 
 Core question the platform answers: *what is changing now that could matter later?*
+
+This is **Phase 1** of a large build against a detailed internal spec — see
+[Scope](#scope--whats-not-here-yet) before assuming full coverage of any one engine.
+
+### Try it right now — no signup required
+
+The dashboard itself requires a free account (see [Quick start](#quick-start)), but the underlying
+API is public. This is a real, live response, not a mockup:
+
+```bash
+curl https://globalmeltdownindex.net/api/gfmi
+```
+
+```jsonc
+// trimmed to 2 of 24 components for readability — the real response includes all of them
+{
+  "data": {
+    "current": {
+      "as_of": "2026-10-22",
+      "score": 72,
+      "regime": "CRISIS_DEVELOPING",
+      "confidence": 0.9,
+      "components": {
+        "credit": { "score": 70, "weight": 1, "contribution": 4.24 },
+        "us_treasury_sovereign": { "score": 59, "weight": 1.2, "contribution": 4.29 }
+      }
+    }
+  },
+  "disclaimer": "CURRENT MACRO/MARKET ASSESSMENT — NOT A GUARANTEED FORECAST OR INVESTMENT RECOMMENDATION."
+}
+```
+
+Live site: **[globalmeltdownindex.net](https://globalmeltdownindex.net)** · Full dashboard (free
+account required): [`/dashboard`](https://globalmeltdownindex.net/dashboard) · the full list of
+other public endpoints (`/api/yen`, `/api/liquidity`, `/api/credit`, `/api/treasury`, and more) is
+in [What's built](#whats-built)
+
+### Why this exists, and what's different about it
+
+Most "market risk" dashboards are either a single country's indicators, a paid terminal, or a
+black-box score with no visible methodology. This project is an attempt at the opposite on all
+three counts:
+
+- **G7 + China coverage**, not US-only — most engines were built US-only first and then
+  deliberately widened; see [Country coverage](#country-coverage-g7--china).
+- **Every data point is free and official** — central banks, FRED, SEC EDGAR, IMF, World Bank, and
+  similar sources only. No scraping of sites whose own terms forbid it (CCIL, ACLED, and others
+  were evaluated and explicitly declined on exactly that basis, not silently skipped).
+- **Nothing is backfilled or estimated to fill a gap.** When a free source genuinely doesn't exist
+  for something the spec asks for, the page says `UNAVAILABLE` and explains why — see
+  [Scope](#scope--whats-not-here-yet) for the current, honest list.
+- **Every number carries a data-freshness badge** (LIVE/RECENT/STALE/UNAVAILABLE) and a cited
+  source/tier, computed against that source's own real publication cadence — an annual debt/GDP
+  ratio showing `STALE` by daily-data standards is usually correct, not a bug.
+- **24 engines feed one composite** (the GFMI score above) via a weighted average plus a nonlinear
+  multi-shock amplifier and crisis-override rules — not a simple average, and not an opaque single
+  number either: every component and its weight is in the API response itself.
+
+### Contents
+
+- [What's built](#whats-built)
+- [Scope — what's not here yet](#scope--whats-not-here-yet)
+- [Quick start (local dev)](#quick-start)
+- [Full one-time setup](#one-time-setup-you-must-do-this--i-cant-create-accounts-on-your-behalf) (your own Supabase project, live data, admin access)
+- [AI engines: real SEC EDGAR data](#ai-engines-real-sec-edgar-data-not-a-mockup)
+- [Country coverage: G7 + China](#country-coverage-g7--china)
+- [Architecture notes](#architecture-notes)
 
 ## What's built
 
@@ -179,13 +252,43 @@ instead of waiting for the next scheduled run.
 - The only reasons you'd need to step in: adding a new engine/data source, rotating an API key,
   or wiring up billing.
 
-## Local development
+## Quick start
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in the same values as step 3 above
-npm run dev
+cp .env.example .env.local   # fill in at minimum the 5 "Core" values — see below
+npm run dev                  # http://localhost:3000
 ```
+
+`.env.example` is grouped into two parts:
+
+- **Core** (5 variables) — Supabase credentials, a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html),
+  and `CRON_SECRET`. You need these to sign up, log in, and run the pipeline at all; see
+  [Full one-time setup](#one-time-setup-you-must-do-this--i-cant-create-accounts-on-your-behalf)
+  for the five-minute walkthrough (create a Supabase project, run one migration, get the FRED key).
+- **Optional** (everything else) — each one unlocks a specific engine or connector (an LLM key for
+  the "Ask Derivatives"/"Ask Geopolitics" panels, a UCDP token for the Conflict tab, and so on).
+  The app and the daily pipeline run correctly with none of these set; the affected metrics just
+  show `UNAVAILABLE` instead of a value. `.env.example` documents what each one unlocks.
+
+Verified locally before writing this section: `npm install` → `npm run dev` starts a real server
+(`✓ Ready in ~1s`) that serves `/login` with a genuine 200. The other commands you'll want during
+development, all passing as of this commit:
+
+```bash
+npm run build              # production build
+npm run lint                 # eslint
+npx tsc --noEmit -p .       # typecheck (no separate npm script for this)
+npm run test:carry          # 25 passing
+npm run test:derivatives    # 13 passing
+npm run test:geopolitical   # 11 passing
+```
+
+There's no Jest/Vitest here by design — these three suites are dependency-free `tsx` scripts
+testing the pure, server-import-free calculation layers (`src/lib/carry/`, `src/lib/derivatives/`,
+`src/lib/geopolitical/`). The 24 registered engines and other connectors don't have automated
+tests yet; see [`docs/growth/BASELINE_AUDIT.md`](docs/growth/BASELINE_AUDIT.md) for the honest
+state of test coverage if you're considering contributing here.
 
 ## AI engines: real SEC EDGAR data, not a mockup
 
