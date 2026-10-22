@@ -40,10 +40,11 @@ until it lands, treat the list above as mandatory rather than optional.
 ## What kind of contribution is useful right now
 
 - **Bug fixes** with a clear repro — always welcome.
-- **A new free, official data source** for an engine that currently shows `UNAVAILABLE` for a
-  spec'd indicator. See the README's [Scope](README.md#scope--whats-not-here-yet) section for the
-  current, honest list of known gaps (e.g. the UK's missing Supply Chains proxy, India Market
-  Regime's partial coverage).
+- **A new free, official data source** for an engine that currently shows `UNAVAILABLE` for an
+  indicator. See [`docs/SCOPE.md`](docs/SCOPE.md) for the current, honest list of known gaps (e.g.
+  the UK's missing Supply Chains proxy, India Market Regime's partial coverage) — kept out of the
+  README itself so a first-time visitor sees what works before reading what doesn't, but this is
+  exactly where a contributor should look.
 - **Documentation fixes** — if something in the README, `CLAUDE.md`, or a `docs/*_ENGINE.md` file
   no longer matches the code, that's a real, easy-to-review PR.
 - **Test coverage** for an existing engine or connector that currently has none.
