@@ -6,11 +6,27 @@ import { EIA_COUNTRIES } from "./eiaApi";
  * for renewable/non-renewable electricity capacity and generation by
  * country. Verified live before wiring in: https://pxweb.irena.org
  *
- * Two tables, both published annually with different lags (IRENA's own
- * cadence, not a defect here): capacity (published March) currently runs
- * through 2025; generation (published July) currently runs through 2023.
- * The latest available year is discovered dynamically from each table's
- * metadata rather than hardcoded, since IRENA appends a new year on release.
+ * IRENA replaced the two separate per-metric tables this connector used
+ * originally (`Country_ELECCAP_*`/`Country_ELECGEN_*`, dated by H1/H2 release)
+ * with one combined table on its H2 2026 refresh — verified live 2026-10-26
+ * after both old URLs started 404ing in production. The new
+ * `Country_ELECSTAT_*` table holds both metrics behind a `Data Type`
+ * dimension (`0` = generation, `1` = capacity) instead of being two tables,
+ * and its `Technology` codes for the two totals are swapped from what the
+ * old capacity table used (`0` is now Total Non-Renewable, `1` is now Total
+ * Renewable — previously capacity used `0`=renewable/`16`=non-renewable and
+ * generation used `0`=renewable/`13`=non-renewable, two different schemes).
+ * `Grid connection` also gained a real "All" option (`0`) in the new table,
+ * replacing the capacity table's old need to sum on-grid + off-grid by hand.
+ *
+ * Generation data genuinely lags capacity by about a year in IRENA's own
+ * publication cadence, but the table's `Year` metadata still lists the
+ * current year as a selectable value before data for it exists — querying
+ * that year returns PxWeb's own "not available" marker (`".."`) rather than
+ * an error. `findLatestYearWithData` probes backwards from the newest listed
+ * year with one cheap reference-country query per metric, rather than
+ * trusting metadata's last year to mean "has real data" the way the old,
+ * single-metric tables could get away with.
  *
  * Reuses the same 16-country set as eiaApi.ts's Country Energy Balance so
  * renewables line up against the same countries — IRENA itself covers all
@@ -19,26 +35,28 @@ import { EIA_COUNTRIES } from "./eiaApi";
  * Country Energy Balance / Transition Risk (spec, renewables).
  */
 
-const CAPACITY_TABLE =
-  "https://pxweb.irena.org/api/v1/en/IRENASTAT/Power%20Capacity%20and%20Generation/Country_ELECCAP_2026_H1_v-PX%201.px";
-const GENERATION_TABLE =
-  "https://pxweb.irena.org/api/v1/en/IRENASTAT/Power%20Capacity%20and%20Generation/Country_ELECGEN_2025_H2_v-PX%201.px";
+const TABLE =
+  "https://pxweb.irena.org/api/v1/en/IRENASTAT/Power%20Capacity%20and%20Generation/Country_ELECSTAT_2026_H2_PX.px";
+
+const TECH_NON_RENEWABLE = "0";
+const TECH_RENEWABLE = "1";
+const DATA_TYPE_GENERATION = "0";
+const DATA_TYPE_CAPACITY = "1";
+const GRID_ALL = "0";
+const PROBE_COUNTRY = "USA";
+const NOT_AVAILABLE = "..";
 
 type PxMeta = { variables: { code: string; values: string[]; valueTexts: string[] }[] };
 type PxData = { data: { key: string[]; values: string[] }[] };
 
-async function latestYearCode(tableUrl: string): Promise<{ code: string; year: string }> {
-  const res = await fetch(tableUrl, { next: { revalidate: 0 } });
+async function fetchMeta(): Promise<PxMeta> {
+  const res = await fetch(TABLE, { next: { revalidate: 0 } });
   if (!res.ok) throw new Error(`IRENA metadata: HTTP ${res.status}`);
-  const meta = (await res.json()) as PxMeta;
-  const yearVar = meta.variables.find((v) => v.code === "Year");
-  if (!yearVar || yearVar.values.length === 0) throw new Error("IRENA metadata: no Year variable");
-  const idx = yearVar.values.length - 1;
-  return { code: yearVar.values[idx], year: yearVar.valueTexts[idx] };
+  return (await res.json()) as PxMeta;
 }
 
-async function pxQuery(tableUrl: string, query: Record<string, unknown>[]): Promise<PxData> {
-  const res = await fetch(tableUrl, {
+async function pxQuery(query: Record<string, unknown>[]): Promise<PxData> {
+  const res = await fetch(TABLE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, response: { format: "json" } }),
@@ -48,45 +66,44 @@ async function pxQuery(tableUrl: string, query: Record<string, unknown>[]): Prom
   return (await res.json()) as PxData;
 }
 
-export async function fetchIrenaRenewablesCapacity(): Promise<MetricPoint[]> {
-  const { code: yearCode, year } = await latestYearCode(CAPACITY_TABLE);
-  const result = await pxQuery(CAPACITY_TABLE, [
-    { code: "Country/area", selection: { filter: "item", values: EIA_COUNTRIES.map((c) => c.code) } },
-    { code: "Technology", selection: { filter: "item", values: ["0", "16"] } }, // Total renewable, Total non-renewable
-    { code: "Grid connection", selection: { filter: "item", values: ["0", "1"] } }, // OnGrid + OffGrid, summed below (no "All" option in this table)
-    { code: "Year", selection: { filter: "item", values: [yearCode] } },
-  ]);
+/**
+ * Walks the Year variable's listed values newest-first and returns the first
+ * one where a single reference country actually has a non-".." value for
+ * this Data Type, since IRENA lists the current year before data for it is
+ * published rather than omitting it from the metadata.
+ */
+async function findLatestYearWithData(
+  meta: PxMeta,
+  dataType: string,
+): Promise<{ code: string; year: string }> {
+  const yearVar = meta.variables.find((v) => v.code === "Year");
+  if (!yearVar || yearVar.values.length === 0) throw new Error("IRENA metadata: no Year variable");
 
-  const slugByCode = new Map(EIA_COUNTRIES.map((c) => [c.code, c.slug]));
-  const sums = new Map<string, { renewable: number; nonRenewable: number }>();
-  for (const row of result.data) {
-    const [country, tech] = row.key;
-    const value = parseFloat(row.values[0]);
-    if (Number.isNaN(value)) continue;
-    const entry = sums.get(country) ?? { renewable: 0, nonRenewable: 0 };
-    if (tech === "0") entry.renewable += value;
-    else if (tech === "16") entry.nonRenewable += value;
-    sums.set(country, entry);
+  for (let idx = yearVar.values.length - 1; idx >= 0; idx--) {
+    const code = yearVar.values[idx];
+    const result = await pxQuery([
+      { code: "Country/area", selection: { filter: "item", values: [PROBE_COUNTRY] } },
+      { code: "Technology", selection: { filter: "item", values: [TECH_RENEWABLE] } },
+      { code: "Data Type", selection: { filter: "item", values: [dataType] } },
+      { code: "Grid connection", selection: { filter: "item", values: [GRID_ALL] } },
+      { code: "Year", selection: { filter: "item", values: [code] } },
+    ]);
+    const value = result.data[0]?.values?.[0];
+    if (value !== undefined && value !== NOT_AVAILABLE) {
+      return { code, year: yearVar.valueTexts[idx] };
+    }
   }
-
-  const observedAt = `${year}-12-31`;
-  const points: MetricPoint[] = [];
-  for (const [country, { renewable, nonRenewable }] of sums) {
-    const slug = slugByCode.get(country);
-    if (!slug) continue;
-    points.push({ metric_key: `energy.country.${slug}.renewable_capacity_mw`, observed_at: observedAt, value: renewable, unit: "MW", source_key: "irena_irenastat", source_tier: 1, frequency: "annual" });
-    points.push({ metric_key: `energy.country.${slug}.nonrenewable_capacity_mw`, observed_at: observedAt, value: nonRenewable, unit: "MW", source_key: "irena_irenastat", source_tier: 1, frequency: "annual" });
-  }
-  return points;
+  throw new Error("IRENA: no year with real data found for this Data Type");
 }
 
-export async function fetchIrenaRenewablesGeneration(): Promise<MetricPoint[]> {
-  const { code: yearCode, year } = await latestYearCode(GENERATION_TABLE);
-  const result = await pxQuery(GENERATION_TABLE, [
+async function fetchByDataType(dataType: string, metricSuffixes: { renewable: string; nonRenewable: string }, unit: string): Promise<MetricPoint[]> {
+  const meta = await fetchMeta();
+  const { code: yearCode, year } = await findLatestYearWithData(meta, dataType);
+  const result = await pxQuery([
     { code: "Country/area", selection: { filter: "item", values: EIA_COUNTRIES.map((c) => c.code) } },
-    { code: "Technology", selection: { filter: "item", values: ["0", "13"] } }, // Total renewable, Total non-renewable
-    { code: "Data Type", selection: { filter: "item", values: ["0"] } },
-    { code: "Grid connection", selection: { filter: "item", values: ["2"] } }, // All
+    { code: "Technology", selection: { filter: "item", values: [TECH_NON_RENEWABLE, TECH_RENEWABLE] } },
+    { code: "Data Type", selection: { filter: "item", values: [dataType] } },
+    { code: "Grid connection", selection: { filter: "item", values: [GRID_ALL] } },
     { code: "Year", selection: { filter: "item", values: [yearCode] } },
   ]);
 
@@ -98,8 +115,24 @@ export async function fetchIrenaRenewablesGeneration(): Promise<MetricPoint[]> {
     const slug = slugByCode.get(country);
     const value = parseFloat(row.values[0]);
     if (!slug || Number.isNaN(value)) continue;
-    const suffix = tech === "0" ? "renewable_generation_gwh" : "nonrenewable_generation_gwh";
-    points.push({ metric_key: `energy.country.${slug}.${suffix}`, observed_at: observedAt, value, unit: "GWh", source_key: "irena_irenastat", source_tier: 1, frequency: "annual" });
+    const suffix = tech === TECH_RENEWABLE ? metricSuffixes.renewable : metricSuffixes.nonRenewable;
+    points.push({ metric_key: `energy.country.${slug}.${suffix}`, observed_at: observedAt, value, unit, source_key: "irena_irenastat", source_tier: 1, frequency: "annual" });
   }
   return points;
+}
+
+export async function fetchIrenaRenewablesCapacity(): Promise<MetricPoint[]> {
+  return fetchByDataType(
+    DATA_TYPE_CAPACITY,
+    { renewable: "renewable_capacity_mw", nonRenewable: "nonrenewable_capacity_mw" },
+    "MW",
+  );
+}
+
+export async function fetchIrenaRenewablesGeneration(): Promise<MetricPoint[]> {
+  return fetchByDataType(
+    DATA_TYPE_GENERATION,
+    { renewable: "renewable_generation_gwh", nonRenewable: "nonrenewable_generation_gwh" },
+    "GWh",
+  );
 }
