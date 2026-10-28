@@ -11,8 +11,23 @@ import type { MetricPoint } from "../metrics/store";
  * timestamp (P-58B real-time actual load); generation = sum of all fuel
  * categories at the latest timestamp (real-time fuel mix).
  */
-function todayUtcYyyymmdd(): string {
-  return new Date().toISOString().slice(0, 10).replace(/-/g, "");
+/**
+ * NYISO's daily files are keyed by the US Eastern trading day, not UTC —
+ * using the UTC calendar date 404s for roughly the last ~4-5 hours of every
+ * ET day (UTC has already rolled to the next date while NYISO hasn't),
+ * which only matters for off-schedule manual runs since the real daily cron
+ * (21:30 UTC) always lands mid-afternoon ET, safely on the same date in
+ * both zones.
+ */
+function todayEasternYyyymmdd(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${get("year")}${get("month")}${get("day")}`;
 }
 
 function parseCsv(text: string): string[][] {
@@ -31,7 +46,7 @@ function sumAtLatestTimestamp(rows: string[][], timestampCol: number, valueCol: 
 }
 
 export async function fetchNyisoGridSnapshot(): Promise<MetricPoint[]> {
-  const date = todayUtcYyyymmdd();
+  const date = todayEasternYyyymmdd();
   const [loadRes, fuelRes] = await Promise.all([
     fetch(`https://mis.nyiso.com/public/csv/pal/${date}pal.csv`, { next: { revalidate: 0 } }),
     fetch(`https://mis.nyiso.com/public/csv/rtfuelmix/${date}rtfuelmix.csv`, { next: { revalidate: 0 } }),

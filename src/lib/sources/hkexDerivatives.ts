@@ -58,7 +58,15 @@ async function downloadZip(kind: "F" | "O", maxLookbackDays = 7): Promise<{ zip:
     const res = await fetch(dtopUrl(kind, day), { headers: HEADERS, next: { revalidate: 0 } });
     if (!res.ok) continue;
     const buffer = Buffer.from(await res.arrayBuffer());
-    return { zip: new AdmZip(buffer), observedAt: isoDate(day) };
+    // A 200 response doesn't guarantee a well-formed zip — a CDN hiccup can
+    // serve a truncated/corrupted body with a success status. Without this
+    // catch, AdmZip's constructor throws synchronously and kills the whole
+    // lookback instead of falling back to the previous day like a 404 does.
+    try {
+      return { zip: new AdmZip(buffer), observedAt: isoDate(day) };
+    } catch {
+      continue;
+    }
   }
   return null;
 }
