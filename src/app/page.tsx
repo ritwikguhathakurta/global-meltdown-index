@@ -7,7 +7,12 @@ import { RiskBadge } from "@/components/RegimeBadge";
 import { StatusPill } from "@/components/StatusPill";
 
 const PAGE_TITLE = "Global Financial Early-Warning Intelligence Terminal";
+// Kept under ~160 chars - Google truncates a longer meta description in the
+// SERP snippet, cutting it off mid-sentence rather than at a clean boundary.
 const PAGE_DESCRIPTION =
+  "24 deterministic risk engines roll into one composite GFMI score — every number real, source-linked, " +
+  "and computed automatically, never faked.";
+const JSON_LD_DESCRIPTION =
   "24 deterministic risk engines — Global Liquidity, Credit, Equity Fragility, Treasury/Sovereign, Banking, " +
   "Property, EM Debt, Energy, Geopolitical and more — roll up into one composite GFMI score. Every number is " +
   "real, sourced from a free/official API and computed deterministically; nothing is faked or estimated.";
@@ -36,7 +41,7 @@ const JSON_LD = {
   "@type": "WebSite",
   name: "Global Meltdown Index",
   url: "https://globalmeltdownindex.net",
-  description: PAGE_DESCRIPTION,
+  description: JSON_LD_DESCRIPTION,
   publisher: {
     "@type": "Organization",
     name: "Global Meltdown Index",
