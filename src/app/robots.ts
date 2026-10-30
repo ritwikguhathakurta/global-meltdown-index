@@ -13,7 +13,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/$", "/opengraph-image"],
+      allow: ["/$", "/opengraph-image", "/icon", "/llms.txt"],
       disallow: "/",
     },
     sitemap: `${SITE_URL}/sitemap.xml`,

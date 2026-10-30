@@ -34,7 +34,9 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/api/") ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
-    pathname === "/opengraph-image";
+    pathname === "/opengraph-image" ||
+    pathname === "/llms.txt" ||
+    pathname === "/icon";
   const isProtected = !isPublic;
 
   try {

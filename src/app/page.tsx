@@ -6,6 +6,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { RiskBadge } from "@/components/RegimeBadge";
 import { StatusPill } from "@/components/StatusPill";
 
+const SITE_URL = "https://globalmeltdownindex.net";
+
 const PAGE_TITLE = "Global Financial Early-Warning Intelligence Terminal";
 // Kept under ~160 chars - Google truncates a longer meta description in the
 // SERP snippet, cutting it off mid-sentence rather than at a clean boundary.
@@ -36,18 +38,37 @@ export const metadata: Metadata = {
   },
 };
 
-const JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "Global Meltdown Index",
-  url: "https://globalmeltdownindex.net",
-  description: JSON_LD_DESCRIPTION,
-  publisher: {
-    "@type": "Organization",
-    name: "Global Meltdown Index",
-    url: "https://globalmeltdownindex.net",
+// Real, visible on the page below (not schema-only) — Google's own guidance
+// is that FAQPage markup must mirror what a visitor actually sees.
+const FAQ_ITEMS = [
+  {
+    q: "What is the GFMI score?",
+    a: "The Global Financial Meltdown Index (GFMI) is a 0–100 composite of 24 independent risk engines — " +
+      "Global Liquidity, Credit, Equity Fragility, Treasury/Sovereign, Banking, Property, Emerging-Market Debt, " +
+      "Energy, Geopolitical and more — each computed deterministically and rolled into one score.",
   },
-};
+  {
+    q: "Is the data real, or estimated?",
+    a: "Every number is sourced from a free or official API — FRED, central banks, SEC EDGAR, the World Bank — " +
+      "and computed deterministically. Nothing is faked, estimated or backfilled; when a free source doesn't " +
+      "exist for something, it's labeled UNAVAILABLE or STALE instead of guessed at.",
+  },
+  {
+    q: "How often does it update?",
+    a: "A daily pipeline recomputes every engine and the composite GFMI score automatically from the latest " +
+      "available data.",
+  },
+  {
+    q: "Is this investment advice?",
+    a: "No. Global Meltdown Index publishes a current macro/market assessment, not a forecast, prediction, or " +
+      "recommendation to buy, sell or hold any security or financial product.",
+  },
+  {
+    q: "Do I need an account to see it?",
+    a: "No — this page shows the live GFMI score and India market regime without signing up. A free account " +
+      "unlocks the full dashboard: every engine in detail, trend charts and source citations.",
+  },
+];
 
 async function getShortHorizonEngineRows() {
   if (!isSupabaseConfigured) return [] as { engine_key: string; score: number | null; regime: string }[];
@@ -113,17 +134,59 @@ export default async function HomePage() {
   const { gfmi, previousGfmi, engines, india } = await getHomeData();
   const hasData = gfmi !== null;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "Global Meltdown Index",
+        url: SITE_URL,
+        logo: `${SITE_URL}/icon`,
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        name: "Global Meltdown Index",
+        url: SITE_URL,
+        description: JSON_LD_DESCRIPTION,
+        publisher: { "@id": `${SITE_URL}/#organization` },
+        author: { "@id": `${SITE_URL}/#organization` },
+        ...(gfmi ? { dateModified: gfmi.as_of } : {}),
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: FAQ_ITEMS.map((item) => ({
+          "@type": "Question",
+          name: item.q,
+          acceptedAnswer: { "@type": "Answer", text: item.a },
+        })),
+      },
+    ],
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <section className="mb-10">
         <h1 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-accent">
+            Global Meltdown Index
+          </span>
           See financial stress before it becomes a market story.
         </h1>
         <p className="mt-3 max-w-2xl text-text-dim">
           A leading-indicator early-warning system for global systemic risk and the India market regime —
-          not another lagging market dashboard.
+          not another lagging dashboard.
         </p>
+        <p className="mt-2 text-xs text-text-dim">
+          Published by Global Meltdown Index{gfmi ? ` · Updated ${gfmi.as_of}` : ""}
+        </p>
+        <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-dim">
+          <li>24 deterministic risk engines</li>
+          <li>Every number real &amp; source-linked</li>
+          <li>Recomputed automatically every day</li>
+        </ul>
       </section>
 
       {!hasData && (
@@ -178,8 +241,11 @@ export default async function HomePage() {
         <div className="gfew-panel p-5">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-dim">What Has Already Happened</h2>
           <p className="text-sm text-text-dim">
-            Verified, observed data points from official and market sources — see each engine page for its
-            leading, coincident and lagging indicator breakdown.
+            Verified, observed data points from official sources such as{" "}
+            <a href="https://fred.stlouisfed.org/" className="text-accent hover:underline" rel="noopener">
+              FRED
+            </a>{" "}
+            and SEC EDGAR — see each engine page for its leading, coincident and lagging indicator breakdown.
           </p>
         </div>
         <div className="gfew-panel p-5">
@@ -191,7 +257,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="gfew-panel flex flex-col gap-3 p-6">
+      <section className="gfew-panel mb-10 flex flex-col gap-3 p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-text-dim">Ask Global Meltdown Index Anything</h2>
         <p className="text-sm text-text-dim">
           The conversational AI research agent is planned for a later phase — it requires its own LLM API
@@ -199,6 +265,18 @@ export default async function HomePage() {
         </p>
         <div className="rounded border border-border bg-panel-raised px-3 py-2 text-sm text-text-dim opacity-60">
           Coming soon — &ldquo;Is the yen carry trade becoming dangerous?&rdquo;
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-text-dim">Frequently Asked Questions</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {FAQ_ITEMS.map((item) => (
+            <div key={item.q} className="gfew-panel p-4">
+              <h3 className="mb-1 text-sm font-semibold">{item.q}</h3>
+              <p className="text-sm text-text-dim">{item.a}</p>
+            </div>
+          ))}
         </div>
       </section>
 
