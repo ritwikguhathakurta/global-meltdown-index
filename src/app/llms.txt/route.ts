@@ -8,6 +8,7 @@ const LLMS_TXT = `# Global Meltdown Index
 
 ## Pages
 - [Homepage](https://globalmeltdownindex.net/): live GFMI score, India market regime snapshot, and a breakdown of all 24 engines.
+- [About](https://globalmeltdownindex.net/about): what the platform is, how the 24 engines roll up into the GFMI score, and the data-honesty rule behind every number.
 
 ## API
 - [GFMI endpoint](https://globalmeltdownindex.net/api/gfmi): public JSON response with the current composite score, regime, confidence, and every engine's contribution.

@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: PAGE_TITLE,
+    title: `${PAGE_TITLE} · Global Meltdown Index`,
     description: PAGE_DESCRIPTION,
     url: "/",
     type: "website",
@@ -286,6 +286,9 @@ export default async function HomePage() {
         </Link>
         <Link href="/dashboard/methodology" className="text-sm text-text-dim hover:text-text">
           Read the methodology →
+        </Link>
+        <Link href="/about" className="text-sm text-text-dim hover:text-text">
+          About
         </Link>
       </section>
     </div>

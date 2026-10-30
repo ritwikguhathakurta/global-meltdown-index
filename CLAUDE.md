@@ -157,14 +157,17 @@ Next.js 16 renamed `middleware.ts` → `proxy.ts` (`src/proxy.ts`, same behavior
 `middleware.ts`, and don't assume training-data Next.js docs apply as-is; check
 `node_modules/next/dist/docs/` when a Next.js API looks unfamiliar (see `AGENTS.md`). Route protection
 logic lives in `src/lib/supabase/middleware.ts`'s `updateSession`. Every route requires a signed-in
-user **except** an explicit public allowlist (`/`, `/login`, `/signup`, `/auth/*`, `/api/*`,
-`/robots.txt`, `/sitemap.xml`, `/opengraph-image`) — `/` was deliberately reopened (it originally required
-sign-in like everything else) so the homepage can be indexed and rank in search; see
+user **except** an explicit public allowlist (`/`, `/about`, `/login`, `/signup`, `/auth/*`, `/api/*`,
+`/robots.txt`, `/sitemap.xml`, `/opengraph-image`, `/icon`, `/llms.txt`) — `/` was deliberately reopened
+(it originally required sign-in like everything else) so the homepage can be indexed and rank in
+search, and `/about` followed the same decision so the homepage would have a visible, crawlable trust
+link to point to (a GEO/AEO audit finding, same pattern as the llms.txt/icon routes below); see
 `src/app/robots.ts` and `src/app/sitemap.ts`. Every other route, including everything under
 `/dashboard/*`, stays fully gated.
-`src/app/page.tsx` opts back into indexing explicitly (`robots: { index: true }`) against the
-app-wide `robots: { index: false }` default in `src/app/layout.tsx`; a new public route must do the
-same deliberately rather than relying on the default. `/admin/*` additionally requires `role = 'admin'`
+`src/app/page.tsx` and `src/app/about/page.tsx` opt back into indexing explicitly
+(`robots: { index: true }`) against the app-wide `robots: { index: false }` default in
+`src/app/layout.tsx`; a new public route must do the same deliberately rather than relying on the
+default. `/admin/*` additionally requires `role = 'admin'`
 in `profiles` (checked via `createAdminClient()`, the
 service-role client — the user-scoped client can't read `profiles` itself because its own admin RLS
 policy recursively queries `profiles`, causing Postgres error 42P17). Both the global gate and the
