@@ -26,6 +26,7 @@ export const metadata: Metadata = {
   title: { default: `${SITE_NAME} — Global Financial Early-Warning Intelligence Terminal`, template: `%s · ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
   robots: { index: false, follow: false },
+  verification: { google: "gRcEmL6W1txSfdYZ7gMKEr3AQjBKn78Umg1jxxalA7g" },
   openGraph: {
     siteName: SITE_NAME,
     type: "website",
