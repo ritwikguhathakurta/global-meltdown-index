@@ -27,12 +27,14 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isPublic =
+    pathname === "/" ||
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/api/") ||
     pathname === "/robots.txt" ||
-    pathname === "/sitemap.xml";
+    pathname === "/sitemap.xml" ||
+    pathname === "/opengraph-image";
   const isProtected = !isPublic;
 
   try {

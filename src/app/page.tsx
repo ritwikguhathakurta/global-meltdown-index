@@ -1,9 +1,48 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getLatestGfmi, getLatestIndiaRegime } from "@/lib/api/engineData";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { RiskBadge } from "@/components/RegimeBadge";
 import { StatusPill } from "@/components/StatusPill";
+
+const PAGE_TITLE = "Global Financial Early-Warning Intelligence Terminal";
+const PAGE_DESCRIPTION =
+  "24 deterministic risk engines — Global Liquidity, Credit, Equity Fragility, Treasury/Sovereign, Banking, " +
+  "Property, EM Debt, Energy, Geopolitical and more — roll up into one composite GFMI score. Every number is " +
+  "real, sourced from a free/official API and computed deterministically; nothing is faked or estimated.";
+
+/**
+ * The one route this app allows a signed-out visitor — or a crawler — to
+ * reach (see the proxy allowlist in src/lib/supabase/middleware.ts), so it's
+ * the only page that opts back into indexing against the app-wide
+ * `robots: { index: false }` default in the root layout.
+ */
+export const metadata: Metadata = {
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
+  openGraph: {
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    url: "/",
+    type: "website",
+  },
+};
+
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Global Meltdown Index",
+  url: "https://globalmeltdownindex.net",
+  description: PAGE_DESCRIPTION,
+  publisher: {
+    "@type": "Organization",
+    name: "Global Meltdown Index",
+    url: "https://globalmeltdownindex.net",
+  },
+};
 
 async function getShortHorizonEngineRows() {
   if (!isSupabaseConfigured) return [] as { engine_key: string; score: number | null; regime: string }[];
@@ -71,6 +110,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
       <section className="mb-10">
         <h1 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
           See financial stress before it becomes a market story.
