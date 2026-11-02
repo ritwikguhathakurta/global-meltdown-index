@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { upsertMetrics } from "../metrics/store";
+import { upsertMetrics, fetchLatest } from "../metrics/store";
 import { FRED_SERIES, fetchFredSeries, type FredSeriesDef } from "../sources/fred";
 import { fetchFxCrossSeries } from "../sources/fx";
 import { YAHOO_INDEX_SERIES, fetchYahooIndexSeries } from "../sources/yahooIndex";
@@ -1337,8 +1337,36 @@ export async function ingestNbfiChecks(db: SupabaseClient, runDate: string): Pro
 }
 
 export async function ingestEnergyChokepoints(db: SupabaseClient, runDate: string): Promise<IngestStageResult> {
+  // Incremental, not a fixed-window backfill every run: once imfPortwatch.ts's
+  // pagination was fixed to actually reach the full window (previously a silent
+  // 1000-row server cap made it stop after ~36 days, so re-requesting a huge
+  // window never cost anything), re-querying the whole thing daily blew this
+  // stage's own time budget every time. Resume from a few days before the
+  // latest stored point instead (overlap covers any retroactive corrections
+  // the source publishes). The only consumer with a real lookback requirement
+  // is chokepoints.ts's zScore(series, 90) - energySystemicRisk.ts's use of
+  // the generic lookbackDaysFor("daily") (400d) isn't load-bearing here the
+  // way it is for e.g. fed_funds_effective's hike/cut event study - so a
+  // fresh backfill only needs to clear 90 days with margin, not 400, to fit
+  // this stage's time budget.
+  //
+  // The pre-fix bug didn't just under-fetch, it fetched the wrong slice: each
+  // run queried from (today - 400d) forward and stopped after the first
+  // ~1000-row page, so "latest stored" is whatever a slowly-forward-crawling,
+  // permanently-~1-year-stale window had reached - not something to resume
+  // from with a small overlap. If the stored latest point is more than 30
+  // days old, treat it as that stale state (not a 1-day gap to bridge) and
+  // do a fresh capped backfill instead of fetching the whole multi-hundred-
+  // day gap in one shot.
+  const latest = await fetchLatest(db, "energy.chokepoint.suez_canal.transits_total");
+  const latestAgeDays = latest ? (Date.now() - new Date(latest.t).getTime()) / 86_400_000 : Infinity;
   const since = new Date();
-  since.setUTCDate(since.getUTCDate() - 400);
+  if (latest && latestAgeDays <= 30) {
+    since.setTime(new Date(latest.t).getTime());
+    since.setUTCDate(since.getUTCDate() - 5);
+  } else {
+    since.setUTCDate(since.getUTCDate() - 120);
+  }
   try {
     const points = await fetchImfPortwatchChokepoints(since.toISOString());
     await upsertMetrics(db, points);
