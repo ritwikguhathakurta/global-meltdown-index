@@ -5,9 +5,10 @@ const PAGE_TITLE = "About";
 // title.template applies inconsistently across routes in this Next version
 // (see src/app/page.tsx's comment) - title.absolute below opts out of it.
 const FULL_TITLE = `${PAGE_TITLE} · Global Meltdown Index`;
+// Kept under ~160 chars - see the matching comment in src/app/page.tsx.
 const PAGE_DESCRIPTION =
-  "Global Meltdown Index turns free, official macro-financial data into one transparent composite " +
-  "score — 24 deterministic risk engines, every number real and source-linked.";
+  "Global Meltdown Index turns free macro data into one transparent composite score — 24 " +
+  "deterministic risk engines, every number real and source-linked.";
 
 /**
  * The second route (after "/") the proxy allowlist in
