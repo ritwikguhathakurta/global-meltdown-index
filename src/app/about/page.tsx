@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 const PAGE_TITLE = "About";
+// title.template applies inconsistently across routes in this Next version
+// (see src/app/page.tsx's comment) - title.absolute below opts out of it.
+const FULL_TITLE = `${PAGE_TITLE} · Global Meltdown Index`;
 const PAGE_DESCRIPTION =
   "Global Meltdown Index turns free, official macro-financial data into one transparent composite " +
   "score — 24 deterministic risk engines, every number real and source-linked.";
@@ -13,12 +16,12 @@ const PAGE_DESCRIPTION =
  * /about link to point to, same reasoning as the homepage's own opt-in.
  */
 export const metadata: Metadata = {
-  title: PAGE_TITLE,
+  title: { absolute: FULL_TITLE },
   description: PAGE_DESCRIPTION,
   alternates: { canonical: "/about" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: `${PAGE_TITLE} · Global Meltdown Index`,
+    title: FULL_TITLE,
     description: PAGE_DESCRIPTION,
     url: "/about",
     type: "website",

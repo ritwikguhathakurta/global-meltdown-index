@@ -9,6 +9,19 @@ import { StatusPill } from "@/components/StatusPill";
 const SITE_URL = "https://globalmeltdownindex.net";
 
 const PAGE_TITLE = "Global Financial Early-Warning Intelligence Terminal";
+// Set explicitly rather than relying on the root layout's `title.template`
+// to append "· Global Meltdown Index" - verified live (and reproduced on a
+// fresh local build, so it's not a CDN-cache artifact) that the template
+// does not get applied to this page's rendered <title> tag, even though it
+// follows next/dist/docs' documented pattern exactly. Not worth chasing
+// further as a framework bug; setting the full string directly is just as
+// correct and doesn't depend on resolving why.
+// `title.template` from the root layout turned out to apply inconsistently
+// across routes in this Next version (confirmed: "/" got no suffix, "/about"
+// got it appended twice) rather than reliably never or always - using
+// `title: { absolute }` below opts this page's <title> out of that merging
+// entirely, so the rendered tag is exactly this string regardless.
+const FULL_TITLE = `${PAGE_TITLE} · Global Meltdown Index`;
 // Kept under ~160 chars - Google truncates a longer meta description in the
 // SERP snippet, cutting it off mid-sentence rather than at a clean boundary.
 const PAGE_DESCRIPTION =
@@ -26,12 +39,12 @@ const JSON_LD_DESCRIPTION =
  * `robots: { index: false }` default in the root layout.
  */
 export const metadata: Metadata = {
-  title: PAGE_TITLE,
+  title: { absolute: FULL_TITLE },
   description: PAGE_DESCRIPTION,
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: `${PAGE_TITLE} · Global Meltdown Index`,
+    title: FULL_TITLE,
     description: PAGE_DESCRIPTION,
     url: "/",
     type: "website",
