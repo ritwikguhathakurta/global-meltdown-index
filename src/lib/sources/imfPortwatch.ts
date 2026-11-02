@@ -73,7 +73,14 @@ type FeatureServerResponse = {
 
 const PAGE_SIZE = 2000;
 
-async function queryPage(whereClause: string, offset: number): Promise<PortwatchFeature[]> {
+// Verified live: this FeatureServer intermittently returns HTTP 200 with a
+// body of {"error":{"message":"Cannot perform query. Invalid query
+// parameters."}} for an otherwise-identical, otherwise-valid request - a
+// transient Esri-side hiccup, not a real parameter problem (the same request
+// retried a moment later succeeds). Hit on ~40% of pages in one live 12-page
+// backfill. Retrying in place here (not fetchRetry, which only covers thrown
+// network errors, not a 200 with an error payload in the body).
+async function queryPage(whereClause: string, offset: number): Promise<{ features: PortwatchFeature[]; exceededTransferLimit: boolean }> {
   const url = new URL(FEATURE_SERVER_URL);
   url.searchParams.set("where", whereClause);
   url.searchParams.set("outFields", "date,portid,portname,n_total,n_tanker,n_dry_bulk,n_container,capacity,capacity_tanker");
@@ -82,11 +89,22 @@ async function queryPage(whereClause: string, offset: number): Promise<Portwatch
   url.searchParams.set("resultOffset", String(offset));
   url.searchParams.set("resultRecordCount", String(PAGE_SIZE));
 
-  const res = await fetch(url.toString(), { next: { revalidate: 0 } });
-  if (!res.ok) throw new Error(`IMF PortWatch: HTTP ${res.status}`);
-  const json = (await res.json()) as FeatureServerResponse;
-  if (json.error) throw new Error(`IMF PortWatch: ${json.error.message}`);
-  return json.features ?? [];
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt));
+    const res = await fetch(url.toString(), { next: { revalidate: 0 } });
+    if (!res.ok) {
+      lastError = new Error(`IMF PortWatch: HTTP ${res.status}`);
+      continue;
+    }
+    const json = (await res.json()) as FeatureServerResponse;
+    if (json.error) {
+      lastError = new Error(`IMF PortWatch: ${json.error.message}`);
+      continue;
+    }
+    return { features: json.features ?? [], exceededTransferLimit: json.exceededTransferLimit === true };
+  }
+  throw lastError;
 }
 
 export async function fetchImfPortwatchChokepoints(sinceIso: string): Promise<MetricPoint[]> {
@@ -95,11 +113,22 @@ export async function fetchImfPortwatchChokepoints(sinceIso: string): Promise<Me
   const allFeatures: PortwatchFeature[] = [];
   let offset = 0;
   for (let page = 0; page < 50; page++) {
-    // hard cap: 50 pages * 2000 = 100k rows, far beyond any realistic backfill window
-    const features = await queryPage(whereClause, offset);
+    // Verified live: this FeatureServer silently caps each response at 1000
+    // rows even when resultRecordCount asks for more (PAGE_SIZE=2000), and
+    // flags it via `exceededTransferLimit` rather than an error - the same
+    // "server truncates, nothing complains" shape as the Supabase 1000-row
+    // cap documented in CLAUDE.md. Relying on `features.length < PAGE_SIZE`
+    // to mean "no more data" was wrong (1000 < 2000 is always true), so this
+    // silently stopped after page 1 every run - since results are ordered
+    // date ASC, that meant only the oldest ~36 days of the 400-day lookback
+    // window were ever ingested, never the current data the Maritime tab is
+    // supposed to show. `exceededTransferLimit` is the correct continuation
+    // signal regardless of what cap the server enforces; advance `offset` by
+    // the actual count returned, not by the requested PAGE_SIZE.
+    const { features, exceededTransferLimit } = await queryPage(whereClause, offset);
     allFeatures.push(...features);
-    if (features.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
+    if (!exceededTransferLimit || features.length === 0) break;
+    offset += features.length;
   }
 
   const points: MetricPoint[] = [];
