@@ -73,13 +73,16 @@ type FeatureServerResponse = {
 
 const PAGE_SIZE = 2000;
 
-// Verified live: this FeatureServer intermittently returns HTTP 200 with a
-// body of {"error":{"message":"Cannot perform query. Invalid query
-// parameters."}} for an otherwise-identical, otherwise-valid request - a
-// transient Esri-side hiccup, not a real parameter problem (the same request
-// retried a moment later succeeds). Hit on ~40% of pages in one live 12-page
-// backfill. Retrying in place here (not fetchRetry, which only covers thrown
-// network errors, not a 200 with an error payload in the body).
+// Verified live, two distinct retryable failure modes on this FeatureServer:
+// (1) HTTP 200 with a body of {"error":{"message":"Cannot perform query.
+// Invalid query parameters."}} for an otherwise-identical, otherwise-valid
+// request - a transient Esri-side hiccup (hit on ~40% of pages in one live
+// 12-page backfill); (2) a thrown network-level "fetch failed" (confirmed
+// live too, in a separate run). Both need the fetch() call itself inside the
+// retry loop's own try/catch - an earlier version only guarded (1), so a
+// thrown (2) escaped the loop entirely on attempt 1 with no retry. Not using
+// the shared fetchRetry util, since it only covers (2) and this needs both
+// failure modes handled in the same loop.
 async function queryPage(whereClause: string, offset: number): Promise<{ features: PortwatchFeature[]; exceededTransferLimit: boolean }> {
   const url = new URL(FEATURE_SERVER_URL);
   url.searchParams.set("where", whereClause);
@@ -92,17 +95,21 @@ async function queryPage(whereClause: string, offset: number): Promise<{ feature
   let lastError: Error | undefined;
   for (let attempt = 0; attempt < 4; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 1000 * attempt));
-    const res = await fetch(url.toString(), { next: { revalidate: 0 } });
-    if (!res.ok) {
-      lastError = new Error(`IMF PortWatch: HTTP ${res.status}`);
-      continue;
+    try {
+      const res = await fetch(url.toString(), { next: { revalidate: 0 } });
+      if (!res.ok) {
+        lastError = new Error(`IMF PortWatch: HTTP ${res.status}`);
+        continue;
+      }
+      const json = (await res.json()) as FeatureServerResponse;
+      if (json.error) {
+        lastError = new Error(`IMF PortWatch: ${json.error.message}`);
+        continue;
+      }
+      return { features: json.features ?? [], exceededTransferLimit: json.exceededTransferLimit === true };
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
     }
-    const json = (await res.json()) as FeatureServerResponse;
-    if (json.error) {
-      lastError = new Error(`IMF PortWatch: ${json.error.message}`);
-      continue;
-    }
-    return { features: json.features ?? [], exceededTransferLimit: json.exceededTransferLimit === true };
   }
   throw lastError;
 }
