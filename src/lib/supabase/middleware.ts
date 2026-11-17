@@ -37,7 +37,8 @@ export async function updateSession(request: NextRequest) {
     pathname === "/sitemap.xml" ||
     pathname === "/opengraph-image" ||
     pathname === "/llms.txt" ||
-    pathname === "/icon";
+    pathname === "/icon" ||
+    pathname === "/.well-known/security.txt";
   const isProtected = !isPublic;
 
   try {
