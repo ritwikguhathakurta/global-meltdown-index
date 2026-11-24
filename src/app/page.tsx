@@ -175,6 +175,22 @@ export default async function HomePage() {
           acceptedAnswer: { "@type": "Answer", text: item.a },
         })),
       },
+      {
+        "@type": "Dataset",
+        "@id": `${SITE_URL}/#dataset`,
+        name: "Global Financial Meltdown Index (GFMI)",
+        description: JSON_LD_DESCRIPTION,
+        url: SITE_URL,
+        license: "https://github.com/ritwikguhathakurta/global-meltdown-index/blob/main/LICENSE",
+        creator: { "@id": `${SITE_URL}/#organization` },
+        variableMeasured: Object.values(ENGINE_LABELS),
+        ...(gfmi ? { temporalCoverage: gfmi.as_of } : {}),
+        distribution: {
+          "@type": "DataDownload",
+          encodingFormat: "application/json",
+          contentUrl: `${SITE_URL}/api/gfmi`,
+        },
+      },
     ],
   };
 
