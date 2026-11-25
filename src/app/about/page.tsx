@@ -29,9 +29,33 @@ export const metadata: Metadata = {
   },
 };
 
+const SITE_URL = "https://globalmeltdownindex.net";
+
+// AboutPage markup mirrors the visible copy below; the Organization/WebSite
+// @ids match the homepage's JSON-LD graph so crawlers join the two pages.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "@id": `${SITE_URL}/about#webpage`,
+  url: `${SITE_URL}/about`,
+  name: FULL_TITLE,
+  description: PAGE_DESCRIPTION,
+  isPartOf: { "@id": `${SITE_URL}/#website` },
+  about: { "@id": `${SITE_URL}/#organization` },
+  mainEntity: {
+    "@type": "Organization",
+    "@id": `${SITE_URL}/#organization`,
+    name: "Global Meltdown Index",
+    url: SITE_URL,
+    logo: `${SITE_URL}/icon`,
+    sameAs: ["https://github.com/ritwikguhathakurta/global-meltdown-index"],
+  },
+};
+
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">About Global Meltdown Index</h1>
       <p className="mt-4 text-text-dim">
         Global Meltdown Index is a systemic-risk terminal that turns free, official macro-financial data
