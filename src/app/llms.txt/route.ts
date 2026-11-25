@@ -12,6 +12,12 @@ const LLMS_TXT = `# Global Meltdown Index
 
 ## API
 - [GFMI endpoint](https://globalmeltdownindex.net/api/gfmi): public JSON response with the current composite score, regime, confidence, and every engine's contribution.
+- Per-engine endpoints, same JSON shape (short/medium/long horizon scores, regime, confidence, top drivers): [credit](https://globalmeltdownindex.net/api/credit), [liquidity](https://globalmeltdownindex.net/api/liquidity), [treasury](https://globalmeltdownindex.net/api/treasury), [equities](https://globalmeltdownindex.net/api/equities), [yen](https://globalmeltdownindex.net/api/yen).
+- [Data sources registry](https://globalmeltdownindex.net/api/sources): the free/official sources behind the data, with their tier.
+- [API examples](https://github.com/ritwikguhathakurta/global-meltdown-index/blob/master/docs/API_EXAMPLES.md): real captured responses; no API key or account needed for any /api endpoint.
+
+## Source code and methodology
+- [GitHub repository](https://github.com/ritwikguhathakurta/global-meltdown-index): open source (Apache-2.0); engine definitions, formulas and data connectors are all readable.
 
 ## Access
 - The homepage above is public. The full dashboard — trend charts, source citations, every engine in detail — requires a free account at https://globalmeltdownindex.net/signup.
